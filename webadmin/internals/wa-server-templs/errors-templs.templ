@@ -1,0 +1,47 @@
+package wa_server_templs
+
+templ ErrorPage(title *string, msg string) {
+    <div class="container">
+        <div class="row mt-5">
+            <div class="col-12">
+                @ErrorAlert(msg)
+            </div>
+        </div>
+    </div>
+}
+
+templ SuccessAlert(msg string) {
+    <div class="alert alert-success d-flex align-items-center" role="alert">
+        <i class="now-ui-icons ui-1_check bi flex-shrink-0 me-2"></i>
+        <div class="ml-2">
+            @templ.Raw(msg)
+        </div>
+    </div>
+}
+
+templ InfoAlert(msg string) {
+    <div class="alert alert-info d-flex align-items-center" role="alert">
+        <i class="now-ui-icons ui-1_check bi flex-shrink-0 me-2"></i>
+        <div class="ml-2">
+            @templ.Raw(msg)
+        </div>
+    </div>
+}
+
+templ WarningAlert(msg string) {
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="now-ui-icons ui-1_check bi flex-shrink-0 me-2"></i>
+        <div class="ml-2">
+            @templ.Raw(msg)
+        </div>
+    </div>
+}
+
+templ ErrorAlert(msg string) {
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="now-ui-icons ui-1_simple-remove bi flex-shrink-0 me-2"></i>
+        <div class="ml-2">
+            @templ.Raw(msg)
+        </div>
+    </div>
+}

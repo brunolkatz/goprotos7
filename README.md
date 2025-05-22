@@ -17,3 +17,15 @@
 - CLI-based server configuration
 
 ---
+
+## Webadmin
+
+Can be used to add and change the values of the simulated server. You can also fill the `db_variables` table with your variables
+and set the `--flags.disable-webadmin` to just create the binary file with the variables if you don't want to change the variables in runtime 
+
+## Docs
+
+- http://gmiru.com/article/s7comm/
+- http://gmiru.com/article/s7comm-part2/
+- https://github.com/Orange-Cyberdefense/awesome-industrial-protocols/blob/main/protocols/s7comm.md
+- https://wiki.wireshark.org/samplecaptures#s7comm---s7-communication

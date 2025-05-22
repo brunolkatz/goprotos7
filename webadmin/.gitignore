@@ -23,4 +23,6 @@ bin/
 secrets.env
 .idea
 .DS_Store
-/databases/
+/assets/node_modules/
+/data.db
+/*.bin
