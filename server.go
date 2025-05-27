@@ -26,7 +26,7 @@ const (
 	COTPConnectionConfirm = 0xD0
 	COTPAcknowledgement   = 0x60
 	COTPData              = 0xF0
-	COTPDisconnectRequest = 0x80 // When a client sends wrong request package
+	COTPDisconnectRequest = 0x80 // When a client sends the wrong request package
 )
 
 type Transport struct {
@@ -214,6 +214,6 @@ func readConn(c net.Conn) ([]byte, error) {
 		return nil, err
 	}
 
-	// Step 4: Return a full packet (header + body)
+	// Step 4: Return a full packet (header and body)
 	return append(header, body...), nil
 }
