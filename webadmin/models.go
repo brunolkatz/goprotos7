@@ -31,6 +31,6 @@ type Config struct {
 	} `group:"flags" namespace:"flags" env-namespace:"FLAGS" description:""`
 
 	LogLevel struct {
-		SQLite string `default:"SILENCE" env:"LOG_LEVEL_SQLITE" long:"log-level-sqlite" short:"i" description:"The log level for the sqlite database. Default values will be applied if no value is given." choise:"ERROR" choise:"INFO" choise:"SILENCE"`
-	}
+		SQLite string `default:"SILENCE" env:"SQLITE" long:"sqlite" short:"i" description:"The log level for the sqlite database. Default values will be applied if no value is given." choise:"ERROR" choise:"INFO" choise:"SILENCE"`
+	} `group:"log-level" namespace:"log-level" env-namespace:"LOG_LEVEL" description:"Log level for the web admin interface"`
 }

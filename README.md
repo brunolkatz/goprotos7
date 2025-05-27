@@ -23,8 +23,16 @@
 
 ## Webadmin
 
-Can be used to add and change the values of the simulated server. You can also fill the `db_variables` table with your variables
-and set the `--flags.disable-webadmin` to just create the binary file with the variables if you don't want to change the variables in runtime 
+Used to create and maintain the database blocks used by goprotos7.
+
+| Env                        | Default Value | Description                                                                                                                                      |
+|----------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--qlite-path` or `-s`     | ``            | Store the default path for the SQLite database file. If empty, the `pwd` will be used.                                                           |
+| `--db-bin-path` or `-b`    | ``            | Store the database BIN files path                                                                                                                |
+| `--flags.disable-webadmin` | `false`       | If `true` will disable the `webadmin` server instance and will only create the BIN files based on `db_variables` table from SQLite file provided |
+| `--log-level.sqlite`       | `SILENCE`     | Define the SQLite log level                                                                                                                      |
+
+
 
 ## Docs
 
