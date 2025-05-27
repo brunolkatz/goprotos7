@@ -113,11 +113,9 @@ type COTPHeader struct {
 	SourceRef      uint16
 	ClassOptions   byte
 
-	ParameterCode   byte
-	ParameterLength byte
-
-	TPDUSize      byte   // 0x0A = TPDU size (10 bytes)
-	TPDUMaxLength uint16 // 0x0400 = 1024 bytes
+	TPDUCode   byte // 0xC0 = TPDU size parameter
+	TPDULength byte // 0x01 = Length of TPDU size parameter
+	TPDUSize   byte // 0x0A = 1024 bytes
 
 	SrcTSAPIdentifier byte   // 0xC1 = Called TSAP Identifier
 	SrcTSAPLength     byte   // Length of TSAP (2 bytes)
@@ -154,21 +152,20 @@ func (h *COTPHeader) Encode(pduType byte) ([]byte, error) {
 	}
 
 	buf.WriteByte(h.ClassOptions)
+
+	// TPU size parameter
+	buf.WriteByte(h.TPDUCode)
+	buf.WriteByte(h.TPDULength)
 	buf.WriteByte(h.TPDUSize)
 
-	// TPDUMaxLength
-	if err := binary.Write(buf, binary.BigEndian, h.TPDUMaxLength); err != nil {
-		return nil, err
-	}
-
-	// Src TSAP
+	// Src TSAP parameter
 	buf.WriteByte(h.SrcTSAPIdentifier)
 	buf.WriteByte(h.SrcTSAPLength)
 	if err := binary.Write(buf, binary.BigEndian, h.CalledTSAP); err != nil {
 		return nil, err
 	}
 
-	// Dst TSAP
+	// Dst TSAP parameter
 	buf.WriteByte(h.DstTSAPIdentifier)
 	buf.WriteByte(h.DstTSAPLength)
 	if err := binary.Write(buf, binary.BigEndian, h.CallingTSAP); err != nil {
@@ -184,10 +181,11 @@ func (h *COTPHeader) Encode(pduType byte) ([]byte, error) {
 }
 
 type S7Header struct {
-	ProtocolID   byte   // Always 0x32
-	ROSCTR       byte   // 0x03 = Ack Data
-	RedundancyId uint16 // 0x0000
-	//ProtocolDataUnit uint16 // 0x00 = PDU 1280
+	ProtocolID       byte   // Always 0x32
+	ROSCTR           byte   // 0x03 = Ack Data
+	RedundancyID     uint16 // 0x0000 Redundancy Identification
+	ProtocolDataUnit uint16 // 0x00 = PDU 1280
+
 	ParamLength uint16
 	DataLength  uint16
 	ErrorClass  byte // 0x00 if success
@@ -196,15 +194,18 @@ type S7Header struct {
 
 func (s S7Header) Pack() []byte {
 	ret := make([]byte, 0)
+
 	ret = append(ret, s.ProtocolID)
 	ret = append(ret, s.ROSCTR)
-	ret = append(ret, byte(s.RedundancyId>>8), byte(s.RedundancyId&0xFF))
-	//ret = append(ret, byte(s.ProtocolDataUnit>>8), byte(s.ProtocolDataUnit&0xFF))
-	// Param length is bigendian
+
+	ret = append(ret, byte(s.RedundancyID>>8), byte(s.RedundancyID&0xFF))
+	ret = append(ret, byte(s.ProtocolDataUnit>>8), byte(s.ProtocolDataUnit&0xFF))
 	ret = append(ret, byte(s.ParamLength>>8), byte(s.ParamLength&0xFF))
 	ret = append(ret, byte(s.DataLength>>8), byte(s.DataLength&0xFF))
+
 	ret = append(ret, s.ErrorClass)
 	ret = append(ret, s.ErrorCode)
+
 	return ret
 }
 
@@ -259,10 +260,7 @@ func (s S7ParamReadDBErrorResponse) Pack() []byte {
 }
 
 type S7ParamSetupCommunication struct {
-	Reserved        byte // 0x00
-	MaxSimultaneous byte // 0x01 = 1
-	ReservedFlag    byte // Normally is 1, this is a S7 specific flag (we don't know for what use)
-
+	Reserved     byte   // 0x00 = Reserved
 	MaxAmqCaller uint16 // Max number of simultaneous caller connections
 	MaxAmqCallee uint16 // Max number of simultaneous callee connections
 	PduLength    uint16 // Maximum PDU Length (bytes)
@@ -270,27 +268,17 @@ type S7ParamSetupCommunication struct {
 
 func (s S7ParamSetupCommunication) Pack() []byte {
 	buffer := new(bytes.Buffer)
-	// Write uint16 fields in big endian
-
 	if err := binary.Write(buffer, binary.BigEndian, s.Reserved); err != nil {
-		log.Println("Error writing Reserved:", err)
-		return nil
-	}
-	if err := binary.Write(buffer, binary.BigEndian, s.MaxSimultaneous); err != nil {
 		log.Println("Error writing MaxSimultaneous:", err)
 		return nil
 	}
-	if err := binary.Write(buffer, binary.BigEndian, s.ReservedFlag); err != nil {
+	if err := binary.Write(buffer, binary.BigEndian, s.MaxAmqCaller); err != nil {
 		log.Println("Error writing ReservedFlag:", err)
 		return nil
 	}
 
-	if err := binary.Write(buffer, binary.BigEndian, s.MaxAmqCaller); err != nil {
-		log.Println("Error writing MaxAmqCaller:", err)
-		return nil
-	}
 	if err := binary.Write(buffer, binary.BigEndian, s.MaxAmqCallee); err != nil {
-		log.Println("Error writing MaxAmqCallee:", err)
+		log.Println("Error writing MaxAmqCaller:", err)
 		return nil
 	}
 	if err := binary.Write(buffer, binary.BigEndian, s.PduLength); err != nil {
@@ -305,10 +293,13 @@ type S7VarRequestItem struct {
 	LenAddrSpec   byte     // 0x0A = Address Specification Length, defines the remaining bytes size
 	SyntaxID      SyntaxID // 0x10 = S7Any
 	TransportSize byte     // 0x02 = BYTE, WORD, etc
-	Length        uint16   // Length of the variable (e.g., 2 bytes for INT, 4 bytes for REAL)
+	Length        uint16   // Length of the variable (e.g., 2 bytes for INT, 4 bytes for REAL, 1 byte for BYTE, etc)
 	DBNumber      uint16   // DB number (e.g., 200)
 	Area          byte     // Area (0x84 = DB, 0x83 = Inputs, 0x81 = Outputs, etc)
 	Address       uint32   // Address inside area (but only 24 bits used!)
+
+	ByteOffset uint32
+	BitOffset  byte
 }
 type S7ParamReadVar struct {
 	Items []S7VarRequestItem
@@ -323,6 +314,53 @@ func (s S7ParamReadVar) Pack() []byte {
 		ret = append(ret, byte(item.DBNumber>>8), byte(item.DBNumber&0xFF))
 		ret = append(ret, item.Area)
 		ret = append(ret, byte(item.Address>>16), byte(item.Address>>8), byte(item.Address&0xFF))
+	}
+	return ret
+}
+
+type S7IItemReturnCode byte
+
+const (
+	// Success
+	S7ItemReturnCodeSuccess S7IItemReturnCode = 0xFF
+
+	// Errors
+	S7ItemReturnCodeHardwareFault        S7IItemReturnCode = 0x01
+	S7ItemReturnCodeAccessingNotAllowed  S7IItemReturnCode = 0x03
+	S7ItemReturnCodeInvalidAddress       S7IItemReturnCode = 0x05
+	S7ItemReturnCodeDataTypeInconsistent S7IItemReturnCode = 0x06
+	S7ItemReturnCodeObjectNotAvailable   S7IItemReturnCode = 0x0A
+)
+
+type S7VarResponseItem struct {
+	ReturnCode    S7IItemReturnCode
+	TransportSize byte
+	Length        uint16
+	Data          []byte
+}
+
+func (s S7VarResponseItem) Pack() []byte {
+	ret := make([]byte, 0)
+	ret = append(ret, byte(s.ReturnCode))
+	ret = append(ret, s.TransportSize)
+	ret = append(ret, byte(s.Length>>8), byte(s.Length&0xFF))
+	ret = append(ret, s.Data...)
+	return ret
+}
+
+type S7ResponseReadVars struct {
+	ItemCount byte // 0x01 = Number of items in the response
+	Items     []*S7VarResponseItem
+}
+
+func (s S7ResponseReadVars) Pack() []byte {
+	ret := make([]byte, 0)
+	ret = append(ret, s.ItemCount)
+	for _, item := range s.Items {
+		ret = append(ret, byte(item.ReturnCode))
+		ret = append(ret, item.TransportSize)
+		ret = append(ret, byte(item.Length>>8), byte(item.Length&0xFF))
+		ret = append(ret, item.Data...)
 	}
 	return ret
 }
@@ -416,8 +454,10 @@ func unpack(b []byte) (*Message, error) {
 		ret.COTPHeader.DestinationRef = uint16(b[6])<<8 | uint16(b[7])
 		ret.COTPHeader.SourceRef = uint16(b[8])<<8 | uint16(b[9])
 		ret.COTPHeader.ClassOptions = b[10]
-		ret.COTPHeader.TPDUSize = b[11]
-		ret.COTPHeader.TPDUMaxLength = uint16(b[12])<<8 | uint16(b[13])
+
+		ret.COTPHeader.TPDUCode = b[11]
+		ret.COTPHeader.TPDULength = b[12]
+		ret.COTPHeader.TPDUSize = b[13]
 
 		ret.COTPHeader.SrcTSAPIdentifier = b[14]
 		ret.COTPHeader.SrcTSAPLength = b[15]
@@ -433,29 +473,26 @@ func unpack(b []byte) (*Message, error) {
 	} else {
 		switch ret.COTPHeader.PDUType {
 		case COTPData: // We need to collect the EoT instead all the data
-			log.Println(fmt.Sprintf("[S7_COMM] Received: %s", printBin(b)))
 			ret.COTPHeader.EoT = b[6] // EoT is the 7th byte of the COTP header
 			if b[7] == S7ProtocolID { // Magic number for S7
+				s7B := b[7:]
 				s7 := &S7Header{
-					ProtocolID:   b[7],
-					ROSCTR:       b[8],
-					RedundancyId: uint16(b[9])<<8 | uint16(b[10]),
-					//ProtocolDataUnit: uint16(b[10])<<8 | uint16(b[11]),
-
-					ParamLength: binary.BigEndian.Uint16(b[11:13]),
-					DataLength:  binary.BigEndian.Uint16(b[13:15]),
-					ErrorClass:  b[15],
-					ErrorCode:   b[16],
+					ProtocolID:       s7B[0],
+					ROSCTR:           s7B[1],
+					RedundancyID:     binary.BigEndian.Uint16(s7B[2:4]),
+					ProtocolDataUnit: binary.BigEndian.Uint16(s7B[4:6]),
+					ParamLength:      binary.BigEndian.Uint16(s7B[6:8]),
+					DataLength:       binary.BigEndian.Uint16(s7B[8:10]),
 				}
 
 				s7Request := &S7Request{
-					FunctionCode: b[17],  // Return the function code to be used later
-					DataSection:  b[18:], // Store the data section, just in case
+					FunctionCode: s7B[10],  // Return the function code to be used later
+					DataSection:  s7B[11:], // Store the data section, just in case
 				}
 				ret.S7Header = s7
 				ret.S7Request = s7Request
 
-				funcParam, err := unpackS7Function(s7Request.DataSection, b[17])
+				funcParam, err := unpackS7Function(s7Request)
 				if err != nil {
 					return nil, err
 				}
@@ -475,29 +512,20 @@ func unpack(b []byte) (*Message, error) {
 	return &ret, nil
 }
 
-func unpackS7Function(b []byte, functionCode byte) (FuncParamType, error) {
-	switch functionCode {
+func unpackS7Function(s7Request *S7Request) (FuncParamType, error) {
+	b := s7Request.DataSection
+	switch s7Request.FunctionCode {
 	case S7FuncSetupCommunication: // Setup communication function
 		switch len(b) {
-		case 4 + 3:
+		case 7:
 			return &S7ParamSetupCommunication{
-				Reserved:        b[0],
-				MaxSimultaneous: b[1],
-				ReservedFlag:    b[2],
-				MaxAmqCaller:    binary.BigEndian.Uint16(b[2:4]),
-				PduLength:       binary.BigEndian.Uint16(b[4:6]),
-			}, nil
-		case 6 + 3:
-			return &S7ParamSetupCommunication{
-				Reserved:        b[0],
-				MaxSimultaneous: b[1],
-				ReservedFlag:    b[2],
-				MaxAmqCaller:    binary.BigEndian.Uint16(b[2:4]),
-				MaxAmqCallee:    binary.BigEndian.Uint16(b[4:6]),
-				PduLength:       binary.BigEndian.Uint16(b[6:8]),
+				Reserved:     b[0],
+				MaxAmqCaller: binary.BigEndian.Uint16(b[1:3]),
+				MaxAmqCallee: binary.BigEndian.Uint16(b[3:5]),
+				PduLength:    binary.BigEndian.Uint16(b[5:7]),
 			}, nil
 		default:
-			return nil, errors.New("data length is not valid")
+			return nil, errors.New("S7FuncSetupCommunication: data length is not valid")
 		}
 	case S7FuncReadVar:
 
@@ -545,11 +573,10 @@ func unpackS7Function(b []byte, functionCode byte) (FuncParamType, error) {
 
 			// The S7 uses a 3 byte address, so we need to shift the bytes to the left
 			// this will be the offset address on the database bytes arrays
-			var address uint32
-			address |= uint32(addressSpec[7]) << 16
-			address |= uint32(addressSpec[8]) << 8
-			address |= uint32(addressSpec[9])
-			item.Address = address
+			item.Address = uint32(addressSpec[7])<<16 | uint32(addressSpec[8])<<8 | uint32(addressSpec[9])
+
+			item.ByteOffset = item.Address / 8
+			item.BitOffset = byte(item.Address % 8)
 
 			items = append(items, item)
 
@@ -578,7 +605,7 @@ func getS7ParamSetupCommunicationResponse(msg *Message) (*Message, error) {
 		S7Header: &S7Header{
 			ProtocolID:   S7ProtocolID,
 			ROSCTR:       S7FuncAckData,
-			RedundancyId: 0,
+			RedundancyID: 0,
 			ParamLength:  4,
 			DataLength:   8,
 			ErrorClass:   0,

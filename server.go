@@ -35,11 +35,10 @@ type Transport struct {
 }
 
 type Server struct {
-	Transport *Transport // Transport layer (TCP/UDP) definition
-
 	options *Options
 
-	listener net.Listener
+	Transport *Transport // Transport layer (TCP/UDP) definition
+	listener  net.Listener
 }
 
 func New(opts ...ServerOption) (*Server, error) {
@@ -64,6 +63,7 @@ func New(opts ...ServerOption) (*Server, error) {
 }
 
 func (s *Server) Start() error {
+
 	address := ""
 	if s.Transport.Local {
 		address = "127.0.0.1" // Not visible in the local network
@@ -126,7 +126,11 @@ func (s *Server) handleConnection(conn net.Conn) {
 			COTPHeader: msg.COTPHeader,
 		}
 		pack, _ := ret.Pack(COTPConnectionConfirm)
-		_, _ = conn.Write(pack)
+		_, err = conn.Write(pack)
+		if err != nil {
+			log.Println("Write error:", err)
+			return
+		}
 		log.Println("[SERVER] Connection Confirm sent")
 
 		// Step 2: send Connection Confirm
@@ -161,7 +165,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 		// Everything is ok, now we can read/write data
 		for {
 			_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-
 			buffer, err = readConn(conn)
 			if err != nil {
 				continue
@@ -174,31 +177,16 @@ func (s *Server) handleConnection(conn net.Conn) {
 				//_, _ = conn.Write(errPack)
 				continue
 			}
-
-			//log.Printf("[SERVER] Received %d bytes: % x\n", len(buffer), buffer)
-
+			if msg.S7Request == nil {
+				continue
+			}
 			if msg.COTPHeader.PDUType == COTPData {
-
-				// TODO: do the things
 				switch msg.S7Request.FunctionCode {
-				//case S7FuncReadVar:
+				case S7FuncReadVar:
+					s.eventS7FuncReadVar(msg, conn)
 				default:
-					errMsg := GetErrorReturnMessage(ErrorClassNoError, ErrorCodeNoError, msg)
-					errPack, _ := errMsg.Pack(COTPData)
-					str := "["
-					for _, v := range errPack {
-						str += fmt.Sprintf("%d, ", v)
-					}
-					str += "]"
-					log.Println(fmt.Sprintf("[SERVER] Error packing response: %s", str))
-					_, _ = conn.Write(errPack)
+					continue
 				}
-
-				// Here you process the S7 request based on Function Code
-
-				// Send back a fake success response (you can improve later)
-				//ack := createDummyAck(msg)
-				//_, _ = conn.Write(ack)
 			}
 		}
 	}

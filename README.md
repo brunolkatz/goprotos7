@@ -9,12 +9,15 @@
 
 ## 🚀 Features
 
-- Implements ISO-on-TCP (RFC 1006) with COTP session negotiation
-- Supports S7-compatible read requests
-- Simulates access to Data Blocks (DB)
-     - Goals: Inputs (I), Outputs (Q), and Memory (M) 
-- Built using Go for performance and portability
-- CLI-based server configuration
+- [ ] Implements ISO-on-TCP (RFC 1006) with COTP session negotiation
+  - [x] Supports request connection
+  - [x] Supports response request connection
+  - [x] Supports PDU (Protocol Data Unit) request
+- [ ] Simulates access to Data Blocks (DB)
+  - Goals:
+    - [X] ReadVar
+    - [ ] WriteVar
+- [ ] Simulate wrong request package response error
 
 ---
 
