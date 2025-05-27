@@ -21,6 +21,27 @@
 
 ---
 
+## Usage
+
+Build:
+
+```bash
+go build -o goprotos7 ./cmd/goprotos7
+```
+
+Run:
+
+| Env                    | Default Value | Description                                                           |
+|------------------------|---------------|-----------------------------------------------------------------------|
+| `--bin-folder` or `-b` |               | Target BINs files folder.                                             |
+| `--port` or `-p`       | `102`         | The port to listen on. If empty, the default port `102` will be used. |
+
+```bash
+./goprotos7 --qlite-path ./db.sqlite --db-bin-path ./db
+```
+
+The service will start listening on port `102` by default, which is the standard port for S7 communication.
+
 ## Webadmin
 
 Used to create and maintain the database blocks used by goprotos7.

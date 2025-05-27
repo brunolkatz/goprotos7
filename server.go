@@ -37,18 +37,17 @@ type Transport struct {
 type Server struct {
 	options *Options
 
-	Transport *Transport // Transport layer (TCP/UDP) definition
-	listener  net.Listener
+	listener net.Listener
 }
 
 func New(opts ...ServerOption) (*Server, error) {
 	ret := &Server{
-		Transport: &Transport{
-			Local: false,       // Starts on 0.0.0.0
-			Port:  DefaultPort, // The default port for S7 is 102
-		},
 		options: &Options{
 			BinFilesFolder: "",
+			Transport: &Transport{
+				Local: false,       // Starts on 0.0.0.0
+				Port:  DefaultPort, // The default port for S7 is 102
+			},
 		},
 	}
 
@@ -65,11 +64,11 @@ func New(opts ...ServerOption) (*Server, error) {
 func (s *Server) Start() error {
 
 	address := ""
-	if s.Transport.Local {
+	if s.options.Transport.Local {
 		address = "127.0.0.1" // Not visible in the local network
 	}
 	if len(strings.Split(address, ":")) < 2 { // Add the port
-		address = address + ":" + fmt.Sprintf("%d", s.Transport.Port)
+		address = address + ":" + fmt.Sprintf("%d", s.options.Transport.Port)
 	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
