@@ -1,0 +1,128 @@
+package create_var_api
+
+import (
+    "github.com/brunolkatz/goprotos7"
+    "fmt"
+)
+
+templ CreateVarPageTempl() {
+    <div class="container-fluid p-5">
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        Create Variable
+                    </div>
+                    <div class="card-body">
+                        <form
+                                id="create-var-form"
+                                hx-post="/vars/create-var"
+                                hx-target="this"
+                                hx-swap="outerHTML"
+                        >
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="description" name="description" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="data-type" class="form-label">Variable Type</label>
+                                <select
+                                        class="form-select"
+                                        id="data-type"
+                                        name="data_type"
+                                        required
+                                        hx-get="/vars/var-def"
+                                        hx-target="#var-type-def"
+                                >
+                                    <option value="" disabled selected>Select type</option>
+                                    for _, t := range goprotos7.OrderedDataTypes {
+                                        <option value={ fmt.Sprintf("%d", t) }>{ t.String() }</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-md-12">
+                                    <div id="var-type-def"></div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Create Variable</button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+templ CreateVarDefTempl(varType goprotos7.DataType) {
+    <div class="card">
+        <div class="card-header">
+            { varType }: Type Definition
+        </div>
+        <div class="card-body">
+            switch varType {
+            case goprotos7.BOOL:
+                <p>Automatically defined as BOOL type</p>
+            case goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT, goprotos7.ULINT:
+                @DefineIntVariable()
+            }
+        </div>
+    </div>
+}
+
+// DefineIntVariable - Create the number fields for integer types
+templ DefineIntVariable() {
+    <div id="int-fields">
+        <!-- Default value -->
+        <div class="input-group mb-3">
+            <input type="number" id="default-int-value" name="default-int-value" class="form-control" placeholder="" aria-label="Default Int Value" required>
+        </div>
+        <div class="input-group mb-3">
+            <input type="text" id="desc-int-field[]" name="desc-int-field[]" placeholder="Description" aria-label="Variable value Description" class="form-control">
+            <input type="text" id="int-field[]" name="int-field[]" class="form-control" placeholder="" aria-label="Variable int value" aria-describedby="button-addon1">
+            <button class="btn btn-outline-secondary" type="button" onclick="addIntField('int-fields')">Add New</button>
+            @AddIntField()
+        </div>
+    </div>
+}
+
+templ AddIntField() {
+    <script>
+    // Create a new input group for the integer field
+    let lastIntFieldId = 1
+    function addIntField(divId) {
+        const container = document.getElementById(divId);
+        const fieldID = "int-field-" + (lastIntFieldId + 1);
+        const newDivID = `div-${fieldID}`
+
+        // Create the input group element
+        const newField = document.createElement("div");
+        newField.id = newDivID;
+        newField.className = "input-group mb-3";
+
+        newField.innerHTML = `
+            <input type="text" id="desc-int-field[]" name="desc-int-field[]" placeholder="Description" aria-label="Variable value Description" class="form-control" required>
+            <input type="number" id="int-field[]" name="int-field[]" aria-placeholder="Value Number" class="form-control" placeholder="" aria-label="Variable Int Value" aria-describedby="button-addon1" required>
+            <button class="btn btn-outline-secondary" type="button" onclick="addIntField('int-fields')">Add New</button>
+            <button class="btn btn-outline-secondary" type="button" onclick="removeIntField('${newDivID}')">Remove</button>
+        `;
+
+        // Append the new field to the specified div
+        container.appendChild(newField);
+        lastIntFieldId += 1;
+    }
+    function removeIntField(divId) {
+        const field = document.getElementById(divId);
+        if (field) {
+            field.remove();
+        }
+    }
+
+    </script>
+}

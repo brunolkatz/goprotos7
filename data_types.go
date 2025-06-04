@@ -2,6 +2,17 @@ package goprotos7
 
 type DataType uint32
 
+func (d DataType) String() string {
+	if _, ok := DataTypeStr[d]; ok {
+		return DataTypeStr[d]
+	}
+	return "Unknown"
+}
+
+const (
+	DT_UNSED DataType = 999 // Unused data type, for future use or error handling
+)
+
 // TODO: add support for other datatypes
 const (
 	BOOL DataType = iota
@@ -24,6 +35,44 @@ const (
 )
 
 var (
+	OrderedDataTypes = []DataType{
+		BOOL,
+		BYTE,
+		WORD,
+		DWORD,
+		LWORD,
+		SINT,
+		USINT,
+		INT,
+		UINT,
+		DINT,
+		UDINT,
+		LINT,
+		ULINT,
+		REAL,
+		LREAL,
+		CHAR,
+		STRING,
+	}
+	DataTypeStr = map[DataType]string{
+		BOOL:   "BOOL",
+		BYTE:   "BYTE",
+		WORD:   "WORD",
+		DWORD:  "DWORD",
+		LWORD:  "LWORD",
+		SINT:   "SINT",
+		USINT:  "USINT",
+		INT:    "INT",
+		UINT:   "UINT",
+		DINT:   "DINT",
+		UDINT:  "UDINT",
+		LINT:   "LINT",
+		ULINT:  "ULINT",
+		REAL:   "REAL",
+		LREAL:  "LREAL",
+		CHAR:   "CHAR",
+		STRING: "STRING[n]",
+	}
 	DataTypeDepara = map[string]DataType{
 		"BOOL":      BOOL,
 		"BYTE":      BYTE,
