@@ -37,15 +37,22 @@ func createDbVariablesTable_1(ctx context.Context) *gormigrate.Migration {
 		Migrate: func(tx *gorm.DB) error {
 			return tx.WithContext(ctx).Exec(`
 			    -- Executing createDbVariablesTable_1
-			    create table if not exists db_variables (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					db_number INTEGER NOT NULL,         -- Which data block it belongs to
-					name TEXT NOT NULL,                 -- Variable name
-					data_type TEXT NOT NULL,            -- S7 data type (e.g., BOOL, INT, REAL, STRING, ARRAY[0..9] OF INT)
-					byte_offset INTEGER NOT NULL,       -- Byte offset in the DB
-					bit_offset INTEGER,                 -- Only used for BOOL, NULL otherwise
-					length INTEGER,                     -- Optional, used for STRING or ARRAY
-					description TEXT                    -- Optional comment
+				create table db_variables
+				(
+					id          INTEGER
+						primary key autoincrement,
+					db_number   INTEGER               not null,
+					name        TEXT                  not null,
+					data_type   TEXT                  not null,
+					byte_offset INTEGER               not null,
+					bit_offset  INTEGER,
+					length      INTEGER,
+					description TEXT,
+					real_val    real,
+					int_val     integer,
+					str_val     text,
+					bool_val    integer,
+					var_type    text default 'STATIC' not null
 				);
 			`).Error
 		},
@@ -63,18 +70,20 @@ func migrateCreateStaticVarDefinitions_1(ctx context.Context) *gormigrate.Migrat
 		Migrate: func(tx *gorm.DB) error {
 			return tx.WithContext(ctx).Exec(`
 			    -- Executing migrateCreateStaticVarDefinitions_1
-				create table if not exists static_var_definitions
+				create table static_var_definitions
 				(
-					id             integer not null
+					id             integer            not null
 						constraint static_var_definitions_pk
 							primary key,
-					db_variable_id integer not null
+					db_variable_id integer            not null
 						constraint static_var_definitions_db_variables_id_fk
 							references db_variables
 							on update cascade on delete cascade,
-					description    text    not null,
+					description    text               not null,
 					int_value      integer,
-					float_value    integer
+					float_value    integer,
+					static_type    text default 'INT' not null,
+					bit_offset     integer
 				);
 
 			`).Error
