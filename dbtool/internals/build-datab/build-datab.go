@@ -11,7 +11,7 @@ import (
 )
 
 // BuildDataBlocks - Build and create the database binary file to store the data blocks
-func BuildDataBlocks(path string, variables []*db_models.DbVariables) error {
+func BuildDataBlocks(path string, variables []*db_models.DbVariable) error {
 	if variables == nil || len(variables) == 0 {
 		return fmt.Errorf("no variables provided")
 	}
@@ -28,15 +28,29 @@ func BuildDataBlocks(path string, variables []*db_models.DbVariables) error {
 	return nil
 }
 
+func WriteVariableToFile(path string, dbVariable *db_models.DbVariable) ([]byte, error) {
+	if dbVariable == nil {
+		return nil, fmt.Errorf("dbVariable is nil")
+	}
+
+	if path == "" {
+		return nil, fmt.Errorf("path is empty")
+	}
+
+	buff, err := writeToFile(path, dbVariable)
+	if err != nil {
+		return nil, fmt.Errorf("error writing to file: %v", err)
+	}
+
+	return buff, nil
+}
+
 // createBuffer - This function will initialize all variables with the default value
-func createBuffer(variables []*db_models.DbVariables) ([]byte, error) {
+func createBuffer(variables []*db_models.DbVariable) ([]byte, error) {
 
 	var maxByte int
 	for _, v := range variables {
-		if _, ok := goprotos7.DataTypeDepara[v.DataType]; !ok {
-			return nil, fmt.Errorf("unknown data (id: %d) type %s", v.Id, v.DataType)
-		}
-		dt := goprotos7.DataTypeDepara[v.DataType]
+		dt := v.DataType
 		if bSize, ok := goprotos7.DataTypeSize[dt]; !ok {
 			return nil, fmt.Errorf("unknown data size (id: %d) type %s", v.Id, v.DataType)
 		} else {
@@ -60,25 +74,23 @@ func createBuffer(variables []*db_models.DbVariables) ([]byte, error) {
 	buf := make([]byte, maxByte)
 
 	for _, v := range variables {
-		if _, ok := goprotos7.DataTypeDepara[v.DataType]; !ok {
-			return nil, fmt.Errorf("unknown data (id: %d) type %s", v.Id, v.DataType)
-		}
-		dt := goprotos7.DataTypeDepara[v.DataType]
-		switch dt {
+		switch v.DataType {
 		case goprotos7.BOOL:
+			bValue := buf[v.ByteOffset]
 			if v.BitOffset != nil {
 				if v.BoolVal != nil {
 					b := uint8(0)
 					if *v.BoolVal {
 						b = 1
 					}
-					buf[v.ByteOffset] |= b << *v.BitOffset
+					bValue |= b << *v.BitOffset
 				} else {
-					buf[v.ByteOffset] |= uint8(0) << *v.BitOffset
+					bValue |= uint8(0) << *v.BitOffset
 				}
 			} else {
-				buf[v.ByteOffset] = uint8(0) // Set a default value
+				bValue = uint8(0) // Set a default value
 			}
+			buf[v.ByteOffset] = bValue // Store the updated byte value
 		case goprotos7.BYTE, goprotos7.USINT:
 			if v.IntVal != nil {
 				if *v.IntVal > math.MaxUint8 {
@@ -205,6 +217,225 @@ func createBuffer(variables []*db_models.DbVariables) ([]byte, error) {
 	// For example, you can iterate over the variables and append their data to the buf
 
 	return buf, nil
+}
+
+func writeToFile(path string, dbVariable *db_models.DbVariable) ([]byte, error) {
+
+	buff, err := getBinFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("error reading binary file: %v", err)
+	}
+
+	switch dbVariable.DataType {
+	case goprotos7.BOOL: // Boolean variable
+		bVal := buff[dbVariable.ByteOffset]
+		if dbVariable.BitOffset != nil {
+			if dbVariable.BoolVal != nil {
+				b := uint8(0)
+				if *dbVariable.BoolVal {
+					b = 1
+				}
+				if b == 1 {
+					bVal |= b << *dbVariable.BitOffset
+				} else {
+					bVal &^= 1 << *dbVariable.BitOffset // Clear the bit at the specified offset
+				}
+			} else {
+				bVal &^= 1 << *dbVariable.BitOffset
+			}
+		} else {
+			bVal = uint8(0) // Set a default value
+		}
+		buff[dbVariable.ByteOffset] = bVal // Store the updated byte value
+	case goprotos7.BYTE: // 8-bit unsigned integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxUint8 {
+				return nil, fmt.Errorf("%s value is greater than %d (id: %d) type %s", dbVariable.DataType, math.MaxUint8, dbVariable.Id, dbVariable.DataType)
+			}
+			buff[dbVariable.ByteOffset] = byte(*dbVariable.IntVal)
+		} else {
+			buff[dbVariable.ByteOffset] = 0 // default 0
+		}
+	case goprotos7.WORD: // 16-bit unsigned integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxUint16 {
+				return nil, fmt.Errorf("type %s value is greater than %d (id: %d)", dbVariable.DataType, math.MaxUint16, dbVariable.Id)
+			}
+			binary.BigEndian.PutUint16(buff[dbVariable.ByteOffset:], uint16(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint16(buff[dbVariable.ByteOffset:], uint16(0))
+		}
+	case goprotos7.DWORD: // 32-bit unsigned integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxUint32 {
+				return nil, fmt.Errorf("type %s value is greater than %d (id: %d)", dbVariable.DataType, math.MaxUint32, dbVariable.Id)
+			}
+			binary.BigEndian.PutUint32(buff[dbVariable.ByteOffset:], uint32(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint32(buff[dbVariable.ByteOffset:], uint32(0))
+		}
+	case goprotos7.LWORD: // 64-bit unsigned integer
+		if dbVariable.IntVal != nil {
+			if uint64(*dbVariable.IntVal) > math.MaxUint64 {
+				return nil, fmt.Errorf(" type %s value is greater than math.MaxUint64 (id: %d)", dbVariable.DataType, dbVariable.Id)
+			}
+			binary.BigEndian.PutUint64(buff[dbVariable.ByteOffset:], uint64(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint64(buff[dbVariable.ByteOffset:], uint64(0))
+		}
+	case goprotos7.SINT: // 8-bit signed integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > 127 {
+				return nil, fmt.Errorf("SINT value is greater than 127 (id: %d) type %s", dbVariable.Id, dbVariable.DataType)
+			}
+			buff[dbVariable.ByteOffset] = byte(*dbVariable.IntVal)
+		} else {
+			buff[dbVariable.ByteOffset] = uint8(0) // default 0
+		}
+	case goprotos7.USINT: // 8-bit unsigned integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxUint8 {
+				return nil, fmt.Errorf("%s value is greater than %d (id: %d) type %s", dbVariable.DataType, math.MaxUint8, dbVariable.Id, dbVariable.DataType)
+			}
+			buff[dbVariable.ByteOffset] = byte(*dbVariable.IntVal)
+		} else {
+			buff[dbVariable.ByteOffset] = 0 // default 0
+		}
+	case goprotos7.INT: // 16-bit signed integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxInt16 {
+				return nil, fmt.Errorf("INT value is greater than %d (id: %d) type %s", math.MaxInt16, dbVariable.Id, dbVariable.DataType)
+			}
+			binary.BigEndian.PutUint16(buff[dbVariable.ByteOffset:], uint16(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint16(buff[dbVariable.ByteOffset:], uint16(0))
+		}
+	case goprotos7.UINT: // 16-bit unsigned integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxUint16 {
+				return nil, fmt.Errorf("type %s value is greater than %d (id: %d)", dbVariable.DataType, math.MaxUint16, dbVariable.Id)
+			}
+			binary.BigEndian.PutUint16(buff[dbVariable.ByteOffset:], uint16(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint16(buff[dbVariable.ByteOffset:], uint16(0))
+		}
+	case goprotos7.DINT: // 32-bit signed integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxInt32 {
+				return nil, fmt.Errorf("DINT value is greater than %d (id: %d) type %s", math.MaxInt32, dbVariable.Id, dbVariable.DataType)
+			}
+			binary.BigEndian.PutUint32(buff[dbVariable.ByteOffset:], uint32(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint32(buff[dbVariable.ByteOffset:], uint32(0))
+		}
+	case goprotos7.UDINT: // 32-bit unsigned integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxUint32 {
+				return nil, fmt.Errorf("type %s value is greater than %d (id: %d)", dbVariable.DataType, math.MaxUint32, dbVariable.Id)
+			}
+			binary.BigEndian.PutUint32(buff[dbVariable.ByteOffset:], uint32(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint32(buff[dbVariable.ByteOffset:], uint32(0))
+		}
+	case goprotos7.LINT: // 64-bit signed integer
+		if dbVariable.IntVal != nil {
+			if *dbVariable.IntVal > math.MaxInt64 {
+				return nil, fmt.Errorf("LINT value is greater than %d (id: %d) type %s", math.MaxInt64, dbVariable.Id, dbVariable.DataType)
+			}
+			binary.BigEndian.PutUint64(buff[dbVariable.ByteOffset:], uint64(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint64(buff[dbVariable.ByteOffset:], uint64(0)) // default 0
+		}
+	case goprotos7.ULINT: // 64-bit unsigned integer
+		if dbVariable.IntVal != nil {
+			if uint64(*dbVariable.IntVal) > math.MaxUint64 {
+				return nil, fmt.Errorf(" type %s value is greater than math.MaxUint64 (id: %d)", dbVariable.DataType, dbVariable.Id)
+			}
+			binary.BigEndian.PutUint64(buff[dbVariable.ByteOffset:], uint64(*dbVariable.IntVal))
+		} else {
+			binary.BigEndian.PutUint64(buff[dbVariable.ByteOffset:], uint64(0)) // default 0
+		}
+	case goprotos7.REAL: // 32-bit IEEE 754 floating point
+		if dbVariable.FloatVal != nil {
+			if *dbVariable.FloatVal > math.MaxFloat32 {
+				return nil, fmt.Errorf("REAL value is greater than %f (id: %d) type %s", math.MaxFloat32, dbVariable.Id, dbVariable.DataType)
+			}
+			binary.BigEndian.PutUint32(buff[dbVariable.ByteOffset:], math.Float32bits(float32(*dbVariable.FloatVal)))
+		} else {
+			binary.BigEndian.PutUint32(buff[dbVariable.ByteOffset:], 0) // default 0
+		}
+	case goprotos7.LREAL: // 64-bit IEEE 754 floating point
+		if dbVariable.FloatVal != nil {
+			if *dbVariable.FloatVal > math.MaxFloat64 {
+				return nil, fmt.Errorf("LREAL value is greater than math.MaxFloat64 (id: %d) type %s", dbVariable.Id, dbVariable.DataType)
+			}
+			binary.BigEndian.PutUint64(buff[dbVariable.ByteOffset:], math.Float64bits(*dbVariable.FloatVal))
+		} else {
+			binary.BigEndian.PutUint64(buff[dbVariable.ByteOffset:], 0) // default 0
+		}
+	case goprotos7.CHAR: // 8-bit character
+		if dbVariable.StringVal != nil {
+			if len(*dbVariable.StringVal) > 1 {
+				return nil, fmt.Errorf("CHAR value is greater than 1 (id: %d) type %s", dbVariable.Id, dbVariable.DataType)
+			}
+			buff[dbVariable.ByteOffset] = (*dbVariable.StringVal)[0]
+		} else {
+			buff[dbVariable.ByteOffset] = 0
+		}
+	case goprotos7.STRING: // String variable
+		if dbVariable.Length != nil {
+			l := *dbVariable.Length
+			if l > buff[dbVariable.ByteOffset] {
+				return nil, fmt.Errorf("string length is greater than the already defined length (id: %d) type %s", dbVariable.Id, dbVariable.DataType)
+			}
+			// Store all remain bytes
+			if dbVariable.StringVal == nil {
+				// no value, set the actual length to 0
+				buff[dbVariable.ByteOffset+1] = 0
+				copy(buff[dbVariable.ByteOffset+2:l-1], make([]byte, l))
+			} else {
+				if len(*dbVariable.StringVal) > int(l) {
+					return nil, fmt.Errorf("string length is greater than the defined length (id: %d) type %s", dbVariable.Id, dbVariable.DataType)
+				}
+				buff[dbVariable.ByteOffset+1] = byte(len(*dbVariable.StringVal)) // Set the actual length
+				to := dbVariable.ByteOffset + 2 + int64(l)
+				copy(buff[dbVariable.ByteOffset+2:to], *dbVariable.StringVal)
+			}
+		} else {
+			return nil, fmt.Errorf("STRING variable (id: %d) does not have a defined length", dbVariable.Id)
+		}
+	}
+
+	// Save the updated buffer back to the file
+	err = saveBinaryFile(path, buff)
+	if err != nil {
+		return nil, fmt.Errorf("error saving binary file: %v", err)
+	}
+
+	return buff, nil
+}
+
+func getBinFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			fmt.Printf("error closing file %s: %s\n", path, err)
+		}
+	}(f)
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	b := make([]byte, fi.Size())
+	_, err = f.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // SaveBinaryFile writes the given buffer to a file at the specified path.

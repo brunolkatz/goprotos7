@@ -21,6 +21,10 @@ templ CreateVarPageTempl() {
                                 hx-swap="outerHTML"
                         >
                             <div class="mb-3">
+                                <label for="db-number" class="form-label">DB Number</label>
+                                <input type="number" min="0" class="form-control" id="db-number" name="db-number" required>
+                            </div>
+                            <div class="mb-3">
                                 <label for="name" class="form-label">Name</label>
                                 <input type="text" class="form-control" id="name" name="name" required>
                             </div>
@@ -68,12 +72,107 @@ templ CreateVarDefTempl(varType goprotos7.DataType) {
         <div class="card-body">
             switch varType {
             case goprotos7.BOOL:
-                <p>Automatically defined as BOOL type</p>
+                @DefineBoolVariable()
             case goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT, goprotos7.ULINT:
                 @DefineIntVariable()
+            case goprotos7.STRING:
+                @DefineStrVariable()
             }
         </div>
     </div>
+}
+
+templ DefineStrVariable() {
+    <div class="input-group mb-3">
+        <label for="str-length" class="form-label">String Length</label>
+        <input type="number" id="str-length" name="str-length" class="form-control" placeholder="" aria-label="Default String Value" required>
+    </div>
+    <div class="input-group mb-3">
+        <label for="str-default-value" class="form-label">Default Value</label>
+        <input type="text" id="str-default-value" name="str-default-value" class="form-control" placeholder="" aria-label="Default String Value" required>
+    </div>
+}
+
+
+// DefineBoolVariable - Create the boolean fields for integer types
+templ DefineBoolVariable() {
+<div id="bool-fields">
+    <!-- Default value -->
+    <div class="row mb-2">
+        <div class="col-12 col-md-12 col-lg-12 mb-3">
+            <label for="desc-bool-field[]" class="form-label">Bit description:</label>
+            <input type="text" id="desc-bool-field[]" name="desc-bool-field[]" placeholder="Bit description" class="form-control">
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="bit-bool-field[]" class="form-label">Bit Offset</label>
+            <input type="number" id="bit-bool-field[]" name="bit-bool-field[]" placeholder="Description" class="form-control">
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="bool-value[]" class="form-label">Default Value</label>
+            <select id="bool-value[]" name="bool-value[]" class="form-select" required>
+                <option value="" disabled selected>Select Value</option>
+                <option value="true">True</option>
+                <option value="false">False</option>
+            </select>
+        </div>
+        <div class="col-12 col-lg-12 col-md-12">
+            <button class="btn btn-outline-secondary" type="button" onclick="addBoolField('bool-fields')">Add New</button>
+            @AddBoolField()
+        </div>
+    </div>
+
+</div>
+}
+
+templ AddBoolField() {
+<script>
+  // Create a new input group for the integer field
+  let lastBoolFieldId = 1
+  function addBoolField(divId) {
+    const container = document.getElementById(divId);
+    const fieldID = "bool-field-" + (lastBoolFieldId + 1);
+    const newDivID = `div-${fieldID}`
+
+    // Create the input group element
+    const newField = document.createElement("div");
+    newField.id = newDivID;
+    newField.className = "row mb-2";
+
+    newField.innerHTML = `
+            <div class="col-12 col-md-12 col-lg-12 mb-3">
+                <label for="desc-bool-field[]" class="form-label">Bit description:</label>
+                <input type="text" id="desc-bool-field[]" name="desc-bool-field[]" placeholder="Bit description" class="form-control">
+            </div>
+            <div class="col-6 col-md-6 col-lg-6 mb-3">
+                <label for="bit-bool-field[]" class="form-label">Bit Offset</label>
+                <input type="number" id="bit-bool-field[]" name="bit-bool-field[]" placeholder="Bit offset" class="form-control">
+            </div>
+            <div class="col-6 col-md-6 col-lg-6 mb-3">
+                <label for="bool-value[]" class="form-label">Bit Offset</label>
+                <select id="bool-value[]" name="bool-value[]" class="form-select" required>
+                    <option value="" disabled selected>Select default value...</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-12 col-lg-12">
+                <button class="btn btn-outline-secondary" type="button" onclick="addBoolField('bool-fields')">Add New</button>
+                <button class="btn btn-outline-danger" type="button" onclick="removeBoolField('${newDivID}')">Remove</button>
+            </div>
+        `;
+
+    // Append the new field to the specified div
+    container.appendChild(newField);
+    lastBoolFieldId += 1;
+  }
+  function removeBoolField(divId) {
+    const field = document.getElementById(divId);
+    if (field) {
+      field.remove();
+    }
+  }
+
+</script>
 }
 
 // DefineIntVariable - Create the number fields for integer types

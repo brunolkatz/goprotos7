@@ -1,11 +1,82 @@
 package dashboard_api
 
-templ DashboardPageTempl() {
+import (
+    "github.com/brunolkatz/goprotos7/dbtool/db/db_models"
+    "fmt"
+)
+
+templ DashboardPageTempl(dbNumbers []uint32) {
     <div class="container-fluid p-5">
         <div class="row mb-2">
-            <div class="col-6">
-                Dashboard Page
+            <div class="col-12">
+                <h1 class="display-4">Database Dashboard</h1>
+            </div>
+            <div class="col-md-12">
+                <label for="db-number" class="form-label">Variable Type</label>
+                <select
+                        class="form-select"
+                        id="db-number"
+                        name="db-number"
+                        required
+                        hx-get="/dashboard/get-db-vars"
+                        hx-target="#db-vars"
+                >
+                    <option value="" disabled selected>Select DB</option>
+                    for _, t := range dbNumbers {
+                        <option value={ fmt.Sprintf("%d", t) }>{ fmt.Sprintf("DB%d", t) }</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div id="db-vars" class="row mb-2"></div>
+    </div>
+}
+
+templ DbVarsTempl(dbVariables []*db_models.DbVariable) {
+    for _, dbVar := range dbVariables {
+        @DbVarTempl(dbVar)
+    }
+}
+
+templ DbVarTempl(dbVar *db_models.DbVariable) {
+    <div class="col-md-4 mb-3" id={ fmt.Sprintf("var-db-%d-id-%d", dbVar.DbNumber, dbVar.Id) }>
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{ dbVar.Name }</h5>
+                <div class="row mb-2">
+                    <div class="col"><p class="card-text">Type: <code>{ dbVar.DataType }</code></p></div>
+                    <div class="col"><p class="card-text">Value: <code>{ dbVar.FmtValue() }</code></p></div>
+                    <div class="col"><p class="card-text">Address: <code>{ dbVar.ToDBAddress() }</code></p></div>
+                </div>
+
+                if dbVar.StaticVarDefinitions != nil && len(dbVar.StaticVarDefinitions) > 0 {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row mb-2">
+                            for _, def := range dbVar.StaticVarDefinitions {
+                                <div class="col mb-3">
+                                    <button
+                                            class={ getStaticValueBtnClass(def.IsSelected) }
+                                            hx-put="/dashboard/set-var-value"
+                                            hx-swap="outerHTML"
+                                            hx-vals={ fmt.Sprintf(`{ "db-number": %d, "var-id": %d, "t": "%s", "sts-id": %d }`, dbVar.DbNumber, dbVar.Id, dbVar.VarType, def.Id) }
+                                            hx-target={ fmt.Sprintf("#var-db-%d-id-%d", dbVar.DbNumber, dbVar.Id) }
+                                    >{ def.Description }</button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <p class="card-text"><small class="text-body-secondary">{ dbVar.Description }</small></p>
+                }
             </div>
         </div>
     </div>
+}
+
+func getStaticValueBtnClass(isSelected bool) string {
+    if isSelected {
+        return "btn btn-success"
+    }
+    return "btn btn-primary"
 }

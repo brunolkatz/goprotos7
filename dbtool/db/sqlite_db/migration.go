@@ -14,8 +14,8 @@ func (d *DB) runMigrations(ctx context.Context) error {
 	}
 
 	migrations := []*gormigrate.Migration{
-		createDbVariablesTable_1(ctx),         // Create the db_variables table
-		migrateCreateIntVarDefinitions_1(ctx), // Create the int_var_definitions table
+		createDbVariablesTable_1(ctx),            // Create the db_variables table
+		migrateCreateStaticVarDefinitions_1(ctx), // Create the int_var_definitions table
 	}
 	if len(migrations) == 0 {
 		d.log.Infof("[DB_SQLITE] No migrations found")
@@ -57,26 +57,31 @@ func createDbVariablesTable_1(ctx context.Context) *gormigrate.Migration {
 	}
 }
 
-func migrateCreateIntVarDefinitions_1(ctx context.Context) *gormigrate.Migration {
+func migrateCreateStaticVarDefinitions_1(ctx context.Context) *gormigrate.Migration {
 	return &gormigrate.Migration{
-		ID: "migrateCreateIntVarDefinitions_1",
+		ID: "migrateCreateStaticVarDefinitions_1",
 		Migrate: func(tx *gorm.DB) error {
 			return tx.WithContext(ctx).Exec(`
-			    -- Executing migrateCreateIntVarDefinitions_1
-				create table int_var_definitions
+			    -- Executing migrateCreateStaticVarDefinitions_1
+				create table if not exists static_var_definitions
 				(
-					id             integer not null,
+					id             integer not null
+						constraint static_var_definitions_pk
+							primary key,
 					db_variable_id integer not null
-						constraint int_var_definitions_db_variables_id_fk
-							references db_variables,
+						constraint static_var_definitions_db_variables_id_fk
+							references db_variables
+							on update cascade on delete cascade,
 					description    text    not null,
-					value          integer not null
+					int_value      integer,
+					float_value    integer
 				);
+
 			`).Error
 		},
 		Rollback: func(tx *gorm.DB) error {
 			return tx.WithContext(ctx).Exec(`
-			    -- Executing Rollback for migrateCreateIntVarDefinitions_1
+			    -- Executing Rollback for migrateCreateStaticVarDefinitions_1
 			`).Error
 		},
 	}

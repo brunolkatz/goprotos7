@@ -85,6 +85,10 @@ func (s *Server) Start() error {
 			log.Println("Accept error:", err)
 			continue
 		}
+		if tcpConn, ok := conn.(*net.TCPConn); ok {
+			_ = tcpConn.SetKeepAlive(true)
+			_ = tcpConn.SetKeepAlivePeriod(30 * time.Second)
+		}
 		go s.handleConnection(conn)
 	}
 }
@@ -96,6 +100,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	log.Printf("[SERVER] New client: %s", conn.RemoteAddr())
 
 	// Step 1: read Connection Request
+	_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 	buffer, err := readConn(conn)
 	if err != nil {
 		log.Println("Read error:", err)
@@ -115,7 +120,11 @@ func (s *Server) handleConnection(conn net.Conn) {
 			COTPHeader: msg.COTPHeader,
 		}
 		pack, _ := ret.Pack(COTPDisconnectRequest)
-		_, _ = conn.Write(pack)
+		_, err = conn.Write(pack)
+		if err != nil {
+			log.Println("Write error:", err)
+			return
+		}
 		// Close the connection
 		_ = conn.Close()
 		return
@@ -133,6 +142,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		log.Println("[SERVER] Connection Confirm sent")
 
 		// Step 2: send Connection Confirm
+		_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 		buffer, err = readConn(conn)
 		if err != nil {
 			log.Println("Read error:", err)
@@ -166,7 +176,12 @@ func (s *Server) handleConnection(conn net.Conn) {
 			_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 			buffer, err = readConn(conn)
 			if err != nil {
-				continue
+				var netErr net.Error
+				if errors.As(err, &netErr) && netErr.Timeout() {
+					continue // idle client, wait for next message
+				}
+				log.Println("Read error:", err)
+				return // disconnect client on real error
 			}
 
 			msg, err = unpack(buffer)

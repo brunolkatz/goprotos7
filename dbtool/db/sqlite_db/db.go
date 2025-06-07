@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/brunolkatz/goprotos7/dbtool"
+	gorm_serializers "github.com/brunolkatz/goprotos7/dbtool/db/sqlite_db/serializations"
 	"github.com/charmbracelet/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 )
 
 // DB is a database connection handler
@@ -50,6 +52,9 @@ func (d *DB) SetDbConn(dsn string) error {
 	if err != nil {
 		return err
 	}
+
+	schema.RegisterSerializer(gorm_serializers.VarTypeEnumTypeTagName, gorm_serializers.VarTypeEnumSerializer{})
+	schema.RegisterSerializer(gorm_serializers.DataTypeEnumTypeTagName, gorm_serializers.DataTypeEnumSerializer{})
 
 	d.DbConn = db
 	return nil

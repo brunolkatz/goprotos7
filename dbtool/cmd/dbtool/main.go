@@ -10,6 +10,7 @@ import (
 	"github.com/brunolkatz/goprotos7/dbtool/api/dashboard-api"
 	"github.com/brunolkatz/goprotos7/dbtool/db/sqlite_db"
 	"github.com/brunolkatz/goprotos7/dbtool/handlers/data-block-handlers"
+	vars_handler "github.com/brunolkatz/goprotos7/dbtool/handlers/vars-handler"
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -50,12 +51,12 @@ func main() {
 		panic(err)
 	}
 
-	dbHandler, err := data_block_handlers.New(ctx, db, logger)
+	dbHandler, err := data_block_handlers.New(ctx, webAdminConfig.DBBinPaths, db, logger)
 	if err != nil {
 		panic(err)
 	}
 	logger.Infof("Creating database blocks with bin paths: %v", webAdminConfig.DBBinPaths)
-	err = dbHandler.CreateDatabaseBlocks(webAdminConfig.DBBinPaths)
+	err = dbHandler.CreateDatabaseBlocks()
 	if err != nil {
 		panic(err)
 	}
@@ -70,6 +71,13 @@ func main() {
 	// ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 	if webAdminConfig.Flags.EnableWebAdmin {
+
+		varsHandler, err := vars_handler.New(db, dbHandler, logger)
+		if err != nil {
+			logger.Errorf("Error creating vars handler: %v", err)
+			panic(err)
+		}
+
 		logger.Infof("Webadmin enabled, starting web admin...")
 		httpServer, err := api.NewHTTPServer(ctx, ":8080")
 		if err != nil {
@@ -81,12 +89,12 @@ func main() {
 			panic(err)
 		}
 
-		dasboardApi, err := dashboard_api.New()
+		dasboardApi, err := dashboard_api.New(varsHandler)
 		if err != nil {
 			panic(err)
 		}
 
-		createVarApi, err := create_var_api.New()
+		createVarApi, err := create_var_api.New(varsHandler)
 		if err != nil {
 			panic(err)
 		}

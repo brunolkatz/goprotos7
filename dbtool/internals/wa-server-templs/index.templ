@@ -266,7 +266,7 @@ templ PageLayout(title *string, content templ.Component) {
           });
 
         </script>
-        <div class="container" id="main-container" style="height: 100vh;">
+        <div class="container" id="main-container" style="height: 100vh; max-width: 100% !important;">
             @content
         </div>
     </main>

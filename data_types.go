@@ -31,6 +31,7 @@ const (
 	REAL
 	LREAL
 	CHAR
+	// The STRING data type stores [length] + [actual_length] at first 2 bytes and "n" bytes given the initial STRING length
 	STRING
 )
 
@@ -110,6 +111,6 @@ var (
 		REAL:   4,
 		LREAL:  8,
 		CHAR:   1,
-		STRING: 2, // The STRING data type stores 2 + n bytes, where n is the length of the string.
+		STRING: 2, // The STRING data type stores [length] + [actual_length] at first 2 bytes and "n" bytes given the initial STRING length
 	}
 )
