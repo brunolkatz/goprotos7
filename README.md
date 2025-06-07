@@ -13,11 +13,14 @@
   - [x] Supports request connection
   - [x] Supports response request connection
   - [x] Supports PDU (Protocol Data Unit) request
-- [ ] Simulates access to Data Blocks (DB)
+- [ ] Implements S7 communication protocol
+  - [x] readvar request and response
+  - [ ] writevar request and response
+- [x] Simulates access to Data Blocks (DB)
   - Goals:
     - [X] ReadVar
-    - [ ] WriteVar
-- [ ] Simulate wrong request package response error
+    - [x] WriteVar
+- [x] Simulate wrong request package response error
 
 ---
 
