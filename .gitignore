@@ -23,4 +23,3 @@ bin/
 secrets.env
 .idea
 .DS_Store
-/databases/

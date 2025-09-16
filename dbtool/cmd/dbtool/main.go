@@ -11,6 +11,7 @@ import (
 	"github.com/brunolkatz/goprotos7/dbtool/db/sqlite_db"
 	"github.com/brunolkatz/goprotos7/dbtool/handlers/data-block-handlers"
 	vars_handler "github.com/brunolkatz/goprotos7/dbtool/handlers/vars-handler"
+	"github.com/brunolkatz/goprotos7/dbtool/internals/browser"
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -132,6 +133,8 @@ func main() {
 				}
 			}
 		})
+
+		_ = browser.Open("http://localhost:8080") // open the browser automatically
 
 		logger.Infof("Webadmin initialized...")
 		if err = g.Wait(); err != nil || errors.Is(err, errStop) {

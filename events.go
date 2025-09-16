@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func (s *Server) eventS7FuncReadVar(msg *Message, conn net.Conn) {
+func (c *Connection) eventS7FuncReadVar(msg *Message, conn net.Conn) {
 	if msg == nil {
 		log.Printf("[SERVER] Received nil message in ack data event")
 		return
@@ -37,7 +37,7 @@ func (s *Server) eventS7FuncReadVar(msg *Message, conn net.Conn) {
 	}
 
 	for _, i := range funcParam.Items {
-		v, err := s.getDBValue(i.DBNumber, i.TransportSize, i.ByteOffset, i.BitOffset, i.Length)
+		v, err := c.getDBValue(i.DBNumber, i.TransportSize, i.ByteOffset, i.BitOffset, i.Length)
 		if err != nil {
 			switch {
 			case errors.Is(err, ErrorOutOfBounds):

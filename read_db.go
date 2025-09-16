@@ -44,8 +44,8 @@ var TransportSizeToByteLength = map[TransportSize]int{
 	TransportSizeDateAndTime: 8,
 }
 
-func (s *Server) getDBValue(dbNumber uint16, transportSize byte, byteOffset uint32, bitOffset byte, length uint16) ([]byte, error) {
-	db, err := s.getDB(dbNumber)
+func (c *Connection) getDBValue(dbNumber uint16, transportSize byte, byteOffset uint32, bitOffset byte, length uint16) ([]byte, error) {
+	db, err := c.getDB(dbNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -58,14 +58,14 @@ func (s *Server) getDBValue(dbNumber uint16, transportSize byte, byteOffset uint
 	return db[byteOffset : byteOffset+uint32(length)], nil
 }
 
-func (s *Server) getDB(dbNumber uint16) ([]byte, error) {
-	if s.options.BinFilesFolder == "" {
+func (c *Connection) getDB(dbNumber uint16) ([]byte, error) {
+	if c.options.BinFilesFolder == "" {
 		panic("BinFilesFolder is not set")
 	}
 
 	dbFileName := fmt.Sprintf("DB%d.bin", dbNumber)
 
-	f, err := os.OpenFile(filepath.Join(s.options.BinFilesFolder, dbFileName), os.O_RDONLY, 0)
+	f, err := os.OpenFile(filepath.Join(c.options.BinFilesFolder, dbFileName), os.O_RDONLY, 0)
 	if err != nil {
 		return nil, fmt.Errorf("error opening DB %s: %s", dbFileName, err)
 	}

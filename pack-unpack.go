@@ -11,6 +11,10 @@ import (
 
 type VariableType int
 
+var (
+	ErrorFunctionCodeNotSupported = errors.New("function code not supported")
+)
+
 const (
 	TRANSPORT_SIZE_BOOL          VariableType = 0x01 // 1 bit (BOOL)
 	TRANSPORT_SIZE_BYTE          VariableType = 0x02 // 1 byte (BYTE)
@@ -107,7 +111,10 @@ type COTPHeader struct {
 	Length  byte // length of COTP header (excluding TPKT)
 	PDUType byte // 0xD0 = Connect Confirm - Connection Type
 
-	EoT byte // End of Transmission (0x00 = no more data) Used After first connection handshake
+	// End of Transmission (0x00 = no more data) Used After first connection handshake,
+	// when PDUType is COPTData the COTPHeader only have the "Length + PDUType + EoT". When the EoT is not available
+	// when unpacking the COTPHeader, the EoT will be set to 0x00
+	EoT byte
 
 	DestinationRef uint16
 	SourceRef      uint16
@@ -588,7 +595,7 @@ func unpackS7Function(s7Request *S7Request) (FuncParamType, error) {
 			Items: items,
 		}, nil
 	}
-	return nil, errors.New("function code not supported")
+	return nil, ErrorFunctionCodeNotSupported
 }
 
 func getS7ParamSetupCommunicationResponse(msg *Message) (*Message, error) {
@@ -630,4 +637,38 @@ func printBin(data []byte) string {
 	}
 	s += fmt.Sprintf("]\n")
 	return s
+}
+
+func getS7FunctionCodeNotSupportedResponse(msg *Message) *Message {
+
+	if msg == nil { // We need to create the TPKTHeader manually
+		msg = &Message{
+			TPKTHeader: TPKTHeader{
+				Version:  3, // TPKT Version 3
+				Reserved: 0, // Reserved byte
+				Length:   0, // Length will be set later
+			},
+			COTPHeader: COTPHeader{ // The package need to be the COTPData
+				PDUType: COTPData, // PDU Type for data
+				Length:  7,        // Length of the COTP header
+				EoT:     0,        // End of Transmission (0x00 = no more data)
+			},
+		}
+	}
+
+	// Create a response message with the same TPKT and COTP headers
+	ret := &Message{
+		TPKTHeader: msg.TPKTHeader,
+		COTPHeader: msg.COTPHeader,
+		S7Header: &S7Header{
+			ProtocolID:   S7ProtocolID,
+			ROSCTR:       S7FuncAckData,
+			RedundancyID: 0,
+			ParamLength:  0,
+			DataLength:   0,
+			ErrorClass:   byte(ErrorClassApplicationRelation), // Error class for function code not supported
+			ErrorCode:    byte(ErrorCodeFunctionNotExists),    // Error code for function code not supported
+		},
+	}
+	return ret
 }
