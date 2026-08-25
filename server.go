@@ -138,6 +138,8 @@ func (c *Connection) DoMsgHandler(msg *Message) {
 		switch msg.S7Request.FunctionCode {
 		case S7FuncReadVar:
 			c.eventS7FuncReadVar(msg, c.conn)
+		case S7FuncUserData:
+			c.eventS7FuncUserData(msg, c.conn)
 		default:
 			return
 		}

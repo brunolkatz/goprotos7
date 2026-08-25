@@ -15,6 +15,7 @@
   - [x] Supports PDU (Protocol Data Unit) request
 - [ ] Implements S7 communication protocol
   - [x] readvar request and response
+  - [x] user-data SZL request for CPU info (`GetCPUInfo`)
   - [ ] writevar request and response
 - [x] Simulates access to Data Blocks (DB)
   - Goals:
