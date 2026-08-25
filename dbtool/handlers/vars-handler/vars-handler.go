@@ -80,7 +80,7 @@ func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateV
 			BitOffset:   nil,
 			Length:      l,
 			Description: newVar.Description,
-			VarType:     dbtool.VarTypeList,
+			VarType:     dbtool.VarTypeStatic,
 		}
 
 		var intVal *int64
@@ -149,18 +149,22 @@ func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateV
 				}
 			}
 			return nil // Exit early after creating the BOOL variable
-		case goprotos7.BYTE, goprotos7.WORD, goprotos7.DWORD, goprotos7.LWORD, goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT:
+		case goprotos7.BYTE, goprotos7.WORD, goprotos7.DWORD, goprotos7.LWORD, goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT, goprotos7.ULINT:
 			if newVar.IntVal == nil {
 				return fmt.Errorf("integer value is required for %s data type", newVar.DataType)
 			}
 			intVal = newVar.IntVal
-			tVar.VarType = dbtool.VarTypeList
+			if newVar.ListFields != nil && len(newVar.ListFields) > 0 {
+				tVar.VarType = dbtool.VarTypeList
+			}
 		case goprotos7.REAL, goprotos7.LREAL:
 			if newVar.FloatVal == nil {
 				return fmt.Errorf("float value is required for %s data type", newVar.DataType)
 			}
 			floatVal = newVar.FloatVal
-			tVar.VarType = dbtool.VarTypeList
+			if newVar.ListFields != nil && len(newVar.ListFields) > 0 {
+				tVar.VarType = dbtool.VarTypeList
+			}
 		default:
 			return fmt.Errorf("unsupported data type: %s", newVar.DataType)
 		}
@@ -182,12 +186,16 @@ func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateV
 				return fmt.Errorf("list values are required for LIST data type")
 			}
 			for _, field := range newVar.ListFields {
+				tStaticType := dbtool.StaticTypeInt
+				if field.FloatValue != nil {
+					tStaticType = dbtool.StaticTypeFloat
+				}
 				tStaticVarDef := db_models.StaticVarDefinition{
 					DbVariableId: tVar.Id,
 					Description:  field.Description,
 					IntValue:     field.IntValue,
-					FloatValue:   nil,
-					StaticType:   dbtool.StaticTypeInt,
+					FloatValue:   field.FloatValue,
+					StaticType:   tStaticType,
 				}
 				err := tx.WithContext(ctx).Create(&tStaticVarDef).Error
 				if err != nil {

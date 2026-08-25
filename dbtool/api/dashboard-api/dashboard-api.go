@@ -2,12 +2,13 @@ package dashboard_api
 
 import (
 	"context"
+	"fmt"
 	"github.com/brunolkatz/goprotos7/dbtool"
+	"github.com/brunolkatz/goprotos7/dbtool/api/httpx"
 	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
 	"github.com/brunolkatz/goprotos7/dbtool/internals/wa-server-templs"
 	"github.com/go-chi/chi/v5"
 	"net/http"
-	"strconv"
 )
 
 type varHandler interface {
@@ -57,16 +58,14 @@ func (h *DashboardAPi) GetHomePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DashboardAPi) GetDbVars(w http.ResponseWriter, r *http.Request) {
-	_dbNumber := r.URL.Query().Get("db-number")
-	if _dbNumber == "" {
-		http.Error(w, "dbNumber is required", http.StatusBadRequest)
+	query, err := bindGetDbVarsQuery(r)
+	if err != nil {
+		httpx.BadRequest(w, err.Error())
 		return
 	}
-	dbNumber, err := strconv.ParseInt(_dbNumber, 10, 32)
-
-	dbVariables, err := h.varsHandler.GetVariables(int32(dbNumber))
+	dbVariables, err := h.varsHandler.GetVariables(query.DBNumber)
 	if err != nil {
-		http.Error(w, "Error fetching variables: "+err.Error(), http.StatusInternalServerError)
+		httpx.InternalError(w, "Error fetching variables: "+err.Error())
 		return
 	}
 
@@ -77,75 +76,35 @@ func (h *DashboardAPi) GetDbVars(w http.ResponseWriter, r *http.Request) {
 		DbVarsTempl(dbVariables),
 	)
 	if err != nil {
-		http.Error(w, "Error rendering page: "+err.Error(), http.StatusInternalServerError)
+		httpx.InternalError(w, "Error rendering page: "+err.Error())
 		return
 	}
 }
 
 func (h *DashboardAPi) SetDbVar(w http.ResponseWriter, r *http.Request) {
-	// { "db-number": 1, "var-id": 2, "t": "LIST", "def-id": 3 }
-	err := r.ParseForm()
+	form, err := bindSetDbVarForm(r)
 	if err != nil {
-		wa_server_templs.RenderAlertMSG(wa_server_templs.RT_Error, "Error: "+err.Error(), w, r)
+		httpx.AlertError(w, r, "Error: "+err.Error())
 		return
 	}
-	_dbNumber := r.Form.Get("db-number")
-	if _dbNumber == "" {
-		http.Error(w, "dbNumber is required", http.StatusBadRequest)
-		return
-	}
-	dbNumber, err := strconv.ParseInt(_dbNumber, 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid dbNumber: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	_varId := r.Form.Get("var-id")
-	if _varId == "" {
-		http.Error(w, "varId is required", http.StatusBadRequest)
-		return
-	}
-	varId, err := strconv.ParseInt(_varId, 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid varId: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	varType := r.Form.Get("t")
-	if varType == "" {
-		http.Error(w, "Variable type (t) is required", http.StatusBadRequest)
-		return
-	}
-	if _, ok := dbtool.VarTypePara[varType]; !ok {
-		http.Error(w, "Invalid variable type: "+varType, http.StatusBadRequest)
-		return
-	}
-
 	var dbVar *db_models.DbVariable
 
-	switch dbtool.VarTypePara[varType] {
+	switch form.VarType {
 	case dbtool.VarTypeStatic:
-		// TODO: Create the logic to handle static variable types
+		httpx.AlertError(w, r, "Error: STATIC var type update is not implemented")
+		return
 	case dbtool.VarTypeList:
-		_stsId := r.Form.Get("sts-id")
-		if _stsId == "" {
-			http.Error(w, "defId is required", http.StatusBadRequest)
-			return
-		}
-		stsId, err := strconv.ParseInt(_stsId, 10, 64)
+		dbVar, err = h.varsHandler.SetListVar(r.Context(), form.DBNumber, form.VarID, form.StatusID)
 		if err != nil {
-			http.Error(w, "Invalid defId: "+err.Error(), http.StatusBadRequest)
+			httpx.AlertError(w, r, "Error: "+err.Error())
 			return
 		}
-
-		// Here you would typically call a method to set the variable value in the database
-		dbVar, err = h.varsHandler.SetListVar(r.Context(), dbNumber, varId, stsId) // Replace 1 with the actual variable ID
-		if err != nil {
-			wa_server_templs.RenderAlertMSG(wa_server_templs.RT_Error, "Error: "+err.Error(), w, r)
-			return
-		}
+	default:
+		httpx.AlertError(w, r, fmt.Sprintf("Error: unsupported variable type: %s", form.VarType))
+		return
 	}
 	if dbVar == nil {
-		wa_server_templs.RenderAlertMSG(wa_server_templs.RT_Error, "Error: Something goes wrong =/", w, r)
+		httpx.AlertError(w, r, "Error: Something goes wrong =/")
 		return
 	}
 

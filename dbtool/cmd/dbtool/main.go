@@ -5,16 +5,11 @@ import (
 	"errors"
 	"github.com/brunolkatz/goprotos7/dbtool"
 	"github.com/brunolkatz/goprotos7/dbtool/api"
-	"github.com/brunolkatz/goprotos7/dbtool/api/assets-files-watcher-api"
-	create_var_api "github.com/brunolkatz/goprotos7/dbtool/api/create-var-api"
-	"github.com/brunolkatz/goprotos7/dbtool/api/dashboard-api"
 	"github.com/brunolkatz/goprotos7/dbtool/db/sqlite_db"
 	"github.com/brunolkatz/goprotos7/dbtool/handlers/data-block-handlers"
 	vars_handler "github.com/brunolkatz/goprotos7/dbtool/handlers/vars-handler"
 	"github.com/brunolkatz/goprotos7/dbtool/internals/browser"
 	"github.com/charmbracelet/log"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jessevdk/go-flags"
 	"golang.org/x/sync/errgroup"
 	"os"
@@ -84,31 +79,9 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
-		assetsFilesWatcherApi, err := assets_files_watcher.New(ctx)
-		if err != nil {
+		if err := registerWebAdminRoutes(httpServer.Router, varsHandler); err != nil {
 			panic(err)
 		}
-
-		dasboardApi, err := dashboard_api.New(varsHandler)
-		if err != nil {
-			panic(err)
-		}
-
-		createVarApi, err := create_var_api.New(varsHandler)
-		if err != nil {
-			panic(err)
-		}
-
-		assetsFilesWatcherApi.Register(httpServer.Router)
-
-		// Register the HTML Pages
-		// Add all HTML pages here
-		httpServer.Router.Route("/", func(r chi.Router) {
-			r.Use(middleware.SetHeader("Content-Type", "text/html; charset=utf-8"))
-			dasboardApi.Register(r)  // Register the dashboard page
-			createVarApi.Register(r) // Register the create variable page
-		})
 
 		g.Go(func() error {
 			// Ugly hack to make sure the server is initialized before returning
@@ -130,6 +103,7 @@ func main() {
 					return errStop
 				case _ = <-sigs:
 					cancel()
+					httpServer.StopServer()
 				}
 			}
 		})
