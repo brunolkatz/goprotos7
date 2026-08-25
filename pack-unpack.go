@@ -490,13 +490,16 @@ func unpack(b []byte) (*Message, error) {
 	}
 
 	// COTP Header
-	if len(b) < 22 { // Validate the COTP header
+	if len(b) < 7 { // Validate minimal COTP data header
 		return nil, errors.New("COTP header is too short")
 	}
 	ret.COTPHeader.Length = b[4]
 	ret.COTPHeader.PDUType = b[5]
 
 	if ret.COTPHeader.PDUType == COTPConnectionRequest {
+		if len(b) < 22 {
+			return nil, errors.New("COTP connection request header is too short")
+		}
 		// COTP Header (17 bytes)
 		// | Length | PDU Type | Destination Ref | Source Ref | Class/Options | Parameters |
 		// |   1    |    1     |       2         |     2     |      1        |    Varies  |
@@ -523,6 +526,9 @@ func unpack(b []byte) (*Message, error) {
 		switch ret.COTPHeader.PDUType {
 		case COTPData: // We need to collect the EoT instead all the data
 			ret.COTPHeader.EoT = b[6] // EoT is the 7th byte of the COTP header
+			if len(b) == 7 {
+				return &ret, nil
+			}
 			if b[7] == S7ProtocolID { // Magic number for S7
 				s7B := b[7:]
 				s7 := &S7Header{

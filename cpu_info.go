@@ -32,20 +32,28 @@ func (c *Connection) eventS7FuncUserData(msg *Message, conn net.Conn) {
 		return
 	}
 	if !userData.IsReadSZLRequest() {
+		c.sendFunctionNotSupported(conn, msg)
 		return
 	}
 
 	szlID, szlIndex, err := userData.SZLIDIndex()
 	if err != nil {
 		log.Printf("[SERVER] Error parsing SZL request: %s", err)
+		c.sendFunctionNotSupported(conn, msg)
 		return
 	}
 
-	if szlID != 0x001C || szlIndex != 0x0000 {
+	var res *Message
+	switch {
+	case szlID == 0x001C && szlIndex == 0x0000:
+		res = buildCPUInfoResponseMessage(msg, userData.Sequence(), szlID, szlIndex)
+	case szlID == 0x0424 && szlIndex == 0x0000:
+		res = buildPLCStatusResponseMessage(msg, userData.Sequence(), szlID, szlIndex, 8)
+	default:
+		c.sendFunctionNotSupported(conn, msg)
 		return
 	}
 
-	res := buildCPUInfoResponseMessage(msg, userData.Sequence(), szlID, szlIndex)
 	ack, err := res.Pack(COTPData)
 	if err != nil {
 		log.Printf("[SERVER] Error packing CPU info response: %s", err)
@@ -57,9 +65,29 @@ func (c *Connection) eventS7FuncUserData(msg *Message, conn net.Conn) {
 	}
 }
 
+func (c *Connection) sendFunctionNotSupported(conn net.Conn, msg *Message) {
+	ret := getS7FunctionCodeNotSupportedResponse(msg)
+	pack, err := ret.Pack(COTPData)
+	if err != nil {
+		log.Printf("[SERVER] Error packing function-not-supported response: %s", err)
+		return
+	}
+	if _, err = conn.Write(pack); err != nil {
+		log.Printf("[SERVER] Error writing function-not-supported response: %s", err)
+	}
+}
+
 func buildCPUInfoResponseMessage(msg *Message, sequence byte, szlID uint16, szlIndex uint16) *Message {
 	payload := buildCPUInfoSZLPayload(defaultS7CPUInfo)
+	return buildSZLResponseMessage(msg, sequence, szlID, szlIndex, 0x001C, 0x0007, payload)
+}
 
+func buildPLCStatusResponseMessage(msg *Message, sequence byte, szlID uint16, szlIndex uint16, status byte) *Message {
+	payload := []byte{0x00, 0x00, 0x00, status}
+	return buildSZLResponseMessage(msg, sequence, szlID, szlIndex, 0x0004, 0x0001, payload)
+}
+
+func buildSZLResponseMessage(msg *Message, sequence byte, szlID uint16, szlIndex uint16, lengthHeader uint16, records uint16, payload []byte) *Message {
 	param := []byte{0x00, 0x01, 0x12, 0x04, 0x11, 0x44, 0x01, sequence}
 	if userDataReq, ok := msg.S7Request.FuncParam.(*S7ParamUserData); ok && len(userDataReq.Parameter) == 8 {
 		copy(param, userDataReq.Parameter)
@@ -75,8 +103,8 @@ func buildCPUInfoResponseMessage(msg *Message, sequence byte, szlID uint16, szlI
 	binary.BigEndian.PutUint16(data[6:8], uint16(len(payload)+8))
 	binary.BigEndian.PutUint16(data[8:10], szlID)
 	binary.BigEndian.PutUint16(data[10:12], szlIndex)
-	binary.BigEndian.PutUint16(data[12:14], 0x001C) // LengthHeader
-	binary.BigEndian.PutUint16(data[14:16], 0x0007) // NumberOfDataRecord
+	binary.BigEndian.PutUint16(data[12:14], lengthHeader)
+	binary.BigEndian.PutUint16(data[14:16], records)
 	copy(data[16:], payload)
 
 	return &Message{

@@ -103,3 +103,41 @@ func TestPackCPUInfoResponseLayout(t *testing.T) {
 		t.Fatalf("unexpected ModuleTypeName: %q", moduleTypeName)
 	}
 }
+
+func TestPackPLCStatusResponseLayout(t *testing.T) {
+	reqMsg := &Message{
+		TPKTHeader: TPKTHeader{Version: 3},
+		COTPHeader: COTPHeader{Length: 2, PDUType: COTPData, EoT: 0x80},
+		S7Header: &S7Header{
+			ProtocolID:       S7ProtocolID,
+			ROSCTR:           S7FuncUserData,
+			RedundancyID:     0,
+			ProtocolDataUnit: 0x0500,
+			ParamLength:      8,
+			DataLength:       8,
+		},
+		S7Request: &S7Request{
+			FunctionCode: S7FuncUserData,
+			FuncParam: &S7ParamUserData{
+				Parameter: []byte{0x00, 0x01, 0x12, 0x04, 0x11, 0x44, 0x01, 0x00},
+				Data:      []byte{0xFF, 0x09, 0x00, 0x04, 0x04, 0x24, 0x00, 0x00},
+			},
+		},
+	}
+
+	res := buildPLCStatusResponseMessage(reqMsg, 0x00, 0x0424, 0x0000, 8)
+	packed, err := res.Pack(COTPData)
+	if err != nil {
+		t.Fatalf("unexpected pack error: %v", err)
+	}
+
+	if len(packed) <= 44 {
+		t.Fatalf("unexpected status response length: %d", len(packed))
+	}
+	if binary.BigEndian.Uint16(packed[27:29]) != 0 {
+		t.Fatalf("unexpected status result code: %x", binary.BigEndian.Uint16(packed[27:29]))
+	}
+	if packed[44] != 8 {
+		t.Fatalf("unexpected PLC status byte: %d", packed[44])
+	}
+}
