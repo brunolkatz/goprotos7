@@ -75,14 +75,10 @@ func (h *DashboardAPi) GetDbVars(w http.ResponseWriter, r *http.Request) {
 	}
 	applyLiveValues(dbVariables)
 
-	err = wa_server_templs.RenderPageLayout(
-		w,
-		r,
-		"Database Variables",
-		DbVarsTempl(dbVariables),
-	)
+	comp := DbVarsTempl(dbVariables)
+	err = comp.Render(r.Context(), w)
 	if err != nil {
-		httpx.InternalError(w, "Error rendering page: "+err.Error())
+		httpx.InternalError(w, "Error rendering variables: "+err.Error())
 		return
 	}
 }
@@ -142,15 +138,27 @@ func (h *DashboardAPi) GetPLCValues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rows := make([]plcValueRow, 0, len(dbVariables))
+	addresses := make([]string, 0, len(dbVariables))
+	for _, v := range dbVariables {
+		addresses = append(addresses, v.ToDBAddress())
+	}
+	liveByAddress := map[string]plc_runtime.ValueSnapshot{}
+	liveValues, err := plc_runtime.ReadValues(addresses)
+	if err == nil {
+		for _, lv := range liveValues {
+			liveByAddress[lv.Address] = lv
+		}
+	}
 	for _, v := range dbVariables {
 		row := plcValueRow{
 			ID:      v.Id,
 			Address: v.ToDBAddress(),
 		}
-		snapshot, ok := plc_runtime.GetValue(row.Address)
-		if ok {
-			row.Value = snapshot.Value
-			row.Error = snapshot.Error
+		if lv, ok := liveByAddress[row.Address]; ok {
+			row.Value = lv.Value
+			row.Error = lv.Error
+		} else if err != nil {
+			row.Error = "PLC unavailable"
 		}
 		rows = append(rows, row)
 	}

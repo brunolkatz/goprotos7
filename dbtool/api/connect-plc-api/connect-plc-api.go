@@ -7,7 +7,6 @@ import (
 	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
 	plc_runtime "github.com/brunolkatz/goprotos7/dbtool/internals/plc-runtime"
 	"net/http"
-	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -298,6 +297,7 @@ func (s *plcSession) connectAndStart(ctx context.Context, cmd wsCommand) error {
 
 	s.handler = handler
 	s.client = gos7.NewClient(handler)
+	plc_runtime.SetClient(s.client)
 	s.variables = normalizeVariables(cmd.Variables)
 	if s.saveConnectList != nil {
 		s.saveConnectList(s.variables)
@@ -336,20 +336,15 @@ func (s *plcSession) readOnce() error {
 	}
 	allVariables := mergeVariables(s.variables, plc_runtime.GetActiveDashboardWatchList())
 	values := make([]valueRow, 0, len(allVariables))
-	for _, addr := range allVariables {
-		buff := make([]byte, 256)
-		v, err := s.client.Read(addr, buff)
-		if err != nil {
-			plc_runtime.SetValue(addr, "", err.Error())
-			values = append(values, valueRow{Address: addr, Error: err.Error()})
-			continue
-		}
-		normalized := fmt.Sprintf("%v", normalizeValue(addr, v, buff))
-		plc_runtime.SetValue(addr, normalized, "")
-
+	readValues, err := plc_runtime.ReadValues(allVariables)
+	if err != nil {
+		return err
+	}
+	for _, item := range readValues {
 		values = append(values, valueRow{
-			Address: addr,
-			Value:   normalized,
+			Address: item.Address,
+			Value:   item.Value,
+			Error:   item.Error,
 		})
 	}
 	status := ""
@@ -400,6 +395,7 @@ func (s *plcSession) disconnect() {
 	}
 	s.handler = nil
 	s.client = nil
+	plc_runtime.ClearClient()
 	plc_runtime.SetDisconnected("")
 }
 
@@ -432,16 +428,6 @@ func mergeVariables(a, b []string) []string {
 	all = append(all, a...)
 	all = append(all, b...)
 	return normalizeVariables(all)
-}
-
-var realAddr = regexp.MustCompile(`(?i)\.DBD[0-9]+$`)
-
-func normalizeValue(address string, value any, raw []byte) any {
-	if realAddr.MatchString(strings.TrimSpace(address)) {
-		var h gos7.Helper
-		return h.GetRealAt(raw, 0)
-	}
-	return value
 }
 
 func mapPLCStatus(s int) string {

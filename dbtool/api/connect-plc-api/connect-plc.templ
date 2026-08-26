@@ -39,10 +39,6 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 							<input id="plc-slot" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="2"/>
 						</div>
 					</div>
-					<div class="grid gap-2">
-						<label class="text-sm text-slate-300">Addresses (one per line)</label>
-						<textarea id="plc-addresses" rows="8" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="DB1.DBX0.0&#10;DB1.DBD4" oninput="scheduleConnectWatchListSave()">{ strings.Join(connectWatchList, "\n") }</textarea>
-					</div>
 					<div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
 						<div class="mb-2 text-sm font-medium text-slate-200">Add created DB variables</div>
 						<div class="grid gap-2 md:grid-cols-2">
@@ -58,9 +54,12 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 							Select a DB to load variables.
 						</div>
 					</div>
+					<div class="grid gap-2">
+						<label class="text-sm text-slate-300">Addresses (one per line)</label>
+						<textarea id="plc-addresses" rows="8" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="DB1.DBX0.0&#10;DB1.DBD4" oninput="scheduleConnectWatchListSave()">{ strings.Join(connectWatchList, "\n") }</textarea>
+					</div>
 					<div class="flex flex-wrap gap-2">
-						<button type="button" onclick="plcConnect()" class="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Connect</button>
-						<button type="button" onclick="plcDisconnect()" class="rounded-lg border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/10">Disconnect</button>
+						<button id="plc-connect-toggle" type="button" onclick="plcToggleConnection()" class="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Connect</button>
 						<button type="button" onclick="plcReadOnce()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Read once</button>
 						<button type="button" onclick="plcGetStatus()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Status</button>
 						<button type="button" onclick="plcGetCPUInfo()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">CPU Info</button>
@@ -104,6 +103,7 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 
 	<script>
 		let plcWS = null;
+		let plcConnected = false;
 
 		function getWSURL() {
 			const protocol = location.protocol === "https:" ? "wss" : "ws";
@@ -161,6 +161,23 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 			} catch (_e) {
 				// keep UX smooth if save fails temporarily
 			}
+
+			function updateConnectButton(connecting = false) {
+				const btn = document.getElementById("plc-connect-toggle");
+				if (!btn) return;
+				if (connecting) {
+					btn.textContent = "Connecting...";
+					btn.className = "rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900";
+					return;
+				}
+				if (plcConnected) {
+					btn.textContent = "Disconnect";
+					btn.className = "rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-400";
+					return;
+				}
+				btn.textContent = "Connect";
+				btn.className = "rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400";
+			}
 		}
 
 		async function loadCreatedVariables() {
@@ -199,6 +216,8 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 				plcSend({ type: "disconnect" });
 				plcWS.close();
 			}
+			plcConnected = false;
+			updateConnectButton(true);
 			plcWS = new WebSocket(getWSURL());
 			plcWS.onopen = () => {
 				plcSend({
@@ -212,8 +231,16 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 				});
 			};
 			plcWS.onmessage = (ev) => handlePLCEvent(JSON.parse(ev.data));
-			plcWS.onclose = () => setConnMessage("WebSocket disconnected", true);
-			plcWS.onerror = () => setConnMessage("WebSocket error", true);
+			plcWS.onclose = () => {
+				plcConnected = false;
+				updateConnectButton(false);
+				setConnMessage("WebSocket disconnected", true);
+			};
+			plcWS.onerror = () => {
+				plcConnected = false;
+				updateConnectButton(false);
+				setConnMessage("WebSocket error", true);
+			};
 		}
 
 		function plcDisconnect() {
@@ -221,6 +248,16 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 				plcSend({ type: "disconnect" });
 				plcWS.close();
 			}
+			plcConnected = false;
+			updateConnectButton(false);
+		}
+
+		function plcToggleConnection() {
+			if (plcConnected || (plcWS && plcWS.readyState === WebSocket.OPEN)) {
+				plcDisconnect();
+				return;
+			}
+			plcConnect();
 		}
 
 		function plcReadOnce() { plcSend({ type: "read_once" }); }
@@ -268,12 +305,18 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 			if (!ev || !ev.type) return;
 			switch (ev.type) {
 				case "connected":
+					plcConnected = true;
+					updateConnectButton(false);
 					setConnMessage(ev.message || "connected", false);
 					break;
 				case "disconnected":
+					plcConnected = false;
+					updateConnectButton(false);
 					setConnMessage(ev.message || "disconnected", true);
 					break;
 				case "error":
+					plcConnected = false;
+					updateConnectButton(false);
 					setConnMessage(ev.message || "error", true);
 					break;
 				case "status":
@@ -292,5 +335,6 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 					break;
 			}
 		}
+		updateConnectButton(false);
 	</script>
 }

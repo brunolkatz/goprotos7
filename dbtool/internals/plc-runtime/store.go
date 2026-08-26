@@ -1,9 +1,13 @@
 package plc_runtime
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/robinson/gos7"
 )
 
 type ValueSnapshot struct {
@@ -27,6 +31,8 @@ var (
 	runtimeStatus = RuntimeStatus{Connected: false, Status: "DISCONNECTED"}
 	dashboardDB   int32
 	dashboardVars []string
+	clientMu      sync.Mutex
+	plcClient     gos7.Client
 )
 
 func SetValue(address, value, errText string) {
@@ -110,6 +116,55 @@ func GetActiveDashboardDB() int32 {
 	valuesMu.RLock()
 	defer valuesMu.RUnlock()
 	return dashboardDB
+}
+
+func SetClient(client gos7.Client) {
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	plcClient = client
+}
+
+func ClearClient() {
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	plcClient = nil
+}
+
+func ReadValues(addresses []string) ([]ValueSnapshot, error) {
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	if plcClient == nil {
+		return nil, fmt.Errorf("plc not connected")
+	}
+	cleanAddresses := normalizeAddresses(addresses)
+	results := make([]ValueSnapshot, 0, len(cleanAddresses))
+	for _, addr := range cleanAddresses {
+		buff := make([]byte, 256)
+		raw, err := plcClient.Read(addr, buff)
+		if err != nil {
+			SetValue(addr, "", err.Error())
+			if v, ok := GetValue(addr); ok {
+				results = append(results, v)
+			}
+			continue
+		}
+		v := fmt.Sprintf("%v", normalizeReadValue(addr, raw, buff))
+		SetValue(addr, v, "")
+		if value, ok := GetValue(addr); ok {
+			results = append(results, value)
+		}
+	}
+	return results, nil
+}
+
+var realAddr = regexp.MustCompile(`(?i)\.DBD[0-9]+$`)
+
+func normalizeReadValue(address string, value any, raw []byte) any {
+	if realAddr.MatchString(strings.TrimSpace(address)) {
+		var h gos7.Helper
+		return h.GetRealAt(raw, 0)
+	}
+	return value
 }
 
 func normalizeAddresses(in []string) []string {

@@ -11,6 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
+	"strings"
 )
 
 func DashboardPageTempl(dbNumbers []uint32) templ.Component {
@@ -34,7 +35,7 @@ func DashboardPageTempl(dbNumbers []uint32) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mx-auto w-full max-w-7xl\"><div class=\"mb-8\"><h1 class=\"text-4xl font-bold tracking-tight text-white\">Database Dashboard</h1><p class=\"mt-2 text-slate-400\">Inspect and switch simulated DB variable states.</p></div><div class=\"mb-6 rounded-xl border border-slate-800 bg-slate-900/70 p-5\"><label for=\"db-number\" class=\"mb-2 block text-sm font-medium text-slate-200\">Select DB Number</label> <select class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" id=\"db-number\" name=\"db-number\" required hx-get=\"/dashboard/get-db-vars\" hx-target=\"#db-vars\" onchange=\"setDashboardDB(this.value)\"><option value=\"\" disabled selected>Select DB</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mx-auto w-full max-w-[1400px]\"><div class=\"mb-5 flex flex-wrap items-end justify-between gap-3\"><div><h1 class=\"text-3xl font-bold tracking-tight text-white\">Database Dashboard</h1><p class=\"mt-1 text-sm text-slate-400\">Inspect simulated values and monitor live PLC readings.</p></div><div class=\"rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-300\">Last update: <span id=\"dashboard-last-update\" class=\"font-medium text-slate-100\">-</span></div></div><div class=\"grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]\"><aside class=\"rounded-xl border border-slate-800 bg-slate-900/70 p-4 lg:sticky lg:top-24 lg:h-fit\"><div class=\"mb-4\"><label for=\"db-number\" class=\"mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400\">Database</label> <select class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none ring-indigo-500/50 focus:ring\" id=\"db-number\" name=\"db-number\" required hx-get=\"/dashboard/get-db-vars\" hx-target=\"#db-vars\" onchange=\"setDashboardDB(this.value)\"><option value=\"\" disabled selected>Select DB</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -46,7 +47,7 @@ func DashboardPageTempl(dbNumbers []uint32) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", t))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 27, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 36, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 			if templ_7745c5c3_Err != nil {
@@ -59,7 +60,7 @@ func DashboardPageTempl(dbNumbers []uint32) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("DB%d", t))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 27, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 36, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -70,7 +71,7 @@ func DashboardPageTempl(dbNumbers []uint32) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</select></div><div id=\"db-vars\" class=\"grid gap-4 md:grid-cols-2 xl:grid-cols-3\"></div></div><script>\n\t\tlet dashboardDbNumber = \"\";\n\t\tlet dashboardPLCTimer = null;\n\n\t\tfunction setDashboardDB(dbNumber) {\n\t\t\tdashboardDbNumber = String(dbNumber || \"\").trim();\n\t\t\tif (dashboardDbNumber) {\n\t\t\t\tfetch(\"/dashboard/select-db\", {\n\t\t\t\t\tmethod: \"POST\",\n\t\t\t\t\theaders: { \"Content-Type\": \"application/json\" },\n\t\t\t\t\tbody: JSON.stringify({ db_number: Number(dashboardDbNumber) })\n\t\t\t\t}).catch(() => {});\n\t\t\t}\n\t\t\tstartDashboardPLCPoll();\n\t\t}\n\n\t\tfunction startDashboardPLCPoll() {\n\t\t\tif (dashboardPLCTimer) {\n\t\t\t\tclearInterval(dashboardPLCTimer);\n\t\t\t\tdashboardPLCTimer = null;\n\t\t\t}\n\t\t\tif (!dashboardDbNumber) {\n\t\t\t\treturn;\n\t\t\t}\n\t\t\trefreshDashboardPLCValues();\n\t\t\tdashboardPLCTimer = setInterval(refreshDashboardPLCValues, 1000);\n\t\t}\n\n\t\tasync function refreshDashboardPLCValues() {\n\t\t\tif (!dashboardDbNumber) return;\n\t\t\ttry {\n\t\t\t\tconst resp = await fetch(`/dashboard/plc-values?db-number=${encodeURIComponent(dashboardDbNumber)}`, {\n\t\t\t\t\theaders: { \"Accept\": \"application/json\" }\n\t\t\t\t});\n\t\t\t\tif (!resp.ok) return;\n\t\t\t\tconst rows = await resp.json();\n\t\t\t\trows.forEach((row) => {\n\t\t\t\t\tconst valueEl = document.getElementById(`db-var-value-${row.id}`);\n\t\t\t\t\tconst statusEl = document.getElementById(`db-var-live-${row.id}`);\n\t\t\t\t\tif (!valueEl || !statusEl) return;\n\t\t\t\t\tconst fallbackValue = valueEl.getAttribute(\"data-default-value\") || \"\";\n\t\t\t\t\tif (row.error) {\n\t\t\t\t\t\tvalueEl.textContent = fallbackValue;\n\t\t\t\t\t\tstatusEl.textContent = `PLC read error: ${row.error}`;\n\t\t\t\t\t\tstatusEl.className = \"mt-2 rounded border border-rose-700/40 bg-rose-950/30 px-2 py-1 text-xs text-rose-200\";\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tif (row.value !== undefined && row.value !== null && row.value !== \"\") {\n\t\t\t\t\t\tvalueEl.textContent = row.value;\n\t\t\t\t\t\tstatusEl.textContent = \"PLC live value\";\n\t\t\t\t\t\tstatusEl.className = \"mt-2 rounded border border-cyan-700/40 bg-cyan-950/30 px-2 py-1 text-xs text-cyan-200\";\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tvalueEl.textContent = fallbackValue;\n\t\t\t\t\tstatusEl.textContent = \"PLC value unavailable\";\n\t\t\t\t\tstatusEl.className = \"mt-2 rounded border border-slate-700/50 bg-slate-900/60 px-2 py-1 text-xs text-slate-300\";\n\t\t\t\t});\n\t\t\t} catch (_e) {\n\t\t\t\t// no-op; keep last rendered values\n\t\t\t}\n\t\t}\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</select></div><div class=\"mb-4 rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-300\">Selected: <span id=\"selected-db-chip\" class=\"ml-1 rounded bg-indigo-500/20 px-2 py-0.5 font-semibold text-indigo-300\">None</span></div><p class=\"text-xs leading-relaxed text-slate-400\">Preset writes are enabled only when PLC is connected. Live values are fetched directly from PLC on each refresh.</p></aside><section><div id=\"db-vars\" class=\"grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3\"></div></section></div></div><script>\n\t\tlet dashboardDbNumber = \"\";\n\t\tlet dashboardPLCTimer = null;\n\t\tlet dashboardPLCConnected = false;\n\n\t\tfunction setDashboardDB(dbNumber) {\n\t\t\tdashboardDbNumber = String(dbNumber || \"\").trim();\n\t\t\tdocument.getElementById(\"selected-db-chip\").textContent = dashboardDbNumber ? `DB${dashboardDbNumber}` : \"None\";\n\t\t\tif (dashboardDbNumber) {\n\t\t\t\tfetch(\"/dashboard/select-db\", {\n\t\t\t\t\tmethod: \"POST\",\n\t\t\t\t\theaders: { \"Content-Type\": \"application/json\" },\n\t\t\t\t\tbody: JSON.stringify({ db_number: Number(dashboardDbNumber) })\n\t\t\t\t}).catch(() => {});\n\t\t\t}\n\t\t\tstartDashboardPLCPoll();\n\t\t}\n\n\t\tfunction startDashboardPLCPoll() {\n\t\t\tif (dashboardPLCTimer) {\n\t\t\t\tclearInterval(dashboardPLCTimer);\n\t\t\t\tdashboardPLCTimer = null;\n\t\t\t}\n\t\t\tif (!dashboardDbNumber) return;\n\t\t\trefreshDashboardPLCValues();\n\t\t\tdashboardPLCTimer = setInterval(refreshDashboardPLCValues, 1000);\n\t\t}\n\n\t\tfunction setPresetButtonsState() {\n\t\t\tdocument.querySelectorAll(\"button[data-preset-btn='1']\").forEach((btn) => {\n\t\t\t\tbtn.disabled = !dashboardPLCConnected;\n\t\t\t\tbtn.title = dashboardPLCConnected ? \"\" : \"PLC disconnected\";\n\t\t\t\tbtn.classList.toggle(\"opacity-50\", !dashboardPLCConnected);\n\t\t\t\tbtn.classList.toggle(\"cursor-not-allowed\", !dashboardPLCConnected);\n\t\t\t});\n\t\t}\n\n\t\tfunction setLiveRow(varId, kind, text) {\n\t\t\tconst el = document.getElementById(`db-var-live-${varId}`);\n\t\t\tif (!el) return;\n\t\t\tel.textContent = text;\n\t\t\tif (kind === \"live\") {\n\t\t\t\tel.className = \"mt-3 rounded-md border border-emerald-600/30 bg-emerald-950/25 px-3 py-2 text-xs font-medium text-emerald-200 transition\";\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tif (kind === \"error\") {\n\t\t\t\tel.className = \"mt-3 rounded-md border border-rose-600/30 bg-rose-950/25 px-3 py-2 text-xs font-medium text-rose-200 transition\";\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tel.className = \"mt-3 rounded-md border border-slate-700/50 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-300 transition\";\n\t\t}\n\n\t\tfunction pulseCard(varId) {\n\t\t\tconst card = document.getElementById(`db-var-card-${varId}`);\n\t\t\tif (!card) return;\n\t\t\tcard.classList.add(\"ring-1\", \"ring-cyan-400/40\");\n\t\t\tsetTimeout(() => card.classList.remove(\"ring-1\", \"ring-cyan-400/40\"), 600);\n\t\t}\n\n\t\tasync function refreshDashboardPLCValues() {\n\t\t\tif (!dashboardDbNumber) return;\n\t\t\ttry {\n\t\t\t\tconst statusResp = await fetch(\"/connect-plc/runtime-status\", { headers: { \"Accept\": \"application/json\" } });\n\t\t\t\tif (statusResp.ok) {\n\t\t\t\t\tconst status = await statusResp.json();\n\t\t\t\t\tdashboardPLCConnected = !!status.connected;\n\t\t\t\t\tsetPresetButtonsState();\n\t\t\t\t}\n\n\t\t\t\tconst resp = await fetch(`/dashboard/plc-values?db-number=${encodeURIComponent(dashboardDbNumber)}`, {\n\t\t\t\t\theaders: { \"Accept\": \"application/json\" }\n\t\t\t\t});\n\t\t\t\tif (!resp.ok) return;\n\t\t\t\tconst rows = await resp.json();\n\t\t\t\trows.forEach((row) => {\n\t\t\t\t\tconst liveValue = document.getElementById(`db-var-live-value-${row.id}`);\n\t\t\t\t\tif (!liveValue) return;\n\t\t\t\t\tif (!dashboardPLCConnected) {\n\t\t\t\t\t\tliveValue.textContent = \"—\";\n\t\t\t\t\t\tsetLiveRow(row.id, \"muted\", \"PLC unavailable\");\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tif (row.error) {\n\t\t\t\t\t\tliveValue.textContent = \"—\";\n\t\t\t\t\t\tsetLiveRow(row.id, \"error\", `Live read failed: ${row.error}`);\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tif (row.value !== undefined && row.value !== null && row.value !== \"\") {\n\t\t\t\t\t\tliveValue.textContent = row.value;\n\t\t\t\t\t\tsetLiveRow(row.id, \"live\", \"Live PLC value\");\n\t\t\t\t\t\tpulseCard(row.id);\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tliveValue.textContent = \"—\";\n\t\t\t\t\tsetLiveRow(row.id, \"muted\", \"Live value not available\");\n\t\t\t\t});\n\t\t\t\tdocument.getElementById(\"dashboard-last-update\").textContent = new Date().toLocaleTimeString();\n\t\t\t} catch (_e) {\n\t\t\t\tdashboardPLCConnected = false;\n\t\t\t\tsetPresetButtonsState();\n\t\t\t}\n\t\t}\n\n\t\tfunction setPresetPending(btn) {\n\t\t\tif (!btn || btn.disabled) return;\n\t\t\tbtn.dataset.originalText = btn.textContent || \"\";\n\t\t\tbtn.textContent = \"Writing...\";\n\t\t}\n\n\t\tfunction copyAddress(btn) {\n\t\t\tconst value = btn?.getAttribute(\"data-address\") || \"\";\n\t\t\tnavigator.clipboard?.writeText(value).then(() => {\n\t\t\t\tconst tip = btn.querySelector(\"span\");\n\t\t\t\tif (!tip) return;\n\t\t\t\ttip.classList.remove(\"hidden\");\n\t\t\t\tsetTimeout(() => tip.classList.add(\"hidden\"), 700);\n\t\t\t}).catch(() => {});\n\t\t}\n\n\t\tdocument.body.addEventListener(\"htmx:responseError\", (ev) => {\n\t\t\tconst btn = ev.target && ev.target.closest ? ev.target.closest(\"button[data-preset-btn='1']\") : null;\n\t\t\tif (!btn) return;\n\t\t\tif (btn.dataset.originalText) {\n\t\t\t\tbtn.textContent = btn.dataset.originalText;\n\t\t\t}\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -130,248 +131,223 @@ func DbVarTempl(dbVar *db_models.DbVariable) templ.Component {
 			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"rounded-xl border border-slate-800 bg-slate-900/70 p-5 shadow-sm\" id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("var-db-%d-id-%d", dbVar.DbNumber, dbVar.Id))
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("db-var-card-%d", dbVar.Id))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 104, Col: 140}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 188, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"><h3 class=\"text-lg font-semibold text-indigo-300\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"flex min-h-[300px] flex-col rounded-xl border border-slate-800 bg-slate-900/75 p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:bg-slate-900\"><div class=\"mb-3 flex items-start justify-between gap-3\"><div class=\"min-w-0\"><h3 class=\"truncate text-base font-semibold text-slate-100\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(dbVar.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 105, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 191, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</h3><div class=\"mt-3 space-y-1 text-sm text-slate-300\"><p>Type: <code class=\"rounded bg-slate-950 px-2 py-1 text-indigo-200\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</h3><p class=\"mt-0.5 truncate text-xs text-slate-400\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 string
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(dbVar.DataType)
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(dbVar.Description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 107, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 192, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</code></p><p>Value: <code id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("db-var-value-%d", dbVar.Id))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 108, Col: 64}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
+		var templ_7745c5c3_Var9 = []any{getTypeBadgeClass(dbVar)}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var9...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" data-default-value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(dbVar.FmtValue())
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var9).String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 108, Col: 104}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 1, Col: 0}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" class=\"rounded bg-slate-950 px-2 py-1 text-emerald-300\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if dbVar.PLCReadValue != nil {
-			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(*dbVar.PLCReadValue)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 110, Col: 26}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			var templ_7745c5c3_Var12 string
-			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(dbVar.FmtValue())
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 112, Col: 23}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
+		var templ_7745c5c3_Var11 string
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(getDataTypeLabel(dbVar))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 194, Col: 69}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</code></p><p>Address: <code class=\"rounded bg-slate-950 px-2 py-1 text-amber-300\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</span></div><div class=\"mb-4 flex items-center gap-2\"><code class=\"rounded bg-amber-500/10 px-2 py-1 font-mono text-xs text-amber-300\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var12 string
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(dbVar.ToDBAddress())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 198, Col: 105}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</code> <button type=\"button\" data-address=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(dbVar.ToDBAddress())
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(dbVar.ToDBAddress())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 115, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 199, Col: 59}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</code></p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" onclick=\"copyAddress(this)\" class=\"relative rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50\">Copy <span class=\"pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-100\">Copied</span></button></div><div class=\"mb-3\"><div class=\"text-[11px] uppercase tracking-wide text-slate-400\">Simulated value</div><div class=\"mt-1 break-words rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 font-mono text-lg font-semibold text-cyan-300\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var14 string
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(dbVar.FmtValue())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 207, Col: 158}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></div><div class=\"mb-3\"><div class=\"text-[11px] uppercase tracking-wide text-slate-400\">Live PLC value</div><div class=\"mt-1 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 font-mono text-base font-semibold text-emerald-300\" id=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var15 string
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("db-var-live-value-%d", dbVar.Id))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 212, Col: 183}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\">—</div></div><p id=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var16 string
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("db-var-live-%d", dbVar.Id))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 214, Col: 49}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" class=\"mt-3 rounded-md border border-slate-700/50 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-300 transition\">PLC unavailable</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if dbVar.StaticVarDefinitions != nil && len(dbVar.StaticVarDefinitions) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-3\"><div class=\"flex flex-wrap gap-2\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"mt-auto pt-4\"><div class=\"mb-2 text-[11px] uppercase tracking-wide text-slate-400\">Presets</div><div class=\"flex flex-wrap gap-2\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, def := range dbVar.StaticVarDefinitions {
-				var templ_7745c5c3_Var14 = []any{getStaticValueBtnClass(def.IsSelected)}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var14...)
+				var templ_7745c5c3_Var17 = []any{getPresetBtnClass(def.IsSelected)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var17...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<button class=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var15 string
-				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var14).String())
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 1, Col: 0}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" hx-put=\"/dashboard/set-var-value\" hx-swap=\"outerHTML\" hx-vals=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf(`{ "db-number": %d, "var-id": %d, "t": "%s", "sts-id": %d }`, dbVar.DbNumber, dbVar.Id, dbVar.VarType, def.Id))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 126, Col: 139}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" hx-target=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var17 string
-				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("#var-db-%d-id-%d", dbVar.DbNumber, dbVar.Id))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 127, Col: 76}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<button type=\"button\" data-preset-btn=\"1\" class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var18 string
-				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(getStaticDefLabel(def))
+				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var17).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 128, Col: 31}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 1, Col: 0}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</button>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" hx-put=\"/dashboard/set-var-value\" hx-swap=\"outerHTML\" hx-disabled-elt=\"this\" hx-vals=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var19 string
+				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf(`{ "db-number": %d, "var-id": %d, "t": "%s", "sts-id": %d }`, dbVar.DbNumber, dbVar.Id, dbVar.VarType, def.Id))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 228, Col: 139}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" hx-target=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var20 string
+				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("#db-var-card-%d", dbVar.Id))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 229, Col: 59}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" onclick=\"setPresetPending(this)\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var21 string
+				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(getStaticDefLabel(def))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 231, Col: 31}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</button>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<p class=\"mt-3 text-xs text-slate-400\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var19 string
-		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(dbVar.Description)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 133, Col: 60}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</p>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var20 = []any{getPLCReadLabelClass(dbVar.PLCReadError, dbVar.PLCReadValue)}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var20...)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<p id=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var21 string
-		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("db-var-live-%d", dbVar.Id))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 134, Col: 49}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" class=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var22 string
-		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var20).String())
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 1, Col: 0}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var23 string
-		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(getPLCReadLabel(dbVar.PLCReadError, dbVar.PLCReadValue))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/dashboard-api/dashboard.templ`, Line: 135, Col: 60}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -379,11 +355,11 @@ func DbVarTempl(dbVar *db_models.DbVariable) templ.Component {
 	})
 }
 
-func getStaticValueBtnClass(isSelected bool) string {
+func getPresetBtnClass(isSelected bool) string {
 	if isSelected {
-		return "rounded-lg bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-300 ring-1 ring-emerald-500/40 transition"
+		return "rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-300 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
 	}
-	return "rounded-lg bg-indigo-500/20 px-3 py-1.5 text-sm font-semibold text-indigo-300 ring-1 ring-indigo-500/40 transition hover:bg-indigo-500/30"
+	return "rounded-lg border border-indigo-500/40 bg-indigo-500/20 px-3 py-1.5 text-sm font-semibold text-indigo-200 transition hover:bg-indigo-500/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
 }
 
 func getStaticDefLabel(def *db_models.StaticVarDefinition) string {
@@ -402,24 +378,24 @@ func getStaticDefLabel(def *db_models.StaticVarDefinition) string {
 	return "Value"
 }
 
-func getPLCReadLabelClass(errValue *string, liveValue *string) string {
-	if errValue != nil && *errValue != "" {
-		return "mt-2 rounded border border-rose-700/40 bg-rose-950/30 px-2 py-1 text-xs text-rose-200"
-	}
-	if liveValue != nil && *liveValue != "" {
-		return "mt-2 rounded border border-cyan-700/40 bg-cyan-950/30 px-2 py-1 text-xs text-cyan-200"
-	}
-	return "mt-2 rounded border border-slate-700/50 bg-slate-900/60 px-2 py-1 text-xs text-slate-300"
+func getDataTypeLabel(v *db_models.DbVariable) string {
+	return strings.ToUpper(fmt.Sprintf("%v", v.DataType))
 }
 
-func getPLCReadLabel(errValue *string, liveValue *string) string {
-	if errValue != nil && *errValue != "" {
-		return "PLC read error: " + *errValue
+func getTypeBadgeClass(v *db_models.DbVariable) string {
+	t := getDataTypeLabel(v)
+	switch {
+	case strings.Contains(t, "BOOL"):
+		return "shrink-0 rounded-md border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-300"
+	case strings.Contains(t, "REAL"), strings.Contains(t, "FLOAT"):
+		return "shrink-0 rounded-md border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[11px] font-semibold text-amber-300"
+	case strings.Contains(t, "STRING"), strings.Contains(t, "CHAR"):
+		return "shrink-0 rounded-md border border-violet-500/40 bg-violet-500/20 px-2 py-0.5 text-[11px] font-semibold text-violet-300"
+	case strings.Contains(t, "TIME"), strings.Contains(t, "DATE"):
+		return "shrink-0 rounded-md border border-sky-500/40 bg-sky-500/20 px-2 py-0.5 text-[11px] font-semibold text-sky-300"
+	default:
+		return "shrink-0 rounded-md border border-blue-500/40 bg-blue-500/20 px-2 py-0.5 text-[11px] font-semibold text-blue-300"
 	}
-	if liveValue != nil && *liveValue != "" {
-		return "PLC live value"
-	}
-	return "PLC value unavailable"
 }
 
 var _ = templruntime.GeneratedTemplate

@@ -1,41 +1,62 @@
 package dashboard_api
 
 import (
-    "github.com/brunolkatz/goprotos7/dbtool/db/db_models"
-    "fmt"
+	"fmt"
+	"strings"
+	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
 )
 
 templ DashboardPageTempl(dbNumbers []uint32) {
-	<div class="mx-auto w-full max-w-7xl">
-		<div class="mb-8">
-			<h1 class="text-4xl font-bold tracking-tight text-white">Database Dashboard</h1>
-			<p class="mt-2 text-slate-400">Inspect and switch simulated DB variable states.</p>
+	<div class="mx-auto w-full max-w-[1400px]">
+		<div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h1 class="text-3xl font-bold tracking-tight text-white">Database Dashboard</h1>
+				<p class="mt-1 text-sm text-slate-400">Inspect simulated values and monitor live PLC readings.</p>
+			</div>
+			<div class="rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-300">
+				Last update: <span id="dashboard-last-update" class="font-medium text-slate-100">-</span>
+			</div>
 		</div>
-		<div class="mb-6 rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-			<label for="db-number" class="mb-2 block text-sm font-medium text-slate-200">Select DB Number</label>
-			<select
-				class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring"
-				id="db-number"
-				name="db-number"
-				required
-				hx-get="/dashboard/get-db-vars"
-				hx-target="#db-vars"
-				onchange="setDashboardDB(this.value)"
-			>
-				<option value="" disabled selected>Select DB</option>
-				for _, t := range dbNumbers {
-					<option value={ fmt.Sprintf("%d", t) }>{ fmt.Sprintf("DB%d", t) }</option>
-				}
-			</select>
+
+		<div class="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+			<aside class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 lg:sticky lg:top-24 lg:h-fit">
+				<div class="mb-4">
+					<label for="db-number" class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400">Database</label>
+					<select
+						class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none ring-indigo-500/50 focus:ring"
+						id="db-number"
+						name="db-number"
+						required
+						hx-get="/dashboard/get-db-vars"
+						hx-target="#db-vars"
+						onchange="setDashboardDB(this.value)"
+					>
+						<option value="" disabled selected>Select DB</option>
+						for _, t := range dbNumbers {
+							<option value={ fmt.Sprintf("%d", t) }>{ fmt.Sprintf("DB%d", t) }</option>
+						}
+					</select>
+				</div>
+				<div class="mb-4 rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-300">
+					Selected: <span id="selected-db-chip" class="ml-1 rounded bg-indigo-500/20 px-2 py-0.5 font-semibold text-indigo-300">None</span>
+				</div>
+				<p class="text-xs leading-relaxed text-slate-400">Preset writes are enabled only when PLC is connected. Live values are fetched directly from PLC on each refresh.</p>
+			</aside>
+
+			<section>
+				<div id="db-vars" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+			</section>
 		</div>
-		<div id="db-vars" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
 	</div>
+
 	<script>
 		let dashboardDbNumber = "";
 		let dashboardPLCTimer = null;
+		let dashboardPLCConnected = false;
 
 		function setDashboardDB(dbNumber) {
 			dashboardDbNumber = String(dbNumber || "").trim();
+			document.getElementById("selected-db-chip").textContent = dashboardDbNumber ? `DB${dashboardDbNumber}` : "None";
 			if (dashboardDbNumber) {
 				fetch("/dashboard/select-db", {
 					method: "POST",
@@ -51,97 +72,175 @@ templ DashboardPageTempl(dbNumbers []uint32) {
 				clearInterval(dashboardPLCTimer);
 				dashboardPLCTimer = null;
 			}
-			if (!dashboardDbNumber) {
-				return;
-			}
+			if (!dashboardDbNumber) return;
 			refreshDashboardPLCValues();
 			dashboardPLCTimer = setInterval(refreshDashboardPLCValues, 1000);
+		}
+
+		function setPresetButtonsState() {
+			document.querySelectorAll("button[data-preset-btn='1']").forEach((btn) => {
+				btn.disabled = !dashboardPLCConnected;
+				btn.title = dashboardPLCConnected ? "" : "PLC disconnected";
+				btn.classList.toggle("opacity-50", !dashboardPLCConnected);
+				btn.classList.toggle("cursor-not-allowed", !dashboardPLCConnected);
+			});
+		}
+
+		function setLiveRow(varId, kind, text) {
+			const el = document.getElementById(`db-var-live-${varId}`);
+			if (!el) return;
+			el.textContent = text;
+			if (kind === "live") {
+				el.className = "mt-3 rounded-md border border-emerald-600/30 bg-emerald-950/25 px-3 py-2 text-xs font-medium text-emerald-200 transition";
+				return;
+			}
+			if (kind === "error") {
+				el.className = "mt-3 rounded-md border border-rose-600/30 bg-rose-950/25 px-3 py-2 text-xs font-medium text-rose-200 transition";
+				return;
+			}
+			el.className = "mt-3 rounded-md border border-slate-700/50 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-300 transition";
+		}
+
+		function pulseCard(varId) {
+			const card = document.getElementById(`db-var-card-${varId}`);
+			if (!card) return;
+			card.classList.add("ring-1", "ring-cyan-400/40");
+			setTimeout(() => card.classList.remove("ring-1", "ring-cyan-400/40"), 600);
 		}
 
 		async function refreshDashboardPLCValues() {
 			if (!dashboardDbNumber) return;
 			try {
+				const statusResp = await fetch("/connect-plc/runtime-status", { headers: { "Accept": "application/json" } });
+				if (statusResp.ok) {
+					const status = await statusResp.json();
+					dashboardPLCConnected = !!status.connected;
+					setPresetButtonsState();
+				}
+
 				const resp = await fetch(`/dashboard/plc-values?db-number=${encodeURIComponent(dashboardDbNumber)}`, {
 					headers: { "Accept": "application/json" }
 				});
 				if (!resp.ok) return;
 				const rows = await resp.json();
 				rows.forEach((row) => {
-					const valueEl = document.getElementById(`db-var-value-${row.id}`);
-					const statusEl = document.getElementById(`db-var-live-${row.id}`);
-					if (!valueEl || !statusEl) return;
-					const fallbackValue = valueEl.getAttribute("data-default-value") || "";
+					const liveValue = document.getElementById(`db-var-live-value-${row.id}`);
+					if (!liveValue) return;
+					if (!dashboardPLCConnected) {
+						liveValue.textContent = "—";
+						setLiveRow(row.id, "muted", "PLC unavailable");
+						return;
+					}
 					if (row.error) {
-						valueEl.textContent = fallbackValue;
-						statusEl.textContent = `PLC read error: ${row.error}`;
-						statusEl.className = "mt-2 rounded border border-rose-700/40 bg-rose-950/30 px-2 py-1 text-xs text-rose-200";
+						liveValue.textContent = "—";
+						setLiveRow(row.id, "error", `Live read failed: ${row.error}`);
 						return;
 					}
 					if (row.value !== undefined && row.value !== null && row.value !== "") {
-						valueEl.textContent = row.value;
-						statusEl.textContent = "PLC live value";
-						statusEl.className = "mt-2 rounded border border-cyan-700/40 bg-cyan-950/30 px-2 py-1 text-xs text-cyan-200";
+						liveValue.textContent = row.value;
+						setLiveRow(row.id, "live", "Live PLC value");
+						pulseCard(row.id);
 						return;
 					}
-					valueEl.textContent = fallbackValue;
-					statusEl.textContent = "PLC value unavailable";
-					statusEl.className = "mt-2 rounded border border-slate-700/50 bg-slate-900/60 px-2 py-1 text-xs text-slate-300";
+					liveValue.textContent = "—";
+					setLiveRow(row.id, "muted", "Live value not available");
 				});
+				document.getElementById("dashboard-last-update").textContent = new Date().toLocaleTimeString();
 			} catch (_e) {
-				// no-op; keep last rendered values
+				dashboardPLCConnected = false;
+				setPresetButtonsState();
 			}
 		}
+
+		function setPresetPending(btn) {
+			if (!btn || btn.disabled) return;
+			btn.dataset.originalText = btn.textContent || "";
+			btn.textContent = "Writing...";
+		}
+
+		function copyAddress(btn) {
+			const value = btn?.getAttribute("data-address") || "";
+			navigator.clipboard?.writeText(value).then(() => {
+				const tip = btn.querySelector("span");
+				if (!tip) return;
+				tip.classList.remove("hidden");
+				setTimeout(() => tip.classList.add("hidden"), 700);
+			}).catch(() => {});
+		}
+
+		document.body.addEventListener("htmx:responseError", (ev) => {
+			const btn = ev.target && ev.target.closest ? ev.target.closest("button[data-preset-btn='1']") : null;
+			if (!btn) return;
+			if (btn.dataset.originalText) {
+				btn.textContent = btn.dataset.originalText;
+			}
+		});
 	</script>
 }
 
 templ DbVarsTempl(dbVariables []*db_models.DbVariable) {
-    for _, dbVar := range dbVariables {
-        @DbVarTempl(dbVar)
-    }
+	for _, dbVar := range dbVariables {
+		@DbVarTempl(dbVar)
+	}
 }
 
 templ DbVarTempl(dbVar *db_models.DbVariable) {
-	<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 shadow-sm" id={ fmt.Sprintf("var-db-%d-id-%d", dbVar.DbNumber, dbVar.Id) }>
-		<h3 class="text-lg font-semibold text-indigo-300">{ dbVar.Name }</h3>
-		<div class="mt-3 space-y-1 text-sm text-slate-300">
-			<p>Type: <code class="rounded bg-slate-950 px-2 py-1 text-indigo-200">{ dbVar.DataType }</code></p>
-			<p>Value: <code id={ fmt.Sprintf("db-var-value-%d", dbVar.Id) } data-default-value={ dbVar.FmtValue() } class="rounded bg-slate-950 px-2 py-1 text-emerald-300">
-				if dbVar.PLCReadValue != nil {
-					{ *dbVar.PLCReadValue }
-				} else {
-					{ dbVar.FmtValue() }
-				}
-			</code></p>
-			<p>Address: <code class="rounded bg-slate-950 px-2 py-1 text-amber-300">{ dbVar.ToDBAddress() }</code></p>
+	<div id={ fmt.Sprintf("db-var-card-%d", dbVar.Id) } class="flex min-h-[300px] flex-col rounded-xl border border-slate-800 bg-slate-900/75 p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:bg-slate-900">
+		<div class="mb-3 flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<h3 class="truncate text-base font-semibold text-slate-100">{ dbVar.Name }</h3>
+				<p class="mt-0.5 truncate text-xs text-slate-400">{ dbVar.Description }</p>
+			</div>
+			<span class={ getTypeBadgeClass(dbVar) }>{ getDataTypeLabel(dbVar) }</span>
 		</div>
 
+		<div class="mb-4 flex items-center gap-2">
+			<code class="rounded bg-amber-500/10 px-2 py-1 font-mono text-xs text-amber-300">{ dbVar.ToDBAddress() }</code>
+			<button type="button" data-address={ dbVar.ToDBAddress() } onclick="copyAddress(this)" class="relative rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+				Copy
+				<span class="pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-100">Copied</span>
+			</button>
+		</div>
+
+		<div class="mb-3">
+			<div class="text-[11px] uppercase tracking-wide text-slate-400">Simulated value</div>
+			<div class="mt-1 break-words rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 font-mono text-lg font-semibold text-cyan-300">{ dbVar.FmtValue() }</div>
+		</div>
+
+		<div class="mb-3">
+			<div class="text-[11px] uppercase tracking-wide text-slate-400">Live PLC value</div>
+			<div class="mt-1 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 font-mono text-base font-semibold text-emerald-300" id={ fmt.Sprintf("db-var-live-value-%d", dbVar.Id) }>—</div>
+		</div>
+		<p id={ fmt.Sprintf("db-var-live-%d", dbVar.Id) } class="mt-3 rounded-md border border-slate-700/50 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-300 transition">PLC unavailable</p>
+
 		if dbVar.StaticVarDefinitions != nil && len(dbVar.StaticVarDefinitions) > 0 {
-			<div class="mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+			<div class="mt-auto pt-4">
+				<div class="mb-2 text-[11px] uppercase tracking-wide text-slate-400">Presets</div>
 				<div class="flex flex-wrap gap-2">
 					for _, def := range dbVar.StaticVarDefinitions {
 						<button
-							class={ getStaticValueBtnClass(def.IsSelected) }
+							type="button"
+							data-preset-btn="1"
+							class={ getPresetBtnClass(def.IsSelected) }
 							hx-put="/dashboard/set-var-value"
 							hx-swap="outerHTML"
+							hx-disabled-elt="this"
 							hx-vals={ fmt.Sprintf(`{ "db-number": %d, "var-id": %d, "t": "%s", "sts-id": %d }`, dbVar.DbNumber, dbVar.Id, dbVar.VarType, def.Id) }
-							hx-target={ fmt.Sprintf("#var-db-%d-id-%d", dbVar.DbNumber, dbVar.Id) }
+							hx-target={ fmt.Sprintf("#db-var-card-%d", dbVar.Id) }
+							onclick="setPresetPending(this)"
 						>{ getStaticDefLabel(def) }</button>
 					}
 				</div>
 			</div>
 		}
-		<p class="mt-3 text-xs text-slate-400">{ dbVar.Description }</p>
-		<p id={ fmt.Sprintf("db-var-live-%d", dbVar.Id) } class={ getPLCReadLabelClass(dbVar.PLCReadError, dbVar.PLCReadValue) }>
-			{ getPLCReadLabel(dbVar.PLCReadError, dbVar.PLCReadValue) }
-		</p>
 	</div>
 }
 
-func getStaticValueBtnClass(isSelected bool) string {
+func getPresetBtnClass(isSelected bool) string {
 	if isSelected {
-		return "rounded-lg bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-300 ring-1 ring-emerald-500/40 transition"
+		return "rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-300 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
 	}
-	return "rounded-lg bg-indigo-500/20 px-3 py-1.5 text-sm font-semibold text-indigo-300 ring-1 ring-indigo-500/40 transition hover:bg-indigo-500/30"
+	return "rounded-lg border border-indigo-500/40 bg-indigo-500/20 px-3 py-1.5 text-sm font-semibold text-indigo-200 transition hover:bg-indigo-500/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
 }
 
 func getStaticDefLabel(def *db_models.StaticVarDefinition) string {
@@ -160,22 +259,22 @@ func getStaticDefLabel(def *db_models.StaticVarDefinition) string {
 	return "Value"
 }
 
-func getPLCReadLabelClass(errValue *string, liveValue *string) string {
-	if errValue != nil && *errValue != "" {
-		return "mt-2 rounded border border-rose-700/40 bg-rose-950/30 px-2 py-1 text-xs text-rose-200"
-	}
-	if liveValue != nil && *liveValue != "" {
-		return "mt-2 rounded border border-cyan-700/40 bg-cyan-950/30 px-2 py-1 text-xs text-cyan-200"
-	}
-	return "mt-2 rounded border border-slate-700/50 bg-slate-900/60 px-2 py-1 text-xs text-slate-300"
+func getDataTypeLabel(v *db_models.DbVariable) string {
+	return strings.ToUpper(fmt.Sprintf("%v", v.DataType))
 }
 
-func getPLCReadLabel(errValue *string, liveValue *string) string {
-	if errValue != nil && *errValue != "" {
-		return "PLC read error: " + *errValue
+func getTypeBadgeClass(v *db_models.DbVariable) string {
+	t := getDataTypeLabel(v)
+	switch {
+	case strings.Contains(t, "BOOL"):
+		return "shrink-0 rounded-md border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-300"
+	case strings.Contains(t, "REAL"), strings.Contains(t, "FLOAT"):
+		return "shrink-0 rounded-md border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[11px] font-semibold text-amber-300"
+	case strings.Contains(t, "STRING"), strings.Contains(t, "CHAR"):
+		return "shrink-0 rounded-md border border-violet-500/40 bg-violet-500/20 px-2 py-0.5 text-[11px] font-semibold text-violet-300"
+	case strings.Contains(t, "TIME"), strings.Contains(t, "DATE"):
+		return "shrink-0 rounded-md border border-sky-500/40 bg-sky-500/20 px-2 py-0.5 text-[11px] font-semibold text-sky-300"
+	default:
+		return "shrink-0 rounded-md border border-blue-500/40 bg-blue-500/20 px-2 py-0.5 text-[11px] font-semibold text-blue-300"
 	}
-	if liveValue != nil && *liveValue != "" {
-		return "PLC live value"
-	}
-	return "PLC value unavailable"
 }
