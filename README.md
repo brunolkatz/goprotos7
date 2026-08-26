@@ -9,13 +9,14 @@
 
 ## 🚀 Features
 
-- [ ] Implements ISO-on-TCP (RFC 1006) with COTP session negotiation
+- [x] Implements ISO-on-TCP (RFC 1006) with COTP session negotiation
   - [x] Supports request connection
   - [x] Supports response request connection
   - [x] Supports PDU (Protocol Data Unit) request
-- [ ] Implements S7 communication protocol
+- [x] Implements S7 communication protocol
   - [x] readvar request and response
-  - [ ] writevar request and response
+  - [x] writevar request and response
+  - [x] user-data SZL request for CPU info (`GetCPUInfo`)
 - [x] Simulates access to Data Blocks (DB)
   - Goals:
     - [X] ReadVar
