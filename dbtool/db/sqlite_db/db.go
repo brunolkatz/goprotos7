@@ -21,14 +21,14 @@ type DB struct {
 }
 
 // New creates and returns a database connection
-func New(ctx context.Context, dsn string, log *log.Logger) (*DB, error) {
+func New(ctx context.Context, dsn string, log *log.Logger, silentLogs bool) (*DB, error) {
 
 	db := &DB{
 		baseCtx: ctx,
 		DSN:     dsn,
 		log:     log,
 	}
-	err := db.SetDbConn(dsn)
+	err := db.SetDbConn(dsn, silentLogs)
 	if err != nil {
 		log.Errorf("(New) - Error setting db connection: %+v", err)
 		return nil, err
@@ -44,9 +44,13 @@ func New(ctx context.Context, dsn string, log *log.Logger) (*DB, error) {
 }
 
 // SetDbConn runs the migration against the provided DSN
-func (d *DB) SetDbConn(dsn string) error {
+func (d *DB) SetDbConn(dsn string, silentLogs bool) error {
+	logLevel := logger.Info
+	if silentLogs {
+		logLevel = logger.Silent
+	}
 	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?_auth&_auth_user=admin&_auth_pass=admin&_auth_crypt=sha1", dsn)), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logLevel),
 	})
 
 	if err != nil {

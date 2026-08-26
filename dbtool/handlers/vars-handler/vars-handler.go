@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"slices"
 	"strings"
+	"time"
 )
 
 type dataBlocksHandler interface {
@@ -60,6 +61,30 @@ func (h *VarsHandler) GetPLCWatchList(ctx context.Context, source string, dbNumb
 		return nil, err
 	}
 	return normalizeAddresses(items), nil
+}
+
+func (h *VarsHandler) CreateHeartbeat(ctx context.Context, hb *db_models.HeartbeatRegistration) error {
+	return h.db.CreateHeartbeat(ctx, hb)
+}
+
+func (h *VarsHandler) ListHeartbeats(ctx context.Context) ([]*db_models.HeartbeatRegistration, error) {
+	return h.db.ListHeartbeats(ctx)
+}
+
+func (h *VarsHandler) GetHeartbeatByID(ctx context.Context, id int64) (*db_models.HeartbeatRegistration, error) {
+	return h.db.GetHeartbeatByID(ctx, id)
+}
+
+func (h *VarsHandler) ListActiveHeartbeats(ctx context.Context) ([]*db_models.HeartbeatRegistration, error) {
+	return h.db.ListActiveHeartbeats(ctx)
+}
+
+func (h *VarsHandler) ListEnabledHeartbeatAddresses(ctx context.Context) ([]string, error) {
+	return h.db.ListEnabledHeartbeatAddresses(ctx)
+}
+
+func (h *VarsHandler) UpdateHeartbeatRuntime(ctx context.Context, id int64, lastValue *bool, lastCheckAt, lastChangeAt *time.Time, isFailing bool, lastError string) error {
+	return h.db.UpdateHeartbeatRuntime(ctx, id, lastValue, lastCheckAt, lastChangeAt, isFailing, lastError)
 }
 
 func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateVarRequest) (*db_models.DbVariable, error) {

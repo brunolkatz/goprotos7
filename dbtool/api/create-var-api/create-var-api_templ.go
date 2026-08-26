@@ -34,7 +34,7 @@ func CreateVarPageTempl(dbNumbers []uint32) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mx-auto w-full max-w-6xl\"><div class=\"mb-8 flex items-end justify-between gap-4\"><div><h1 class=\"text-4xl font-bold tracking-tight text-white\">Create Variable</h1><p class=\"mt-2 text-slate-400\">Pick the DB, choose a type, then configure defaults and optional state presets.</p></div></div><div class=\"grid gap-6 lg:grid-cols-3\"><div class=\"rounded-xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2\"><form id=\"create-var-form\" hx-post=\"/vars/create-var\" hx-target=\"#create-var-feedback\" hx-swap=\"innerHTML\" class=\"space-y-5\"><div class=\"grid gap-4 md:grid-cols-2\"><div><label for=\"db-number-mode\" class=\"mb-2 block text-sm font-medium text-slate-200\">DB Source</label> <select id=\"db-number-mode\" name=\"db-number-mode\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" onchange=\"toggleDBNumberMode(this.value)\"><option value=\"existing\" selected>Use existing DB</option> <option value=\"new\">Create new DB number</option></select></div><div id=\"db-number-existing-wrap\"><label for=\"db-number-existing\" class=\"mb-2 block text-sm font-medium text-slate-200\">Existing DB Number</label> <select id=\"db-number-existing\" name=\"db-number-existing\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mx-auto w-full max-w-6xl\"><div class=\"mb-8 flex items-end justify-between gap-4\"><div><h1 class=\"text-4xl font-bold tracking-tight text-white\">Create Variable</h1><p class=\"mt-2 text-slate-400\">Pick the DB, choose a type, then configure defaults and optional state presets.</p></div><a href=\"/vars/import-csv\" class=\"rounded-lg border border-indigo-500/40 bg-indigo-500/20 px-3 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/30\">Import from CSV</a></div><div class=\"grid gap-6 lg:grid-cols-3\"><div class=\"rounded-xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2\"><form id=\"create-var-form\" hx-post=\"/vars/create-var\" hx-target=\"#create-var-feedback\" hx-swap=\"innerHTML\" class=\"space-y-5\"><div class=\"grid gap-4 md:grid-cols-2\"><div><label for=\"db-number-mode\" class=\"mb-2 block text-sm font-medium text-slate-200\">DB Source</label> <select id=\"db-number-mode\" name=\"db-number-mode\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" onchange=\"toggleDBNumberMode(this.value)\"><option value=\"existing\" selected>Use existing DB</option> <option value=\"new\">Create new DB number</option></select></div><div id=\"db-number-existing-wrap\"><label for=\"db-number-existing\" class=\"mb-2 block text-sm font-medium text-slate-200\">Existing DB Number</label> <select id=\"db-number-existing\" name=\"db-number-existing\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -52,7 +52,7 @@ func CreateVarPageTempl(dbNumbers []uint32) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", dbNumber))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 41, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 42, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 			if templ_7745c5c3_Err != nil {
@@ -65,7 +65,7 @@ func CreateVarPageTempl(dbNumbers []uint32) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("DB%d", dbNumber))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 41, Col: 86}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 42, Col: 86}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -88,7 +88,7 @@ func CreateVarPageTempl(dbNumbers []uint32) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", t))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 61, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 62, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -101,7 +101,7 @@ func CreateVarPageTempl(dbNumbers []uint32) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(t.String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 61, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 62, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -160,7 +160,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.BOOL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 99, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 100, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 		if templ_7745c5c3_Err != nil {
@@ -181,7 +181,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.BYTE))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 103, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 104, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {
@@ -202,7 +202,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.WORD))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 107, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 108, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 		if templ_7745c5c3_Err != nil {
@@ -223,7 +223,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.DWORD))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 111, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 112, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -244,7 +244,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.LWORD))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 115, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 116, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -265,7 +265,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.SINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 119, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 120, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 		if templ_7745c5c3_Err != nil {
@@ -286,7 +286,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.USINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 123, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 124, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
@@ -307,7 +307,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.INT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 127, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 128, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 		if templ_7745c5c3_Err != nil {
@@ -328,7 +328,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.UINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 131, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 132, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 		if templ_7745c5c3_Err != nil {
@@ -349,7 +349,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.DINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 135, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 136, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 		if templ_7745c5c3_Err != nil {
@@ -370,7 +370,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.UDINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 139, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 140, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {
@@ -391,7 +391,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.LINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 143, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 144, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 		if templ_7745c5c3_Err != nil {
@@ -412,7 +412,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.ULINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 147, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 148, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 		if templ_7745c5c3_Err != nil {
@@ -433,7 +433,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.REAL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 151, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 152, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 		if templ_7745c5c3_Err != nil {
@@ -454,7 +454,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.LREAL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 155, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 156, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 		if templ_7745c5c3_Err != nil {
@@ -475,7 +475,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.CHAR))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 159, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 160, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 		if templ_7745c5c3_Err != nil {
@@ -496,7 +496,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.STRING))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 163, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 164, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 		if templ_7745c5c3_Err != nil {
@@ -651,7 +651,7 @@ func TipCard(typeName string, bulletPoints []string, footNote string) templ.Comp
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(typeName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 197, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 198, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
 		if templ_7745c5c3_Err != nil {
@@ -664,7 +664,7 @@ func TipCard(typeName string, bulletPoints []string, footNote string) templ.Comp
 		var templ_7745c5c3_Var27 string
 		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(typeName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 198, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 199, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
@@ -682,7 +682,7 @@ func TipCard(typeName string, bulletPoints []string, footNote string) templ.Comp
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(bullet)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 201, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 202, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
@@ -700,7 +700,7 @@ func TipCard(typeName string, bulletPoints []string, footNote string) templ.Comp
 		var templ_7745c5c3_Var29 string
 		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(footNote)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 204, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 205, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {
@@ -837,7 +837,7 @@ func BoolFieldRow(desc string, offset string, value string) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue(desc)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 239, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 240, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
 		if templ_7745c5c3_Err != nil {
@@ -850,7 +850,7 @@ func BoolFieldRow(desc string, offset string, value string) templ.Component {
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.ResolveAttributeValue(offset)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 240, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 241, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var35)
 		if templ_7745c5c3_Err != nil {
@@ -863,7 +863,7 @@ func BoolFieldRow(desc string, offset string, value string) templ.Component {
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 242, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 243, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var36)
 		if templ_7745c5c3_Err != nil {
@@ -876,7 +876,7 @@ func BoolFieldRow(desc string, offset string, value string) templ.Component {
 		var templ_7745c5c3_Var37 string
 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "true")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 243, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 244, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var37)
 		if templ_7745c5c3_Err != nil {
@@ -889,7 +889,7 @@ func BoolFieldRow(desc string, offset string, value string) templ.Component {
 		var templ_7745c5c3_Var38 string
 		templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "false")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 244, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 245, Col: 52}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var38)
 		if templ_7745c5c3_Err != nil {
@@ -931,7 +931,7 @@ func IntFieldsBlock(typeName string, rangeHint string) templ.Component {
 		var templ_7745c5c3_Var40 string
 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%s valid range: %s.", typeName, rangeHint))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 251, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 252, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
@@ -973,7 +973,7 @@ func FloatFieldsBlock(typeName string, formatHint string) templ.Component {
 		var templ_7745c5c3_Var42 string
 		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%s format: %s.", typeName, formatHint))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 268, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 269, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 		if templ_7745c5c3_Err != nil {

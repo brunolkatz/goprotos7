@@ -3,6 +3,11 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/brunolkatz/goprotos7/dbtool"
 	"github.com/brunolkatz/goprotos7/dbtool/api"
 	"github.com/brunolkatz/goprotos7/dbtool/db/sqlite_db"
@@ -12,10 +17,6 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/jessevdk/go-flags"
 	"golang.org/x/sync/errgroup"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 func main() {
@@ -42,7 +43,7 @@ func main() {
 	// ┃                                              Initialize Database                                              ┃
 	// ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-	db, err := sql_lite_db.New(ctx, webAdminConfig.SQLiteFilePath, logger)
+	db, err := sql_lite_db.New(ctx, webAdminConfig.SQLiteFilePath, logger, !webAdminConfig.Flags.SilentDBLogs)
 	if err != nil {
 		panic(err)
 	}

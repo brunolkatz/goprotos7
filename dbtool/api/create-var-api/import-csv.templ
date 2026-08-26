@@ -1,0 +1,53 @@
+package create_var_api
+
+templ ImportCSVPageTempl() {
+	<div class="mx-auto w-full max-w-6xl">
+		<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h1 class="text-3xl font-bold tracking-tight text-white">Import DB Variables from CSV</h1>
+				<p class="mt-1 text-sm text-slate-400">Upload a CSV definition to create variables in batch, including optional presets.</p>
+			</div>
+			<a href="/vars" class="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Back to Create Variable</a>
+		</div>
+
+		<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+			<form hx-post="/vars/import-csv/upload" hx-encoding="multipart/form-data" hx-target="#csv-import-feedback" hx-swap="innerHTML" class="space-y-4">
+				<div>
+					<label for="csv-file" class="mb-2 block text-sm font-medium text-slate-200">CSV file</label>
+					<input id="csv-file" name="csv-file" type="file" accept=".csv,text/csv" required class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-500/20 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-indigo-200 hover:file:bg-indigo-500/30"/>
+				</div>
+				<div class="flex flex-wrap items-center gap-3">
+					<button type="submit" class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Import CSV</button>
+					<a href="/vars/import-csv/example" class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Download example CSV</a>
+					<div id="csv-import-feedback" class="text-sm text-slate-300"></div>
+				</div>
+			</form>
+		</div>
+
+		<div class="mt-6 rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+			<h2 class="text-xl font-semibold text-indigo-300">CSV columns reference</h2>
+			<p class="mt-2 text-sm text-slate-400">Use these columns exactly with <code>;</code> as separator and keep the header row.</p>
+			<div class="mt-4 grid gap-3 md:grid-cols-2">
+				@ColumnCard("db_number", "Required", "Target DB number where variables will be created.", "203")
+				@ColumnCard("name", "Required", "Unique variable name inside the selected DB block.", "max_allowed_temperature")
+				@ColumnCard("description", "Required", "Human description used in dashboard/cards.", "Maximum allowed process temperature")
+				@ColumnCard("data_type", "Required", "Data type name (INT, REAL, STRING, BOOL...) or numeric enum value.", "REAL")
+				@ColumnCard("default_value", "Type required", "Initial value. Number for int/float types, text for STRING/CHAR.", "80.5")
+				@ColumnCard("str_length", "STRING only", "Max length for STRING variables (1-255). Empty for non-STRING.", "24")
+				@ColumnCard("presets", "Optional", "Preset pairs separated by | in format Label=Value. Works for integer/float list presets.", "Normal=65.0|High=80.5|Max=95.0")
+				@ColumnCard("bool_bits", "BOOL only", "BOOL entries in format Description:BitOffset:Default, separated by |.", "Ready:0:true|Running:1:false|Error:2:false")
+			</div>
+		</div>
+	</div>
+}
+
+templ ColumnCard(name string, requirement string, description string, example string) {
+	<div class="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+		<div class="flex items-center justify-between gap-2">
+			<code class="text-sm font-semibold text-amber-300">{ name }</code>
+			<span class="rounded bg-indigo-500/20 px-2 py-0.5 text-xs font-semibold text-indigo-200">{ requirement }</span>
+		</div>
+		<p class="mt-2 text-sm text-slate-300">{ description }</p>
+		<p class="mt-2 text-xs text-slate-500">Example: <code class="text-slate-300">{ example }</code></p>
+	</div>
+}

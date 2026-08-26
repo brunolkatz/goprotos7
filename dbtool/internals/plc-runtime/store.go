@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/robinson/gos7"
+	"github.com/get-notify/gos7"
 )
 
 type ValueSnapshot struct {
@@ -18,22 +18,145 @@ type ValueSnapshot struct {
 }
 
 type RuntimeStatus struct {
-	Connected bool      `json:"connected"`
-	Address   string    `json:"address,omitempty"`
-	Status    string    `json:"status,omitempty"`
-	LastError string    `json:"last_error,omitempty"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Connected       bool            `json:"connected"`
+	WSState         string          `json:"ws_state"`
+	PLCState        string          `json:"plc_state"`
+	Target          string          `json:"target,omitempty"`
+	Rack            int             `json:"rack"`
+	Slot            int             `json:"slot"`
+	PollMS          int             `json:"poll_ms"`
+	LastError       string          `json:"last_error,omitempty"`
+	ConnectedSince  *time.Time      `json:"connected_since,omitempty"`
+	LastReadAt      *time.Time      `json:"last_read_at,omitempty"`
+	LastWSMessageAt *time.Time      `json:"last_ws_message_at,omitempty"`
+	CPUInfo         *gos7.S7CpuInfo `json:"cpu_info,omitempty"`
+	UpdatedAt       time.Time       `json:"updated_at"`
 }
 
 var (
-	valuesMu      sync.RWMutex
-	values        = map[string]ValueSnapshot{}
-	runtimeStatus = RuntimeStatus{Connected: false, Status: "DISCONNECTED"}
+	valuesMu sync.RWMutex
+	values   = map[string]ValueSnapshot{}
+	status   = RuntimeStatus{
+		Connected: false,
+		WSState:   "DISCONNECTED",
+		PLCState:  "DISCONNECTED",
+	}
+
 	dashboardDB   int32
 	dashboardVars []string
-	clientMu      sync.Mutex
-	plcClient     gos7.Client
+
+	clientMu  sync.Mutex
+	plcClient gos7.Client
 )
+
+func SetConnectionConfig(target string, rack, slot, pollMS int) {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	status.Target = strings.TrimSpace(target)
+	status.Rack = rack
+	status.Slot = slot
+	status.PollMS = pollMS
+	status.UpdatedAt = time.Now()
+}
+
+func SetWSState(wsState string) {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	normalized := strings.ToUpper(strings.TrimSpace(wsState))
+	if normalized == "" {
+		normalized = "DISCONNECTED"
+	}
+	status.WSState = normalized
+	now := time.Now()
+	status.LastWSMessageAt = &now
+	status.UpdatedAt = now
+}
+
+func MarkWSMessage() {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	now := time.Now()
+	status.LastWSMessageAt = &now
+	status.UpdatedAt = now
+}
+
+func SetConnecting() {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	status.Connected = false
+	status.PLCState = "CONNECTING"
+	status.LastError = ""
+	status.UpdatedAt = time.Now()
+}
+
+func SetConnected(target string) {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	status.Connected = true
+	status.Target = strings.TrimSpace(target)
+	if status.PLCState == "" || status.PLCState == "DISCONNECTED" || status.PLCState == "CONNECTING" {
+		status.PLCState = "CONNECTED"
+	}
+	status.LastError = ""
+	now := time.Now()
+	status.ConnectedSince = &now
+	status.UpdatedAt = now
+}
+
+func SetDisconnected(errText string) {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	status.Connected = false
+	status.PLCState = "DISCONNECTED"
+	status.LastError = strings.TrimSpace(errText)
+	status.UpdatedAt = time.Now()
+}
+
+func SetPLCStatus(plcState string) {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	normalized := strings.ToUpper(strings.TrimSpace(plcState))
+	if normalized == "" || normalized == "UNKNOWN" {
+		normalized = "DISCONNECTED"
+	}
+	status.PLCState = normalized
+	status.UpdatedAt = time.Now()
+}
+
+func SetCPUInfo(info gos7.S7CpuInfo) {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	cpu := info
+	status.CPUInfo = &cpu
+	status.UpdatedAt = time.Now()
+}
+
+func GetRuntimeStatus() RuntimeStatus {
+	valuesMu.RLock()
+	defer valuesMu.RUnlock()
+	return status
+}
+
+func SetDashboardWatchList(dbNumber int32, addresses []string) {
+	valuesMu.Lock()
+	defer valuesMu.Unlock()
+	dashboardDB = dbNumber
+	dashboardVars = normalizeAddresses(addresses)
+}
+
+func GetActiveDashboardWatchList() []string {
+	valuesMu.RLock()
+	defer valuesMu.RUnlock()
+	out := make([]string, len(dashboardVars))
+	copy(out, dashboardVars)
+	return out
+}
+
+func GetActiveDashboardDB() int32 {
+	valuesMu.RLock()
+	defer valuesMu.RUnlock()
+	return dashboardDB
+}
 
 func SetValue(address, value, errText string) {
 	key := normalizeAddress(address)
@@ -56,66 +179,6 @@ func GetValue(address string) (ValueSnapshot, bool) {
 	defer valuesMu.RUnlock()
 	v, ok := values[key]
 	return v, ok
-}
-
-func SetConnected(address string) {
-	valuesMu.Lock()
-	defer valuesMu.Unlock()
-	runtimeStatus.Connected = true
-	runtimeStatus.Address = strings.TrimSpace(address)
-	if runtimeStatus.Status == "" || runtimeStatus.Status == "DISCONNECTED" {
-		runtimeStatus.Status = "UNKNOWN"
-	}
-	runtimeStatus.LastError = ""
-	runtimeStatus.UpdatedAt = time.Now()
-}
-
-func SetDisconnected(errText string) {
-	valuesMu.Lock()
-	defer valuesMu.Unlock()
-	runtimeStatus.Connected = false
-	runtimeStatus.Status = "DISCONNECTED"
-	runtimeStatus.Address = ""
-	runtimeStatus.LastError = strings.TrimSpace(errText)
-	runtimeStatus.UpdatedAt = time.Now()
-}
-
-func SetPLCStatus(status string) {
-	normalized := strings.ToUpper(strings.TrimSpace(status))
-	if normalized == "" {
-		return
-	}
-	valuesMu.Lock()
-	defer valuesMu.Unlock()
-	runtimeStatus.Status = normalized
-	runtimeStatus.UpdatedAt = time.Now()
-}
-
-func GetRuntimeStatus() RuntimeStatus {
-	valuesMu.RLock()
-	defer valuesMu.RUnlock()
-	return runtimeStatus
-}
-
-func SetDashboardWatchList(dbNumber int32, addresses []string) {
-	valuesMu.Lock()
-	defer valuesMu.Unlock()
-	dashboardDB = dbNumber
-	dashboardVars = normalizeAddresses(addresses)
-}
-
-func GetActiveDashboardWatchList() []string {
-	valuesMu.RLock()
-	defer valuesMu.RUnlock()
-	out := make([]string, len(dashboardVars))
-	copy(out, dashboardVars)
-	return out
-}
-
-func GetActiveDashboardDB() int32 {
-	valuesMu.RLock()
-	defer valuesMu.RUnlock()
-	return dashboardDB
 }
 
 func SetClient(client gos7.Client) {
@@ -154,6 +217,14 @@ func ReadValues(addresses []string) ([]ValueSnapshot, error) {
 			results = append(results, value)
 		}
 	}
+	now := time.Now()
+	valuesMu.Lock()
+	status.LastReadAt = &now
+	if status.Connected && status.PLCState == "CONNECTED" {
+		status.PLCState = "RUN"
+	}
+	status.UpdatedAt = now
+	valuesMu.Unlock()
 	return results, nil
 }
 

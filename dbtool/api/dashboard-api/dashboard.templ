@@ -79,10 +79,12 @@ templ DashboardPageTempl(dbNumbers []uint32) {
 
 		function setPresetButtonsState() {
 			document.querySelectorAll("button[data-preset-btn='1']").forEach((btn) => {
-				btn.disabled = !dashboardPLCConnected;
-				btn.title = dashboardPLCConnected ? "" : "PLC disconnected";
-				btn.classList.toggle("opacity-50", !dashboardPLCConnected);
-				btn.classList.toggle("cursor-not-allowed", !dashboardPLCConnected);
+				const heartbeatLocked = (btn.getAttribute("data-heartbeat-locked") || "") === "true";
+				const shouldDisable = heartbeatLocked || !dashboardPLCConnected;
+				btn.disabled = shouldDisable;
+				btn.title = heartbeatLocked ? "Disabled by heartbeat monitoring" : (dashboardPLCConnected ? "" : "PLC disconnected");
+				btn.classList.toggle("opacity-50", shouldDisable);
+				btn.classList.toggle("cursor-not-allowed", shouldDisable);
 			});
 		}
 
@@ -216,12 +218,16 @@ templ DbVarTempl(dbVar *db_models.DbVariable) {
 		if dbVar.StaticVarDefinitions != nil && len(dbVar.StaticVarDefinitions) > 0 {
 			<div class="mt-auto pt-4">
 				<div class="mb-2 text-[11px] uppercase tracking-wide text-slate-400">Presets</div>
+				if dbVar.HeartbeatLocked {
+					<p class="mb-2 rounded border border-amber-600/30 bg-amber-950/20 px-2 py-1 text-xs text-amber-200">Heartbeat monitoring active: preset writes disabled.</p>
+				}
 				<div class="flex flex-wrap gap-2">
 					for _, def := range dbVar.StaticVarDefinitions {
 						<button
 							type="button"
 							data-preset-btn="1"
-							class={ getPresetBtnClass(def.IsSelected) }
+							data-heartbeat-locked={ fmt.Sprintf("%t", dbVar.HeartbeatLocked) }
+							class={ getPresetBtnClass(def.IsSelected, dbVar.HeartbeatLocked) }
 							hx-put="/dashboard/set-var-value"
 							hx-swap="outerHTML"
 							hx-disabled-elt="this"
@@ -236,7 +242,10 @@ templ DbVarTempl(dbVar *db_models.DbVariable) {
 	</div>
 }
 
-func getPresetBtnClass(isSelected bool) string {
+func getPresetBtnClass(isSelected bool, heartbeatLocked bool) string {
+	if heartbeatLocked {
+		return "rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm font-semibold text-slate-400 cursor-not-allowed"
+	}
 	if isSelected {
 		return "rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-300 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
 	}

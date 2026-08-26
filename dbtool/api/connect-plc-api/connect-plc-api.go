@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
-	plc_runtime "github.com/brunolkatz/goprotos7/dbtool/internals/plc-runtime"
 	"net/http"
 	"slices"
 	"sort"
@@ -14,10 +12,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
+	plc_runtime "github.com/brunolkatz/goprotos7/dbtool/internals/plc-runtime"
+
 	"github.com/brunolkatz/goprotos7/dbtool/internals/wa-server-templs"
+	"github.com/get-notify/gos7"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/robinson/gos7"
 )
 
 type varsHandler interface {
@@ -25,6 +26,8 @@ type varsHandler interface {
 	GetVariables(dbNumber int32) ([]*db_models.DbVariable, error)
 	GetPLCWatchList(ctx context.Context, source string, dbNumber int32) ([]string, error)
 	SavePLCWatchList(ctx context.Context, source string, dbNumber int32, addresses []string) error
+	ListActiveHeartbeats(ctx context.Context) ([]*db_models.HeartbeatRegistration, error)
+	UpdateHeartbeatRuntime(ctx context.Context, id int64, lastValue *bool, lastCheckAt, lastChangeAt *time.Time, isFailing bool, lastError string) error
 }
 
 type ConnectPLCAPI struct {
@@ -217,6 +220,7 @@ type plcSession struct {
 	stopPoll context.CancelFunc
 
 	saveConnectList func(items []string)
+	varsHandler     varsHandler
 }
 
 func (h *ConnectPLCAPI) HandleWS(w http.ResponseWriter, r *http.Request) {
@@ -224,19 +228,23 @@ func (h *ConnectPLCAPI) HandleWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	plc_runtime.SetWSState("CONNECTED")
 	s := &plcSession{
 		ws: conn,
 		saveConnectList: func(items []string) {
 			_ = h.varsHandler.SavePLCWatchList(context.Background(), "connect", 0, items)
 		},
+		varsHandler: h.varsHandler,
 	}
 	defer s.close()
 
 	for {
 		_, payload, err := conn.ReadMessage()
 		if err != nil {
+			plc_runtime.SetWSState("DISCONNECTED")
 			return
 		}
+		plc_runtime.MarkWSMessage()
 		var cmd wsCommand
 		if err = json.Unmarshal(payload, &cmd); err != nil {
 			_ = s.send(wsEvent{Type: "error", Message: "invalid websocket payload"})
@@ -281,6 +289,7 @@ func (s *plcSession) connectAndStart(ctx context.Context, cmd wsCommand) error {
 	}
 
 	s.disconnect()
+	plc_runtime.SetConnecting()
 
 	address := strings.TrimSpace(cmd.Address)
 	if cmd.Port > 0 && !strings.Contains(address, ":") {
@@ -298,6 +307,7 @@ func (s *plcSession) connectAndStart(ctx context.Context, cmd wsCommand) error {
 	s.handler = handler
 	s.client = gos7.NewClient(handler)
 	plc_runtime.SetClient(s.client)
+	plc_runtime.SetConnectionConfig(address, cmd.Rack, cmd.Slot, cmd.PollMS)
 	s.variables = normalizeVariables(cmd.Variables)
 	if s.saveConnectList != nil {
 		s.saveConnectList(s.variables)
@@ -352,6 +362,7 @@ func (s *plcSession) readOnce() error {
 		status = mapPLCStatus(sts)
 		plc_runtime.SetPLCStatus(status)
 	}
+	_ = s.runHeartbeats()
 
 	return s.send(wsEvent{
 		Type:      "values",
@@ -359,6 +370,54 @@ func (s *plcSession) readOnce() error {
 		Values:    values,
 		Timestamp: time.Now().Format(time.RFC3339),
 	})
+}
+
+func (s *plcSession) runHeartbeats() error {
+	if s.client == nil || s.varsHandler == nil {
+		return nil
+	}
+	heartbeats, err := s.varsHandler.ListActiveHeartbeats(context.Background())
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	for _, hb := range heartbeats {
+		if hb.LastCheckAt != nil && hb.AlarmSeconds > 0 {
+			if now.Sub(*hb.LastCheckAt) < time.Duration(hb.AlarmSeconds)*time.Second {
+				continue
+			}
+		}
+		value, readErr := readBoolAtAddress(s.client, hb.Address)
+		if readErr != nil {
+			_ = s.varsHandler.UpdateHeartbeatRuntime(context.Background(), hb.ID, hb.LastValue, &now, hb.LastChangeAt, true, readErr.Error())
+			continue
+		}
+
+		lastChangeAt := hb.LastChangeAt
+		if hb.LastValue == nil || *hb.LastValue != value {
+			t := now
+			lastChangeAt = &t
+		}
+
+		switch hb.HeartbeatType {
+		case db_models.HeartbeatTypeWhenTrueSetFalse:
+			if value {
+				_ = writeBoolAtAddress(s.client, hb.Address, false)
+			}
+		case db_models.HeartbeatTypeWhenFalseSetTrue:
+			if !value {
+				_ = writeBoolAtAddress(s.client, hb.Address, true)
+			}
+		}
+
+		isFailing := false
+		if lastChangeAt != nil && now.Sub(*lastChangeAt) > time.Duration(hb.AlarmSeconds)*time.Second {
+			isFailing = true
+		}
+		v := value
+		_ = s.varsHandler.UpdateHeartbeatRuntime(context.Background(), hb.ID, &v, &now, lastChangeAt, isFailing, "")
+	}
+	return nil
 }
 
 func (s *plcSession) sendStatus() error {
@@ -382,6 +441,7 @@ func (s *plcSession) sendCPUInfo() error {
 	if err != nil {
 		return fmt.Errorf("cpu info read failed: %w", err)
 	}
+	plc_runtime.SetCPUInfo(info)
 	return s.send(wsEvent{Type: "cpu_info", CPUInfo: &info})
 }
 
@@ -401,6 +461,7 @@ func (s *plcSession) disconnect() {
 
 func (s *plcSession) close() {
 	s.disconnect()
+	plc_runtime.SetWSState("DISCONNECTED")
 	_ = s.ws.Close()
 }
 
@@ -439,4 +500,69 @@ func mapPLCStatus(s int) string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+func readBoolAtAddress(client gos7.Client, address string) (bool, error) {
+	meta, err := parseBoolAddress(address)
+	if err != nil {
+		return false, err
+	}
+	buf := make([]byte, 1)
+	if err := client.AGReadDB(meta.dbNumber, meta.byteOffset, 1, buf); err != nil {
+		return false, err
+	}
+	mask := byte(1 << meta.bitOffset)
+	return (buf[0] & mask) != 0, nil
+}
+
+func writeBoolAtAddress(client gos7.Client, address string, value bool) error {
+	meta, err := parseBoolAddress(address)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 1)
+	if err := client.AGReadDB(meta.dbNumber, meta.byteOffset, 1, buf); err != nil {
+		return err
+	}
+	mask := byte(1 << meta.bitOffset)
+	if value {
+		buf[0] = buf[0] | mask
+	} else {
+		buf[0] = buf[0] &^ mask
+	}
+	return client.AGWriteDB(meta.dbNumber, meta.byteOffset, 1, buf)
+}
+
+type boolAddressMeta struct {
+	dbNumber   int
+	byteOffset int
+	bitOffset  int
+}
+
+func parseBoolAddress(address string) (*boolAddressMeta, error) {
+	addr := strings.ToUpper(strings.TrimSpace(address))
+	if !strings.HasPrefix(addr, "DB") || !strings.Contains(addr, ".DBX") {
+		return nil, fmt.Errorf("invalid BOOL address: %s", address)
+	}
+	parts := strings.SplitN(addr, ".DBX", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid BOOL address: %s", address)
+	}
+	dbNumber, err := strconv.Atoi(strings.TrimPrefix(parts[0], "DB"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid BOOL DB number: %s", address)
+	}
+	byteBit := strings.SplitN(parts[1], ".", 2)
+	if len(byteBit) != 2 {
+		return nil, fmt.Errorf("invalid BOOL byte/bit: %s", address)
+	}
+	byteOffset, err := strconv.Atoi(byteBit[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid BOOL byte offset: %s", address)
+	}
+	bitOffset, err := strconv.Atoi(byteBit[1])
+	if err != nil || bitOffset < 0 || bitOffset > 7 {
+		return nil, fmt.Errorf("invalid BOOL bit offset: %s", address)
+	}
+	return &boolAddressMeta{dbNumber: dbNumber, byteOffset: byteOffset, bitOffset: bitOffset}, nil
 }

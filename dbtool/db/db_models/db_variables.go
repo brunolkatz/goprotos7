@@ -25,8 +25,9 @@ type DbVariable struct {
 
 	StaticVarDefinitions []*StaticVarDefinition `gorm:"foreignKey:DbVariableId;references:Id;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"static_var_definitions,omitempty" `
 
-	PLCReadValue *string `gorm:"-" json:"plc_read_value,omitempty"`
-	PLCReadError *string `gorm:"-" json:"plc_read_error,omitempty"`
+	PLCReadValue    *string `gorm:"-" json:"plc_read_value,omitempty"`
+	PLCReadError    *string `gorm:"-" json:"plc_read_error,omitempty"`
+	HeartbeatLocked bool    `gorm:"-" json:"heartbeat_locked,omitempty"`
 }
 
 func (d *DbVariable) UpdateIsSelected() {

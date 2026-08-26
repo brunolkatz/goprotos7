@@ -11,6 +11,7 @@ import (
 	"github.com/brunolkatz/goprotos7/dbtool/internals/wa-server-templs"
 	"github.com/go-chi/chi/v5"
 	"net/http"
+	"strings"
 )
 
 type varHandler interface {
@@ -19,6 +20,7 @@ type varHandler interface {
 	GetDbVar(ctx context.Context, id int64) (*db_models.DbVariable, error)
 	SetListVar(ctx context.Context, dbNumber, varId, stsId int64) (*db_models.DbVariable, error)
 	SavePLCWatchList(ctx context.Context, source string, dbNumber int32, addresses []string) error
+	ListEnabledHeartbeatAddresses(ctx context.Context) ([]string, error)
 }
 
 type DashboardAPi struct {
@@ -74,6 +76,7 @@ func (h *DashboardAPi) GetDbVars(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	applyLiveValues(dbVariables)
+	applyHeartbeatLocks(r.Context(), h.varsHandler, dbVariables)
 
 	comp := DbVarsTempl(dbVariables)
 	err = comp.Render(r.Context(), w)
@@ -110,6 +113,7 @@ func (h *DashboardAPi) SetDbVar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	applyLiveValues([]*db_models.DbVariable{dbVar})
+	applyHeartbeatLocks(r.Context(), h.varsHandler, []*db_models.DbVariable{dbVar})
 
 	comp := DbVarTempl(dbVar)
 	err = comp.Render(r.Context(), w)
@@ -179,6 +183,22 @@ func applyLiveValues(vars []*db_models.DbVariable) {
 		if snapshot.Error != "" {
 			e := snapshot.Error
 			v.PLCReadError = &e
+		}
+	}
+}
+
+func applyHeartbeatLocks(ctx context.Context, h varHandler, vars []*db_models.DbVariable) {
+	addresses, err := h.ListEnabledHeartbeatAddresses(ctx)
+	if err != nil || len(addresses) == 0 {
+		return
+	}
+	lockMap := make(map[string]struct{}, len(addresses))
+	for _, addr := range addresses {
+		lockMap[strings.ToUpper(strings.TrimSpace(addr))] = struct{}{}
+	}
+	for _, v := range vars {
+		if _, ok := lockMap[strings.ToUpper(strings.TrimSpace(v.ToDBAddress()))]; ok {
+			v.HeartbeatLocked = true
 		}
 	}
 }

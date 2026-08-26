@@ -33,6 +33,9 @@ func (h *CreateVarAPi) Register(r chi.Router) {
 	r.Route("/vars", func(r chi.Router) {
 		r.Get("/", h.GetCreateVarPage)
 		r.Post("/create-var", h.CreateNewVar)
+		r.Get("/import-csv", h.GetImportCSVPage)
+		r.Get("/import-csv/example", h.DownloadImportCSVExample)
+		r.Post("/import-csv/upload", h.ImportCSVVariables)
 	})
 }
 
@@ -70,4 +73,16 @@ func (h *CreateVarAPi) CreateNewVar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.AlertSuccess(w, r, "Variable created successfully")
+}
+
+func (h *CreateVarAPi) GetImportCSVPage(w http.ResponseWriter, r *http.Request) {
+	err := wa_server_templs.RenderPageLayout(
+		w,
+		r,
+		"Import Variables CSV",
+		ImportCSVPageTempl(),
+	)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }

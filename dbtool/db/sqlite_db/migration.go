@@ -17,6 +17,7 @@ func (d *DB) runMigrations(ctx context.Context) error {
 		createDbVariablesTable_1(ctx),            // Create the db_variables table
 		migrateCreateStaticVarDefinitions_1(ctx), // Create the int_var_definitions table
 		migrateCreatePLCWatchLists_1(ctx),        // Create persistent PLC watch lists
+		migrateCreateHeartbeatRegistrations_1(ctx),
 	}
 	if len(migrations) == 0 {
 		d.log.Infof("[DB_SQLITE] No migrations found")
@@ -30,6 +31,37 @@ func (d *DB) runMigrations(ctx context.Context) error {
 
 	d.log.Infof("[DB_SQLITE] Migration did run successfully")
 	return nil
+}
+
+func migrateCreateHeartbeatRegistrations_1(ctx context.Context) *gormigrate.Migration {
+	return &gormigrate.Migration{
+		ID: "migrateCreateHeartbeatRegistrations_1",
+		Migrate: func(tx *gorm.DB) error {
+			return tx.WithContext(ctx).Exec(`
+				create table if not exists heartbeat_registrations
+				(
+					id               integer primary key autoincrement,
+					db_number        integer not null,
+					variable_name    text not null,
+					address          text not null unique,
+					start_on_connect integer not null default 1,
+					enabled          integer not null default 1,
+					heartbeat_type   text not null,
+					alarm_seconds    integer not null default 5,
+					last_value       integer,
+					last_check_at    datetime,
+					last_change_at   datetime,
+					is_failing       integer not null default 0,
+					last_error       text default '',
+					created_at       datetime default current_timestamp,
+					updated_at       datetime default current_timestamp
+				);
+			`).Error
+		},
+		Rollback: func(tx *gorm.DB) error {
+			return tx.WithContext(ctx).Exec(``).Error
+		},
+	}
 }
 
 func migrateCreatePLCWatchLists_1(ctx context.Context) *gormigrate.Migration {

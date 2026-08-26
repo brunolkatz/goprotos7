@@ -1,0 +1,5 @@
+db_number;name;description;data_type;default_value;str_length;presets;bool_bits
+203;max_allowed_temperature;Maximum allowed process temperature;REAL;80.5;;Normal=65.0|High=80.5|Max=95.0;
+203;Recipe;Current recipe identifier;STRING;RECIPE_A;24;;
+203;BatchID;Current batch id;DINT;1001;;B1001=1001|B1002=1002;
+203;BatchStatus;Batch status flags;BOOL;;;;Ready:0:true|Running:1:false|Error:2:false

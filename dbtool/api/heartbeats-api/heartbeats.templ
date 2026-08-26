@@ -1,0 +1,303 @@
+package heartbeats_api
+
+import (
+	"fmt"
+	"time"
+	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
+)
+
+templ HeartbeatsPageTempl(dbNumbers []uint32, heartbeats []*db_models.HeartbeatRegistration) {
+	<div class="mx-auto w-full max-w-6xl">
+		<div class="mb-6">
+			<h1 class="text-3xl font-bold tracking-tight text-white">Register Heartbeats</h1>
+			<p class="mt-1 text-sm text-slate-400">Create and monitor BOOL heartbeat sensors persisted in SQLite.</p>
+		</div>
+
+		<div class="mb-4 flex gap-2">
+			<button type="button" id="hb-tab-view-btn" onclick="showHeartbeatTab('view')" class="rounded-md bg-indigo-500/25 px-3 py-1.5 text-sm font-semibold text-indigo-200">View</button>
+			<button type="button" id="hb-tab-create-btn" onclick="showHeartbeatTab('create')" class="rounded-md px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800">Create</button>
+		</div>
+
+		<div id="hb-tab-create" class="hidden rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+			<form hx-post="/heartbeats/register" hx-target="#hb-create-feedback" hx-swap="innerHTML" class="space-y-4">
+				<div class="grid gap-4 md:grid-cols-2">
+					<div>
+						<label class="mb-2 block text-sm font-medium text-slate-200">DB Number</label>
+						<select id="hb-db-number" name="db-number" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" onchange="loadHeartbeatBoolVars()">
+							<option value="" selected disabled>Select DB</option>
+							for _, db := range dbNumbers {
+								<option value={ fmt.Sprintf("%d", db) }>{ fmt.Sprintf("DB%d", db) }</option>
+							}
+						</select>
+					</div>
+					<div>
+						<label class="mb-2 block text-sm font-medium text-slate-200">BOOL Address</label>
+						<select id="hb-address" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" onchange="syncHeartbeatVarName()">
+							<option value="" selected disabled>Select BOOL variable</option>
+						</select>
+						<input type="hidden" id="hb-variable-name" name="variable-name"/>
+					</div>
+				</div>
+				<div class="grid gap-4 md:grid-cols-2">
+					<div>
+						<label class="mb-2 block text-sm font-medium text-slate-200">Bit index override (0-7)</label>
+						<input id="hb-bit-index" type="number" min="0" max="7" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" onchange="syncHeartbeatAddressWithBitIndex()" oninput="syncHeartbeatAddressWithBitIndex()"/>
+					</div>
+					<div>
+						<label class="mb-2 block text-sm font-medium text-slate-200">Final heartbeat address</label>
+						<div class="flex items-center gap-2">
+							<input id="hb-address-final-preview" readonly class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-slate-100"/>
+							<button type="button" class="rounded border border-slate-700 px-2 py-2 text-xs text-slate-300 hover:bg-slate-800" onclick="copyHeartbeatAddress()">Copy</button>
+						</div>
+						<input type="hidden" id="hb-address-final" name="address"/>
+					</div>
+				</div>
+				<p id="hb-no-bool-msg" class="hidden rounded-lg border border-amber-600/30 bg-amber-950/20 px-3 py-2 text-sm text-amber-200">No BOOL variable type exists on selected DB.</p>
+
+				<div class="grid gap-4 md:grid-cols-2">
+					<label class="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-sm text-slate-200">
+						<input type="checkbox" name="start-on-connect" checked class="h-4 w-4 rounded border-slate-600 bg-slate-900"/>
+						Start heartbeat automatically when PLC connects
+					</label>
+					<div>
+						<label class="mb-2 block text-sm font-medium text-slate-200">Heartbeat Type</label>
+						<select name="heartbeat-type" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100">
+							<option value={ string(db_models.HeartbeatTypeWhenTrueSetFalse) }>WHEN "TRUE" set "FALSE"</option>
+							<option value={ string(db_models.HeartbeatTypeWhenFalseSetTrue) }>WHEN "FALSE" set "TRUE"</option>
+						</select>
+					</div>
+				</div>
+				<div>
+					<label class="mb-2 block text-sm font-medium text-slate-200">Heartbeat Alarm (seconds)</label>
+					<input name="alarm-seconds" type="number" min="1" value="5" class="block w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"/>
+				</div>
+				<div class="flex items-center gap-3">
+					<button type="submit" class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Register Heartbeat</button>
+					<div id="hb-create-feedback" class="text-sm text-slate-300"></div>
+				</div>
+			</form>
+		</div>
+
+		<div id="hb-tab-view" class="mt-4 rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+			<div class="mb-3 flex items-center justify-between">
+				<h2 class="text-lg font-semibold text-indigo-300">Registered Heartbeats</h2>
+				<button type="button" onclick="refreshHeartbeatList()" class="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800">Refresh</button>
+			</div>
+			<div id="heartbeat-list">
+				@HeartbeatListTempl(heartbeats)
+			</div>
+		</div>
+	</div>
+
+	<script>
+		let heartbeatBoolVars = [];
+		function showHeartbeatTab(tab) {
+			const create = document.getElementById("hb-tab-create");
+			const view = document.getElementById("hb-tab-view");
+			const cBtn = document.getElementById("hb-tab-create-btn");
+			const vBtn = document.getElementById("hb-tab-view-btn");
+			const on = "rounded-md bg-indigo-500/25 px-3 py-1.5 text-sm font-semibold text-indigo-200";
+			const off = "rounded-md px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800";
+			create.classList.toggle("hidden", tab !== "create");
+			view.classList.toggle("hidden", tab !== "view");
+			cBtn.className = tab === "create" ? on : off;
+			vBtn.className = tab === "view" ? on : off;
+			if (tab === "view") {
+				scheduleHeartbeatCardRefreshes();
+			}
+		}
+		function syncHeartbeatAddressWithBitIndex() {
+			const select = document.getElementById("hb-address");
+			const bitInput = document.getElementById("hb-bit-index");
+			const hidden = document.getElementById("hb-address-final");
+			const preview = document.getElementById("hb-address-final-preview");
+			const selected = (select.value || "").toUpperCase();
+			if (!selected) {
+				hidden.value = "";
+				preview.value = "";
+				return;
+			}
+			const parts = selected.split(".DBX");
+			if (parts.length !== 2) {
+				hidden.value = selected;
+				preview.value = selected;
+				return;
+			}
+			const byteAndBit = parts[1].split(".");
+			const byteOffset = byteAndBit[0];
+			let bit = byteAndBit.length > 1 ? byteAndBit[1] : "0";
+			const entered = bitInput.value;
+			if (entered !== "") {
+				const n = Number(entered);
+				if (!Number.isNaN(n) && n >= 0 && n <= 7) {
+					bit = String(n);
+				}
+			}
+			const finalAddr = `${parts[0]}.DBX${byteOffset}.${bit}`;
+			hidden.value = finalAddr;
+			preview.value = finalAddr;
+		}
+		function copyHeartbeatAddress() {
+			const value = document.getElementById("hb-address-final").value || "";
+			navigator.clipboard?.writeText(value).catch(() => {});
+		}
+		function copyHeartbeatCardAddress(btn) {
+			const value = btn?.getAttribute("data-copy-address") || "";
+			navigator.clipboard?.writeText(value).catch(() => {});
+		}
+		function syncHeartbeatVarName() {
+			const address = document.getElementById("hb-address").value;
+			const found = heartbeatBoolVars.find(v => v.address === address);
+			document.getElementById("hb-variable-name").value = found ? found.name : "";
+			const currentBit = (address.split(".DBX")[1] || "").split(".")[1];
+			document.getElementById("hb-bit-index").value = currentBit || "";
+			syncHeartbeatAddressWithBitIndex();
+		}
+		async function loadHeartbeatBoolVars() {
+			const db = document.getElementById("hb-db-number").value;
+			const select = document.getElementById("hb-address");
+			const msg = document.getElementById("hb-no-bool-msg");
+			select.innerHTML = `<option value="" selected disabled>Loading...</option>`;
+			try {
+				const resp = await fetch(`/heartbeats/bool-vars?db-number=${encodeURIComponent(db)}`);
+				if (!resp.ok) throw new Error();
+				const rows = await resp.json();
+				heartbeatBoolVars = rows || [];
+				if (!heartbeatBoolVars.length) {
+					select.innerHTML = `<option value="" selected disabled>No BOOL variables found</option>`;
+					msg.classList.remove("hidden");
+					document.getElementById("hb-address-final").value = "";
+					document.getElementById("hb-address-final-preview").value = "";
+					return;
+				}
+				msg.classList.add("hidden");
+				select.innerHTML = `<option value="" selected disabled>Select BOOL variable</option>` + heartbeatBoolVars.map(v => `<option value="${v.address}">${v.name} (${v.address})</option>`).join("");
+				document.getElementById("hb-address-final").value = "";
+				document.getElementById("hb-address-final-preview").value = "";
+			} catch (_e) {
+				select.innerHTML = `<option value="" selected disabled>Failed to load BOOL variables</option>`;
+			}
+		}
+		async function refreshHeartbeatList() {
+			const target = document.getElementById("heartbeat-list");
+			try {
+				const resp = await fetch("/heartbeats/list");
+				if (!resp.ok) throw new Error();
+				target.innerHTML = await resp.text();
+				scheduleHeartbeatCardRefreshes();
+			} catch (_e) {
+				target.innerHTML = `<p class="text-rose-300">Failed to refresh heartbeat list.</p>`;
+			}
+		}
+		const hbCardTimers = new Map();
+		function clearHeartbeatCardTimers() {
+			hbCardTimers.forEach((timerId) => clearTimeout(timerId));
+			hbCardTimers.clear();
+		}
+		async function refreshHeartbeatCard(id) {
+			try {
+				const resp = await fetch(`/heartbeats/card/${encodeURIComponent(id)}`);
+				if (!resp.ok) return;
+				const html = await resp.text();
+				const current = document.getElementById(`hb-card-${id}`);
+				if (current) {
+					current.outerHTML = html;
+				}
+			} catch (_e) {}
+			scheduleSingleHeartbeatCard(id);
+		}
+		function scheduleSingleHeartbeatCard(id) {
+			const card = document.getElementById(`hb-card-${id}`);
+			if (!card) return;
+			const sec = Number(card.getAttribute("data-refresh-seconds") || "5");
+			const interval = Math.max(1, Number.isNaN(sec) ? 5 : sec);
+			const timer = setTimeout(() => refreshHeartbeatCard(id), interval * 1000);
+			hbCardTimers.set(id, timer);
+		}
+		function scheduleHeartbeatCardRefreshes() {
+			clearHeartbeatCardTimers();
+			document.querySelectorAll("[data-heartbeat-id]").forEach((card) => {
+				const id = card.getAttribute("data-heartbeat-id");
+				if (!id) return;
+				scheduleSingleHeartbeatCard(id);
+			});
+		}
+		scheduleHeartbeatCardRefreshes();
+	</script>
+}
+
+templ HeartbeatListTempl(heartbeats []*db_models.HeartbeatRegistration) {
+	if len(heartbeats) == 0 {
+		<p class="text-sm text-slate-400">No heartbeats registered yet.</p>
+	} else {
+		<div class="grid gap-3 md:grid-cols-2">
+			for _, hb := range heartbeats {
+				@HeartbeatCardTempl(hb)
+			}
+		</div>
+	}
+}
+
+templ HeartbeatCardTempl(hb *db_models.HeartbeatRegistration) {
+	<div id={ fmt.Sprintf("hb-card-%d", hb.ID) } data-heartbeat-id={ fmt.Sprintf("%d", hb.ID) } data-refresh-seconds={ fmt.Sprintf("%d", hb.AlarmSeconds) } class={ heartbeatCardClass(hb) }>
+		<div class="mb-2 flex items-center justify-between gap-2">
+			<p class="font-semibold text-slate-100">{ hb.VariableName }</p>
+			<span class="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300">{ fmt.Sprintf("DB%d", hb.DBNumber) }</span>
+		</div>
+		<div class="flex items-center gap-2">
+			<p class="font-mono text-xs text-amber-300">{ hb.Address }</p>
+			<button type="button" data-copy-address={ hb.Address } onclick="copyHeartbeatCardAddress(this)" class="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800">Copy</button>
+		</div>
+		<p class="mt-2 text-xs text-slate-300">Type: { heartbeatTypeLabel(hb.HeartbeatType) }</p>
+		<p class="text-xs text-slate-300">Alarm: { fmt.Sprintf("%ds", hb.AlarmSeconds) }</p>
+		<p class="text-xs text-slate-300">Start on connect: { boolLabel(hb.StartOnConnect) }</p>
+		<p class="text-xs text-emerald-300">Actual value: { heartbeatValueLabel(hb.LastValue) }</p>
+		<p class="text-xs text-slate-300">Last read value: { heartbeatValueLabel(hb.LastValue) }</p>
+		<p class="mt-2 text-xs text-slate-400">Last check: { formatHBTime(hb.LastCheckAt) }</p>
+		if hb.LastError != "" {
+			<p class="mt-1 text-xs text-rose-300">{ hb.LastError }</p>
+		}
+	</div>
+}
+
+func heartbeatCardClass(hb *db_models.HeartbeatRegistration) string {
+	if hb != nil && hb.IsFailing {
+		return "rounded-lg border border-rose-600/40 bg-rose-950/25 p-4"
+	}
+	return "rounded-lg border border-slate-800 bg-slate-950/50 p-4"
+}
+
+func formatHBTime(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return "never"
+	}
+	return t.Format(time.RFC3339)
+}
+
+func heartbeatTypeLabel(t db_models.HeartbeatType) string {
+	switch t {
+	case db_models.HeartbeatTypeWhenTrueSetFalse:
+		return `WHEN "TRUE" set "FALSE"`
+	case db_models.HeartbeatTypeWhenFalseSetTrue:
+		return `WHEN "FALSE" set "TRUE"`
+	default:
+		return string(t)
+	}
+}
+
+func boolLabel(v bool) string {
+	if v {
+		return "Yes"
+	}
+	return "No"
+}
+
+func heartbeatValueLabel(v *bool) string {
+	if v == nil {
+		return "UNKNOWN"
+	}
+	if *v {
+		return "TRUE"
+	}
+	return "FALSE"
+}

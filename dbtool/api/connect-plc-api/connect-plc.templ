@@ -6,41 +6,105 @@ import (
 )
 
 templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
-	<div class="mx-auto w-full max-w-7xl">
-		<div class="mb-8">
-			<h1 class="text-4xl font-bold tracking-tight text-white">Connect to PLC</h1>
-			<p class="mt-2 text-slate-400">Live read Siemens S7 tags via WebSocket using gos7.</p>
+	<div class="mx-auto w-full max-w-[1500px]">
+		<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h1 class="text-3xl font-bold tracking-tight text-white">Connect to PLC</h1>
+				<p class="mt-1 text-sm text-slate-400">Live Siemens S7 tags via WebSocket (gos7)</p>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<button type="button" onclick="openSetupDrawer()" class="rounded-lg border border-indigo-500/40 bg-indigo-500/20 px-3 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/30">Setup</button>
+				<button type="button" onclick="plcReadOnce()" class="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Read once</button>
+				<button type="button" onclick="plcGetStatus()" class="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Status</button>
+				<button type="button" onclick="plcGetCPUInfo()" class="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">CPU Info</button>
+				<button id="plc-connect-toggle" type="button" onclick="plcToggleConnection()" class="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Connect</button>
+			</div>
 		</div>
 
-		<div class="grid gap-6 lg:grid-cols-3">
-			<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-1">
-				<div class="space-y-4">
-					<div class="grid gap-3">
-						<label class="text-sm text-slate-300">Address</label>
-						<input id="plc-address" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="127.0.0.1" value="127.0.0.1"/>
+		<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+			<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+				<div class="flex flex-wrap gap-2">
+					<input id="live-search" placeholder="Search address, name, type..." class="w-64 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100" oninput="renderLiveRows()"/>
+					<select id="live-filter" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100" onchange="renderLiveRows()">
+						<option value="all">All</option>
+						<option value="live">Live</option>
+						<option value="stale">Stale</option>
+						<option value="error">Error</option>
+					</select>
+					<select id="live-density" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100" onchange="renderLiveRows()">
+						<option value="compact">Compact</option>
+						<option value="comfortable">Comfortable</option>
+					</select>
+				</div>
+				<div id="live-count" class="text-xs text-slate-400">0 tags</div>
+			</div>
+			<div class="overflow-x-auto">
+				<table class="min-w-full text-left text-sm">
+					<thead class="text-xs uppercase tracking-wide text-slate-400">
+						<tr class="border-b border-slate-800">
+							<th class="px-2 py-2">Address</th>
+							<th class="px-2 py-2">Name</th>
+							<th class="px-2 py-2">Type</th>
+							<th class="px-2 py-2">Live Value</th>
+							<th class="px-2 py-2">Quality</th>
+							<th class="px-2 py-2">Age</th>
+							<th class="px-2 py-2">Error</th>
+						</tr>
+					</thead>
+					<tbody id="live-values-rows" class="text-slate-200"></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div id="setup-drawer-backdrop" class="fixed inset-0 z-30 hidden bg-black/50" onclick="closeSetupDrawer()"></div>
+	<aside id="setup-drawer" class="fixed right-0 top-0 z-40 h-full w-full max-w-[460px] translate-x-full border-l border-slate-800 bg-slate-900 shadow-2xl transition duration-200 ease-out">
+		<div class="flex h-full flex-col">
+			<div class="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+				<div>
+					<h2 class="text-lg font-semibold text-white">PLC Setup</h2>
+					<p class="text-xs text-slate-400">Connection, tags and runtime status</p>
+				</div>
+				<button type="button" onclick="closeSetupDrawer()" class="rounded-md border border-slate-700 px-2 py-1 text-slate-300 hover:bg-slate-800">✕</button>
+			</div>
+			<div class="border-b border-slate-800 px-4 py-2">
+				<div class="flex gap-2 text-sm">
+					<button type="button" id="tab-connection-btn" onclick="showSetupTab('connection')" class="rounded-md bg-indigo-500/25 px-3 py-1.5 font-medium text-indigo-200">Connection</button>
+					<button type="button" id="tab-tags-btn" onclick="showSetupTab('tags')" class="rounded-md px-3 py-1.5 text-slate-300 hover:bg-slate-800">Tags</button>
+					<button type="button" id="tab-status-btn" onclick="showSetupTab('status')" class="rounded-md px-3 py-1.5 text-slate-300 hover:bg-slate-800">Status</button>
+				</div>
+			</div>
+			<div class="flex-1 overflow-y-auto p-4">
+				<div id="setup-tab-connection" class="space-y-3">
+					<div>
+						<label class="mb-1 block text-xs uppercase tracking-wide text-slate-400">IP Address</label>
+						<input id="plc-address" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="127.0.0.1"/>
 					</div>
 					<div class="grid grid-cols-2 gap-3">
-						<div class="grid gap-2">
-							<label class="text-sm text-slate-300">Port</label>
-							<input id="plc-port" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="102"/>
+						<div>
+							<label class="mb-1 block text-xs uppercase tracking-wide text-slate-400">Port</label>
+							<input id="plc-port" type="number" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="102"/>
 						</div>
-						<div class="grid gap-2">
-							<label class="text-sm text-slate-300">Poll (ms)</label>
-							<input id="plc-poll-ms" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="1000"/>
+						<div>
+							<label class="mb-1 block text-xs uppercase tracking-wide text-slate-400">Poll (ms)</label>
+							<input id="plc-poll-ms" type="number" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="1000"/>
 						</div>
 					</div>
 					<div class="grid grid-cols-2 gap-3">
-						<div class="grid gap-2">
-							<label class="text-sm text-slate-300">Rack</label>
-							<input id="plc-rack" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="0"/>
+						<div>
+							<label class="mb-1 block text-xs uppercase tracking-wide text-slate-400">Rack</label>
+							<input id="plc-rack" type="number" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="0"/>
 						</div>
-						<div class="grid gap-2">
-							<label class="text-sm text-slate-300">Slot</label>
-							<input id="plc-slot" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="2"/>
+						<div>
+							<label class="mb-1 block text-xs uppercase tracking-wide text-slate-400">Slot</label>
+							<input id="plc-slot" type="number" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="2"/>
 						</div>
 					</div>
+				</div>
+
+				<div id="setup-tab-tags" class="hidden space-y-3">
 					<div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-						<div class="mb-2 text-sm font-medium text-slate-200">Add created DB variables</div>
+						<div class="mb-2 text-sm font-medium text-slate-200">Created DB variables</div>
 						<div class="grid gap-2 md:grid-cols-2">
 							<select id="plc-db-number-select" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" onchange="loadCreatedVariables()">
 								<option value="" selected>Select DB</option>
@@ -48,135 +112,124 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 									<option value={ fmt.Sprintf("%d", db) }>{ fmt.Sprintf("DB%d", db) }</option>
 								}
 							</select>
-							<input id="plc-variable-search" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="Search name, type, address..." oninput="loadCreatedVariables()"/>
+							<input id="plc-variable-search" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="Search..." oninput="loadCreatedVariables()"/>
 						</div>
-						<div id="plc-created-vars" class="mt-2 max-h-44 overflow-y-auto rounded border border-slate-800 bg-slate-950/60 p-2 text-xs text-slate-300">
-							Select a DB to load variables.
-						</div>
+						<div id="plc-created-vars" class="mt-2 max-h-44 overflow-y-auto rounded border border-slate-800 bg-slate-950/60 p-2 text-xs text-slate-300">Select a DB to load variables.</div>
 					</div>
-					<div class="grid gap-2">
-						<label class="text-sm text-slate-300">Addresses (one per line)</label>
-						<textarea id="plc-addresses" rows="8" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="DB1.DBX0.0&#10;DB1.DBD4" oninput="scheduleConnectWatchListSave()">{ strings.Join(connectWatchList, "\n") }</textarea>
+					<div>
+						<label class="mb-1 block text-xs uppercase tracking-wide text-slate-400">Raw addresses</label>
+						<textarea id="plc-addresses" rows="9" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" oninput="scheduleConnectWatchListSave()" placeholder="DB1.DBX0.0&#10;DB1.DBD4">{ strings.Join(connectWatchList, "\n") }</textarea>
+						<p class="mt-1 text-xs text-slate-500">One address per line. Invalid addresses are ignored on apply.</p>
 					</div>
-					<div class="flex flex-wrap gap-2">
-						<button id="plc-connect-toggle" type="button" onclick="plcToggleConnection()" class="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Connect</button>
-						<button type="button" onclick="plcReadOnce()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Read once</button>
-						<button type="button" onclick="plcGetStatus()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Status</button>
-						<button type="button" onclick="plcGetCPUInfo()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">CPU Info</button>
+					<div class="flex items-center justify-between">
+						<p class="text-xs text-slate-400">Subscribed set: <span id="subscribed-count" class="font-semibold text-slate-200">0</span></p>
+						<button type="button" onclick="applySubscriptions()" class="rounded-lg border border-indigo-500/40 bg-indigo-500/20 px-3 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/30">Apply / Subscribe</button>
 					</div>
-					<div id="plc-conn-msg" class="text-sm text-slate-300"></div>
+				</div>
+
+				<div id="setup-tab-status" class="hidden space-y-3">
+					<div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+						<div class="mb-2 text-sm font-semibold text-slate-200">Runtime status</div>
+						<pre id="plc-runtime-status" class="overflow-x-auto text-xs text-slate-300">Waiting for updates...</pre>
+					</div>
+					<div class="rounded-lg border border-dashed border-slate-700 bg-slate-950/40 p-3">
+						<div class="mb-2 text-sm font-semibold text-slate-200">CPU Info</div>
+						<pre id="plc-cpu-info" class="overflow-x-auto text-xs text-slate-300">CPU info not loaded.</pre>
+						<button type="button" onclick="plcGetCPUInfo()" class="mt-3 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800">Fetch CPU Info</button>
+					</div>
+					<div id="plc-conn-msg" class="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-300"></div>
 				</div>
 			</div>
-
-			<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
-				<div class="mb-4 flex items-center gap-3">
-					<p class="text-sm text-slate-300">PLC Status:</p>
-					<span id="plc-status" class="rounded-md bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-100">UNKNOWN</span>
-				</div>
-				<div class="mb-4 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
-					<h2 class="mb-2 text-sm font-semibold text-indigo-300">CPU Info</h2>
-					<pre id="plc-cpu-info" class="overflow-x-auto text-xs text-slate-300">Not loaded</pre>
-				</div>
-				<div class="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
-					<div class="mb-2 flex items-center justify-between">
-						<h2 class="text-sm font-semibold text-indigo-300">Live Values</h2>
-						<span id="plc-last-update" class="text-xs text-slate-400">-</span>
-					</div>
-					<div class="overflow-x-auto">
-						<table class="min-w-full text-left text-sm">
-							<thead class="text-slate-400">
-								<tr>
-									<th class="px-2 py-2">Address</th>
-									<th class="px-2 py-2">Value</th>
-									<th class="px-2 py-2">Error</th>
-								</tr>
-							</thead>
-							<tbody id="plc-values" class="text-slate-200">
-								<tr><td class="px-2 py-2 text-slate-500" colspan="3">No values yet</td></tr>
-							</tbody>
-						</table>
-					</div>
-				</div>
+			<div class="border-t border-slate-800 p-4">
+				<div class="mb-2 text-xs text-slate-400">Live status</div>
+				<div id="drawer-live-status" class="mb-3 rounded-md border border-slate-700/50 bg-slate-900/70 px-3 py-1.5 text-xs font-semibold text-slate-200">DISCONNECTED</div>
+				<button type="button" onclick="plcToggleConnection()" class="w-full rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400" id="drawer-connect-toggle">Connect</button>
 			</div>
 		</div>
-	</div>
+	</aside>
 
 	<script>
 		let plcWS = null;
 		let plcConnected = false;
+		let connectListSaveTimer = null;
+		const liveRows = new Map();
+		const valueMeta = new Map();
+		let currentStatus = "DISCONNECTED";
 
 		function getWSURL() {
 			const protocol = location.protocol === "https:" ? "wss" : "ws";
 			return `${protocol}://${location.host}/connect-plc/ws`;
 		}
 
+		function openSetupDrawer() {
+			localStorage.setItem("dbtools.plcSetupDrawerOpen", "1");
+			document.getElementById("setup-drawer").classList.remove("translate-x-full");
+			document.getElementById("setup-drawer-backdrop").classList.remove("hidden");
+		}
+		function closeSetupDrawer() {
+			localStorage.setItem("dbtools.plcSetupDrawerOpen", "0");
+			document.getElementById("setup-drawer").classList.add("translate-x-full");
+			document.getElementById("setup-drawer-backdrop").classList.add("hidden");
+		}
+		function restoreDrawerState() {
+			const qs = new URLSearchParams(location.search);
+			const forcedOpen = qs.get("openSetup") === "1";
+			const saved = localStorage.getItem("dbtools.plcSetupDrawerOpen");
+			if (forcedOpen || saved === "1") openSetupDrawer();
+		}
+		window.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeSetupDrawer(); });
+		window.addEventListener("plc:open-setup", openSetupDrawer);
+
+		function showSetupTab(tab) {
+			const tabs = ["connection", "tags", "status"];
+			tabs.forEach((t) => {
+				document.getElementById(`setup-tab-${t}`).classList.toggle("hidden", t !== tab);
+				const btn = document.getElementById(`tab-${t}-btn`);
+				if (!btn) return;
+				btn.className = t === tab ? "rounded-md bg-indigo-500/25 px-3 py-1.5 font-medium text-indigo-200" : "rounded-md px-3 py-1.5 text-slate-300 hover:bg-slate-800";
+			});
+		}
+
 		function collectVariables() {
 			return (document.getElementById("plc-addresses").value || "")
 				.split("\n")
-				.map(v => v.trim())
+				.map(v => v.trim().toUpperCase())
 				.filter(Boolean);
 		}
-
-		let connectListSaveTimer = null;
-
-		function addAddress(address) {
-			const target = document.getElementById("plc-addresses");
-			const current = collectVariables();
-			const normalized = address.trim().toUpperCase();
-			if (!normalized) return;
-			if (!current.includes(normalized)) {
-				current.push(normalized);
-				target.value = current.join("\n");
-				if (plcWS && plcWS.readyState === WebSocket.OPEN) {
-					plcSend({ type: "set_variables", variables: current });
-				}
-				saveConnectWatchList(current);
+		function validateAddress(addr) {
+			return /^DB\d+\.[A-Z]+\d+(\.\d+)?$/i.test(addr || "");
+		}
+		function applySubscriptions() {
+			const valid = collectVariables().filter(validateAddress);
+			document.getElementById("subscribed-count").textContent = String(valid.length);
+			saveConnectWatchList(valid);
+			if (plcWS && plcWS.readyState === WebSocket.OPEN) {
+				plcSend({ type: "set_variables", variables: valid });
 			}
+			renderLiveRows();
 		}
-
-		function addAddressFromEncoded(encoded) {
-			addAddress(decodeURIComponent(encoded || ""));
-		}
-
 		function scheduleConnectWatchListSave() {
-			if (connectListSaveTimer) {
-				clearTimeout(connectListSaveTimer);
-			}
-			connectListSaveTimer = setTimeout(() => {
-				saveConnectWatchList(collectVariables());
-			}, 250);
+			if (connectListSaveTimer) clearTimeout(connectListSaveTimer);
+			connectListSaveTimer = setTimeout(() => saveConnectWatchList(collectVariables()), 250);
 		}
-
 		async function saveConnectWatchList(items) {
 			try {
 				await fetch("/connect-plc/watch-list", {
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						source: "connect",
-						db_number: 0,
-						addresses: items || []
-					})
+					body: JSON.stringify({ source: "connect", db_number: 0, addresses: items || [] })
 				});
-			} catch (_e) {
-				// keep UX smooth if save fails temporarily
-			}
+			} catch (_e) {}
+		}
 
-			function updateConnectButton(connecting = false) {
-				const btn = document.getElementById("plc-connect-toggle");
-				if (!btn) return;
-				if (connecting) {
-					btn.textContent = "Connecting...";
-					btn.className = "rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900";
-					return;
-				}
-				if (plcConnected) {
-					btn.textContent = "Disconnect";
-					btn.className = "rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-400";
-					return;
-				}
-				btn.textContent = "Connect";
-				btn.className = "rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400";
+		function addAddressFromEncoded(encoded) {
+			const address = decodeURIComponent(encoded || "").trim().toUpperCase();
+			if (!address) return;
+			const current = collectVariables();
+			if (!current.includes(address)) {
+				current.push(address);
+				document.getElementById("plc-addresses").value = current.join("\n");
+				applySubscriptions();
 			}
 		}
 
@@ -189,26 +242,54 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 				return;
 			}
 			try {
-				const url = `/connect-plc/variables?db-number=${encodeURIComponent(db)}&q=${encodeURIComponent(q)}`;
-				const resp = await fetch(url, { headers: { "Accept": "application/json" } });
-				if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+				const resp = await fetch(`/connect-plc/variables?db-number=${encodeURIComponent(db)}&q=${encodeURIComponent(q)}`);
+				if (!resp.ok) throw new Error();
 				const items = await resp.json();
 				if (!items.length) {
 					target.innerHTML = "No variables found.";
 					return;
 				}
+				items.forEach((item) => valueMeta.set(String(item.address || "").toUpperCase(), item));
 				target.innerHTML = items.map((v) => `
 					<div class="mb-1 flex items-center justify-between gap-2 rounded border border-slate-800 px-2 py-1">
 						<div class="min-w-0">
-							<div class="truncate text-slate-200">${v.name || "(unnamed)"} <span class="text-slate-400">(${v.data_type})</span></div>
-							<div class="truncate font-mono text-[11px] text-amber-300">${v.address}</div>
+							<div class="truncate text-slate-200">${v.name || "(unnamed)"} <span class="text-slate-400">(${v.data_type || ""})</span></div>
+							<div class="truncate font-mono text-[11px] text-amber-300">${v.address || ""}</div>
 						</div>
-						<button type="button" class="shrink-0 rounded bg-indigo-500/25 px-2 py-1 text-[11px] font-semibold text-indigo-200 hover:bg-indigo-500/35" onclick="addAddressFromEncoded('${encodeURIComponent(v.address || "")}')">Add</button>
+						<button type="button" class="rounded bg-indigo-500/25 px-2 py-1 text-[11px] font-semibold text-indigo-200 hover:bg-indigo-500/35" onclick="addAddressFromEncoded('${encodeURIComponent(v.address || "")}')">Add</button>
 					</div>
 				`).join("");
 			} catch (_e) {
 				target.innerHTML = `<span class="text-rose-300">Failed to load DB variables.</span>`;
 			}
+		}
+
+		function updateConnectButtons(connecting = false) {
+			const top = document.getElementById("plc-connect-toggle");
+			const drawer = document.getElementById("drawer-connect-toggle");
+			let label = "Connect";
+			let klass = "rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400";
+			if (connecting) {
+				label = "Connecting...";
+				klass = "rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900";
+			} else if (plcConnected) {
+				label = "Disconnect";
+				klass = "rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-400";
+			}
+			[top, drawer].forEach((btn) => {
+				if (!btn) return;
+				btn.textContent = label;
+				btn.className = btn.id === "drawer-connect-toggle" ? `${klass} w-full` : klass;
+			});
+		}
+		function updateDrawerStatus() {
+			const el = document.getElementById("drawer-live-status");
+			el.textContent = currentStatus;
+			el.className = "mb-3 rounded-md px-3 py-1.5 text-xs font-semibold " + (
+				currentStatus === "RUN" || currentStatus === "CONNECTED" ? "border border-emerald-500/30 bg-emerald-500/20 text-emerald-300" :
+				currentStatus === "CONNECTING" ? "border border-amber-500/30 bg-amber-500/20 text-amber-300" :
+				"border border-slate-700/50 bg-slate-900/70 text-slate-200"
+			);
 		}
 
 		function plcConnect() {
@@ -217,7 +298,9 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 				plcWS.close();
 			}
 			plcConnected = false;
-			updateConnectButton(true);
+			currentStatus = "CONNECTING";
+			updateConnectButtons(true);
+			updateDrawerStatus();
 			plcWS = new WebSocket(getWSURL());
 			plcWS.onopen = () => {
 				plcSend({
@@ -233,25 +316,31 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 			plcWS.onmessage = (ev) => handlePLCEvent(JSON.parse(ev.data));
 			plcWS.onclose = () => {
 				plcConnected = false;
-				updateConnectButton(false);
+				currentStatus = "DISCONNECTED";
+				updateConnectButtons(false);
+				updateDrawerStatus();
 				setConnMessage("WebSocket disconnected", true);
+				renderLiveRows();
 			};
 			plcWS.onerror = () => {
 				plcConnected = false;
-				updateConnectButton(false);
+				currentStatus = "ERROR";
+				updateConnectButtons(false);
+				updateDrawerStatus();
 				setConnMessage("WebSocket error", true);
 			};
 		}
-
 		function plcDisconnect() {
 			if (plcWS && plcWS.readyState === WebSocket.OPEN) {
 				plcSend({ type: "disconnect" });
 				plcWS.close();
 			}
 			plcConnected = false;
-			updateConnectButton(false);
+			currentStatus = "DISCONNECTED";
+			updateConnectButtons(false);
+			updateDrawerStatus();
+			renderLiveRows();
 		}
-
 		function plcToggleConnection() {
 			if (plcConnected || (plcWS && plcWS.readyState === WebSocket.OPEN)) {
 				plcDisconnect();
@@ -259,11 +348,9 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 			}
 			plcConnect();
 		}
-
 		function plcReadOnce() { plcSend({ type: "read_once" }); }
 		function plcGetStatus() { plcSend({ type: "get_status" }); }
 		function plcGetCPUInfo() { plcSend({ type: "get_cpu_info" }); }
-
 		function plcSend(payload) {
 			if (!plcWS || plcWS.readyState !== WebSocket.OPEN) {
 				setConnMessage("Not connected", true);
@@ -275,30 +362,88 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 		function setConnMessage(msg, isError = false) {
 			const el = document.getElementById("plc-conn-msg");
 			el.textContent = msg || "";
-			el.className = isError ? "text-sm text-rose-300" : "text-sm text-emerald-300";
+			el.className = isError
+				? "rounded-lg border border-rose-700/30 bg-rose-950/20 px-3 py-2 text-xs text-rose-300"
+				: "rounded-lg border border-emerald-700/30 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-300";
 		}
-
 		function setStatus(status) {
-			const el = document.getElementById("plc-status");
-			el.textContent = status || "UNKNOWN";
-			el.className = "rounded-md px-2 py-1 text-xs font-semibold " +
-				(status === "RUN" ? "bg-emerald-500/20 text-emerald-300" :
-				(status === "STOP" ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-100"));
+			currentStatus = status && status !== "UNKNOWN" ? status : (plcConnected ? "CONNECTED" : "DISCONNECTED");
+			updateDrawerStatus();
 		}
 
-		function renderValues(values) {
-			const tbody = document.getElementById("plc-values");
-			if (!values || values.length === 0) {
-				tbody.innerHTML = `<tr><td class="px-2 py-2 text-slate-500" colspan="3">No values yet</td></tr>`;
+		function classifyRow(row) {
+			if (!plcConnected) return "unsubscribed";
+			if (row.error) return "error";
+			if (!row.updatedAt) return "stale";
+			const ageSec = (Date.now() - row.updatedAt) / 1000;
+			const poll = Number(document.getElementById("plc-poll-ms").value || "1000") / 1000;
+			if (ageSec > Math.max(3, poll * 3)) return "stale";
+			return "live";
+		}
+		function formatAge(ts) {
+			if (!ts) return "—";
+			const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+			return `${sec}s`;
+		}
+		function escapeHTML(v) {
+			return String(v || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+		}
+		function renderLiveRows() {
+			const tbody = document.getElementById("live-values-rows");
+			const search = (document.getElementById("live-search").value || "").toLowerCase().trim();
+			const filter = document.getElementById("live-filter").value || "all";
+			const density = document.getElementById("live-density").value || "compact";
+			const addresses = collectVariables();
+			addresses.forEach((addr) => {
+				const key = addr.toUpperCase();
+				if (!liveRows.has(key)) liveRows.set(key, { address: key, value: "", error: "", updatedAt: 0 });
+			});
+
+			if (!plcConnected) {
+				tbody.innerHTML = `<tr><td class="px-2 py-8 text-center text-slate-400" colspan="7">PLC disconnected. Open Setup to connect.</td></tr>`;
+				document.getElementById("live-count").textContent = `${addresses.length} tags · disconnected`;
 				return;
 			}
-			tbody.innerHTML = values.map((v) => `
-				<tr class="border-t border-slate-800">
-					<td class="px-2 py-2 font-mono">${v.address || ""}</td>
-					<td class="px-2 py-2">${v.value || ""}</td>
-					<td class="px-2 py-2 text-rose-300">${v.error || ""}</td>
-				</tr>
-			`).join("");
+			if (addresses.length === 0) {
+				tbody.innerHTML = `<tr><td class="px-2 py-8 text-center text-slate-400" colspan="7">No tags subscribed. Open Setup and add addresses or a DB.</td></tr>`;
+				document.getElementById("live-count").textContent = "0 tags";
+				return;
+			}
+
+			let liveCount = 0, errCount = 0, staleCount = 0;
+			const rows = [];
+			for (const addr of addresses) {
+				const key = addr.toUpperCase();
+				const row = liveRows.get(key) || { address: key, value: "", error: "", updatedAt: 0 };
+				const meta = valueMeta.get(key) || {};
+				const quality = classifyRow(row);
+				if (quality === "live") liveCount++; else if (quality === "error") errCount++; else staleCount++;
+				const hay = `${row.address} ${meta.name || ""} ${meta.data_type || ""}`.toLowerCase();
+				if (search && !hay.includes(search)) continue;
+				if (filter !== "all" && quality !== filter) continue;
+				const trClass = quality === "error" ? "bg-rose-950/10" : (quality === "live" ? "bg-emerald-950/5" : "");
+				const pad = density === "compact" ? "py-1.5" : "py-3";
+				rows.push(`
+					<tr id="row-${key.replaceAll('.', '-')}" class="border-b border-slate-800/60 ${trClass}">
+						<td class="px-2 ${pad} font-mono text-amber-300">${escapeHTML(row.address)}</td>
+						<td class="px-2 ${pad} text-slate-200">${escapeHTML(meta.name || "—")}</td>
+						<td class="px-2 ${pad} text-slate-400">${escapeHTML(meta.data_type || "—")}</td>
+						<td class="px-2 ${pad} font-mono text-cyan-300">${escapeHTML(row.value || "—")}</td>
+						<td class="px-2 ${pad}">${quality.toUpperCase()}</td>
+						<td class="px-2 ${pad} text-slate-400">${formatAge(row.updatedAt)}</td>
+						<td class="px-2 ${pad} text-rose-300">${escapeHTML(row.error || "")}</td>
+					</tr>
+				`);
+			}
+			tbody.innerHTML = rows.length ? rows.join("") : `<tr><td class="px-2 py-8 text-center text-slate-400" colspan="7">No rows match current filters.</td></tr>`;
+			document.getElementById("live-count").textContent = `${addresses.length} tags · ${liveCount} live · ${staleCount} stale · ${errCount} error`;
+		}
+		function flashRow(address) {
+			const id = `row-${String(address || "").toUpperCase().replaceAll('.', '-')}`;
+			const row = document.getElementById(id);
+			if (!row) return;
+			row.classList.add("ring-1", "ring-cyan-400/40");
+			setTimeout(() => row.classList.remove("ring-1", "ring-cyan-400/40"), 600);
 		}
 
 		function handlePLCEvent(ev) {
@@ -306,17 +451,19 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 			switch (ev.type) {
 				case "connected":
 					plcConnected = true;
-					updateConnectButton(false);
+					setStatus("CONNECTED");
+					updateConnectButtons(false);
 					setConnMessage(ev.message || "connected", false);
+					applySubscriptions();
 					break;
 				case "disconnected":
 					plcConnected = false;
-					updateConnectButton(false);
+					setStatus("DISCONNECTED");
+					updateConnectButtons(false);
 					setConnMessage(ev.message || "disconnected", true);
 					break;
 				case "error":
-					plcConnected = false;
-					updateConnectButton(false);
+					setStatus("ERROR");
 					setConnMessage(ev.message || "error", true);
 					break;
 				case "status":
@@ -327,14 +474,45 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 					break;
 				case "values":
 					setStatus(ev.status);
-					renderValues(ev.values || []);
-					document.getElementById("plc-last-update").textContent = ev.timestamp || "-";
+					(ev.values || []).forEach((v) => {
+						const key = String(v.address || "").toUpperCase();
+						liveRows.set(key, { address: key, value: v.value || "", error: v.error || "", updatedAt: Date.now() });
+						flashRow(key);
+					});
+					renderLiveRows();
 					break;
 				case "info":
 					setConnMessage(ev.message || "", false);
 					break;
 			}
 		}
-		updateConnectButton(false);
+
+		async function refreshRuntimeStatusTab() {
+			try {
+				const resp = await fetch("/connect-plc/runtime-status", { headers: { "Accept": "application/json" } });
+				if (!resp.ok) return;
+				const info = await resp.json();
+				document.getElementById("plc-runtime-status").textContent = JSON.stringify(info, null, 2);
+			} catch (_e) {}
+		}
+
+		window.plcQuickAction = function(action) {
+			switch (action) {
+				case "connect": plcConnect(); break;
+				case "disconnect": plcDisconnect(); break;
+				case "read_once": plcReadOnce(); break;
+				case "status": plcGetStatus(); break;
+				case "cpu_info": plcGetCPUInfo(); break;
+				case "open_setup": openSetupDrawer(); break;
+			}
+		};
+
+		restoreDrawerState();
+		showSetupTab("connection");
+		updateConnectButtons(false);
+		updateDrawerStatus();
+		applySubscriptions();
+		renderLiveRows();
+		setInterval(refreshRuntimeStatusTab, 1500);
 	</script>
 }

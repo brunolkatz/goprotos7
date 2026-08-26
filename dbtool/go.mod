@@ -7,11 +7,11 @@ require (
 	github.com/ascarter/requestid v0.0.0-20170313220838-5b76ab3d4aee
 	github.com/brunolkatz/goprotos7 v0.0.0-00010101000000-000000000000
 	github.com/charmbracelet/log v0.4.1
+	github.com/get-notify/gos7 v0.0.0-20250916120703-75b1ab7e4bfd
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-gormigrate/gormigrate/v2 v2.1.4
 	github.com/gorilla/websocket v1.5.3
 	github.com/jessevdk/go-flags v1.6.1
-	github.com/robinson/gos7 v0.0.0-20260622162611-2d6806f80c8b
 	github.com/rs/cors v1.11.0
 	golang.org/x/sync v0.16.0
 	gorm.io/driver/sqlite v1.5.7

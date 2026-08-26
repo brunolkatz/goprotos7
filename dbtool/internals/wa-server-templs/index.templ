@@ -68,14 +68,47 @@ templ PageLayout(title *string, content templ.Component) {
 				>
 					Connect to PLC
 				</a>
+				<a
+					href="/heartbeats"
+					hx-get="/heartbeats"
+					data-path="/heartbeats"
+					hx-target="#main-container"
+					hx-swap="innerHTML"
+					hx-push-url="true"
+					class="nav-link block rounded-lg px-4 py-3 text-sm font-medium transition text-slate-300 hover:bg-slate-800 hover:text-indigo-300"
+				>
+					Register Heartbeats
+				</a>
 			</nav>
 		</aside>
 		<section class="min-h-screen w-full">
 			<header class="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/90 px-8 py-4 backdrop-blur md:px-10">
 				<div class="flex items-center justify-between">
-					<div class="text-sm text-slate-400">Web Admin</div>
-					<div id="plc-top-status" class="rounded-md border border-slate-700/50 bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">
-						PLC: DISCONNECTED
+					<div>
+						<div class="text-sm font-semibold text-slate-200">Web Admin</div>
+						<div class="text-xs text-slate-500">PLC DB simulator admin</div>
+					</div>
+					<div class="relative">
+						<button id="plc-hud-button" type="button" onclick="togglePlcHudDropdown()" class="flex items-center gap-2 rounded-lg border border-slate-700/60 bg-slate-900/80 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+							<span id="plc-hud-dot" class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
+							<span id="plc-hud-state" class="font-semibold">DISCONNECTED</span>
+							<span id="plc-hud-target" class="font-mono text-slate-300">—</span>
+							<span id="plc-hud-rs" class="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-300">R0 S2</span>
+							<span id="plc-hud-poll" class="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-300">—</span>
+							<span id="plc-hud-age" class="text-[11px] text-slate-400">stale</span>
+						</button>
+						<div id="plc-hud-dropdown" class="absolute right-0 top-12 hidden w-[360px] rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs shadow-2xl">
+							<div class="mb-2 font-semibold text-slate-100">PLC Connection HUD</div>
+							<pre id="plc-hud-details" class="mb-3 max-h-40 overflow-auto rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px] text-slate-300">Loading...</pre>
+							<div class="mb-2 flex flex-wrap gap-2">
+								<button type="button" onclick="plcHudQuickAction('connect')" class="rounded border border-indigo-500/40 bg-indigo-500/20 px-2 py-1 text-indigo-200">Connect</button>
+								<button type="button" onclick="plcHudQuickAction('disconnect')" class="rounded border border-rose-500/40 px-2 py-1 text-rose-300">Disconnect</button>
+								<button type="button" onclick="plcHudQuickAction('read_once')" class="rounded border border-slate-700 px-2 py-1 text-slate-200">Read once</button>
+								<button type="button" onclick="plcHudQuickAction('status')" class="rounded border border-slate-700 px-2 py-1 text-slate-200">Status</button>
+								<button type="button" onclick="plcHudQuickAction('cpu_info')" class="rounded border border-slate-700 px-2 py-1 text-slate-200">CPU Info</button>
+							</div>
+							<button type="button" onclick="plcHudQuickAction('open_setup')" class="w-full rounded border border-slate-700 px-2 py-1.5 text-slate-200 hover:bg-slate-800">Open setup panel</button>
+						</div>
 					</div>
 				</div>
 			</header>
@@ -101,33 +134,88 @@ templ PageLayout(title *string, content templ.Component) {
 		window.addEventListener("DOMContentLoaded", refreshSidebarState);
 		document.addEventListener("htmx:afterOnLoad", refreshSidebarState);
 
-		function statusClassForPLC(status) {
-			if (status === "RUN") return "rounded-md border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300";
-			if (status === "STOP") return "rounded-md border border-amber-500/30 bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300";
-			if (status === "DISCONNECTED") return "rounded-md border border-slate-700/50 bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200";
-			return "rounded-md border border-indigo-500/30 bg-indigo-500/20 px-3 py-1 text-xs font-semibold text-indigo-300";
+		function togglePlcHudDropdown() {
+			const dd = document.getElementById("plc-hud-dropdown");
+			if (!dd) return;
+			dd.classList.toggle("hidden");
+		}
+		document.addEventListener("click", (ev) => {
+			const dd = document.getElementById("plc-hud-dropdown");
+			const btn = document.getElementById("plc-hud-button");
+			if (!dd || !btn) return;
+			if (!dd.contains(ev.target) && !btn.contains(ev.target)) dd.classList.add("hidden");
+		});
+
+		function formatAgeFromDate(text) {
+			if (!text) return "stale";
+			const d = new Date(text);
+			if (Number.isNaN(d.getTime())) return "stale";
+			const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+			return sec <= 0 ? "0s ago" : `${sec}s ago`;
+		}
+
+		function setHudAppearance(state) {
+			const dot = document.getElementById("plc-hud-dot");
+			const s = String(state || "DISCONNECTED").toUpperCase();
+			if (!dot) return;
+			dot.className = "h-2.5 w-2.5 rounded-full " + (
+				s === "RUN" || s === "CONNECTED" ? "bg-emerald-400 animate-pulse" :
+				s === "CONNECTING" || s === "RECONNECTING" || s === "STOP" ? "bg-amber-400 animate-pulse" :
+				s === "ERROR" ? "bg-rose-500" :
+				"bg-rose-400"
+			);
 		}
 
 		async function refreshPLCStatusTopNav() {
-			const el = document.getElementById("plc-top-status");
-			if (!el) return;
 			try {
 				const resp = await fetch("/connect-plc/runtime-status", { headers: { "Accept": "application/json" } });
 				if (!resp.ok) return;
 				const data = await resp.json();
-				const status = (data && data.status) ? String(data.status).toUpperCase() : "DISCONNECTED";
-				const connected = !!(data && data.connected);
-				const shown = connected ? status : "DISCONNECTED";
-				el.textContent = `PLC: ${shown}`;
-				el.className = statusClassForPLC(shown);
-			} catch (_e) {
-				// keep previous status
+				const plcState = String(data.plc_state || "DISCONNECTED").toUpperCase();
+				const wsState = String(data.ws_state || "DISCONNECTED").toUpperCase();
+				const shown = plcState === "UNKNOWN" ? "DISCONNECTED" : plcState;
+				document.getElementById("plc-hud-state").textContent = shown;
+				document.getElementById("plc-hud-target").textContent = data.target || "—";
+				document.getElementById("plc-hud-rs").textContent = `R${data.rack ?? 0} S${data.slot ?? 2}`;
+				document.getElementById("plc-hud-poll").textContent = data.poll_ms ? `${data.poll_ms}ms` : "—";
+				document.getElementById("plc-hud-age").textContent = formatAgeFromDate(data.last_ws_message_at || data.last_read_at);
+				setHudAppearance(shown);
+				document.getElementById("plc-hud-details").textContent = JSON.stringify({
+					plc_state: shown,
+					ws_state: wsState,
+					target: data.target || "",
+					rack: data.rack,
+					slot: data.slot,
+					poll_ms: data.poll_ms,
+					connected_since: data.connected_since || null,
+					last_read_at: data.last_read_at || null,
+					last_ws_message_at: data.last_ws_message_at || null,
+					last_error: data.last_error || "",
+					cpu_info: data.cpu_info || null
+				}, null, 2);
+			} catch (_e) {}
+		}
+
+		function plcHudQuickAction(action) {
+			if (typeof window.plcQuickAction === "function") {
+				window.plcQuickAction(action);
+				return;
 			}
+			if (action === "open_setup") {
+				const openUrl = "/connect-plc?openSetup=1";
+				if (window.location.pathname !== "/connect-plc") {
+					window.location.href = openUrl;
+					return;
+				}
+				window.dispatchEvent(new CustomEvent("plc:open-setup"));
+				return;
+			}
+			window.location.href = "/connect-plc?openSetup=1";
 		}
 
 		window.addEventListener("DOMContentLoaded", () => {
 			refreshPLCStatusTopNav();
-			setInterval(refreshPLCStatusTopNav, 1500);
+			setInterval(refreshPLCStatusTopNav, 1200);
 		});
 	</script>
 	</body>

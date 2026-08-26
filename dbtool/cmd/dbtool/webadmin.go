@@ -6,6 +6,7 @@ import (
 	connect_plc_api "github.com/brunolkatz/goprotos7/dbtool/api/connect-plc-api"
 	create_var_api "github.com/brunolkatz/goprotos7/dbtool/api/create-var-api"
 	dashboard_api "github.com/brunolkatz/goprotos7/dbtool/api/dashboard-api"
+	heartbeats_api "github.com/brunolkatz/goprotos7/dbtool/api/heartbeats-api"
 	vars_handler "github.com/brunolkatz/goprotos7/dbtool/handlers/vars-handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -28,6 +29,10 @@ func registerWebAdminRoutes(router *chi.Mux, varsHandler *vars_handler.VarsHandl
 	if err != nil {
 		return err
 	}
+	heartbeatsApi, err := heartbeats_api.New(varsHandler)
+	if err != nil {
+		return err
+	}
 
 	assetsFilesWatcherApi.Register(router)
 	router.Route("/", func(r chi.Router) {
@@ -35,6 +40,7 @@ func registerWebAdminRoutes(router *chi.Mux, varsHandler *vars_handler.VarsHandl
 		dashboardApi.Register(r)
 		createVarApi.Register(r)
 		connectPlcApi.Register(r)
+		heartbeatsApi.Register(r)
 	})
 	return nil
 }
