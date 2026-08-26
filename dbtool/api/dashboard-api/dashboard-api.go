@@ -2,16 +2,12 @@ package dashboard_api
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"github.com/brunolkatz/goprotos7/dbtool"
-	"github.com/brunolkatz/goprotos7/dbtool/api/httpx"
 	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
-	plc_runtime "github.com/brunolkatz/goprotos7/dbtool/internals/plc-runtime"
 	"github.com/brunolkatz/goprotos7/dbtool/internals/wa-server-templs"
 	"github.com/go-chi/chi/v5"
 	"net/http"
-	"strings"
+	"strconv"
 )
 
 type varHandler interface {
@@ -19,8 +15,6 @@ type varHandler interface {
 	GetDbNumbers(ctx context.Context) ([]uint32, error)
 	GetDbVar(ctx context.Context, id int64) (*db_models.DbVariable, error)
 	SetListVar(ctx context.Context, dbNumber, varId, stsId int64) (*db_models.DbVariable, error)
-	SavePLCWatchList(ctx context.Context, source string, dbNumber int32, addresses []string) error
-	ListEnabledHeartbeatAddresses(ctx context.Context) ([]string, error)
 }
 
 type DashboardAPi struct {
@@ -38,8 +32,6 @@ func (h *DashboardAPi) Register(r chi.Router) {
 	r.Route("/dashboard", func(r chi.Router) {
 		r.Get("/", h.GetHomePage) // Redirect root to /dashboard
 		r.Get("/get-db-vars", h.GetDbVars)
-		r.Get("/plc-values", h.GetPLCValues)
-		r.Post("/select-db", h.SelectDB)
 		r.Put("/set-var-value", h.SetDbVar)
 	})
 }
@@ -65,55 +57,97 @@ func (h *DashboardAPi) GetHomePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DashboardAPi) GetDbVars(w http.ResponseWriter, r *http.Request) {
-	query, err := bindGetDbVarsQuery(r)
-	if err != nil {
-		httpx.BadRequest(w, err.Error())
+	_dbNumber := r.URL.Query().Get("db-number")
+	if _dbNumber == "" {
+		http.Error(w, "dbNumber is required", http.StatusBadRequest)
 		return
 	}
-	dbVariables, err := h.varsHandler.GetVariables(query.DBNumber)
-	if err != nil {
-		httpx.InternalError(w, "Error fetching variables: "+err.Error())
-		return
-	}
-	applyLiveValues(dbVariables)
-	applyHeartbeatLocks(r.Context(), h.varsHandler, dbVariables)
+	dbNumber, err := strconv.ParseInt(_dbNumber, 10, 32)
 
-	comp := DbVarsTempl(dbVariables)
-	err = comp.Render(r.Context(), w)
+	dbVariables, err := h.varsHandler.GetVariables(int32(dbNumber))
 	if err != nil {
-		httpx.InternalError(w, "Error rendering variables: "+err.Error())
+		http.Error(w, "Error fetching variables: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = wa_server_templs.RenderPageLayout(
+		w,
+		r,
+		"Database Variables",
+		DbVarsTempl(dbVariables),
+	)
+	if err != nil {
+		http.Error(w, "Error rendering page: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
 func (h *DashboardAPi) SetDbVar(w http.ResponseWriter, r *http.Request) {
-	form, err := bindSetDbVarForm(r)
+	// { "db-number": 1, "var-id": 2, "t": "LIST", "def-id": 3 }
+	err := r.ParseForm()
 	if err != nil {
-		httpx.AlertError(w, r, "Error: "+err.Error())
+		wa_server_templs.RenderAlertMSG(wa_server_templs.RT_Error, "Error: "+err.Error(), w, r)
 		return
 	}
+	_dbNumber := r.Form.Get("db-number")
+	if _dbNumber == "" {
+		http.Error(w, "dbNumber is required", http.StatusBadRequest)
+		return
+	}
+	dbNumber, err := strconv.ParseInt(_dbNumber, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid dbNumber: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	_varId := r.Form.Get("var-id")
+	if _varId == "" {
+		http.Error(w, "varId is required", http.StatusBadRequest)
+		return
+	}
+	varId, err := strconv.ParseInt(_varId, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid varId: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	varType := r.Form.Get("t")
+	if varType == "" {
+		http.Error(w, "Variable type (t) is required", http.StatusBadRequest)
+		return
+	}
+	if _, ok := dbtool.VarTypePara[varType]; !ok {
+		http.Error(w, "Invalid variable type: "+varType, http.StatusBadRequest)
+		return
+	}
+
 	var dbVar *db_models.DbVariable
 
-	switch form.VarType {
+	switch dbtool.VarTypePara[varType] {
 	case dbtool.VarTypeStatic:
-		httpx.AlertError(w, r, "Error: STATIC var type update is not implemented")
-		return
+		// TODO: Create the logic to handle static variable types
 	case dbtool.VarTypeList:
-		dbVar, err = h.varsHandler.SetListVar(r.Context(), form.DBNumber, form.VarID, form.StatusID)
-		if err != nil {
-			httpx.AlertError(w, r, "Error: "+err.Error())
+		_stsId := r.Form.Get("sts-id")
+		if _stsId == "" {
+			http.Error(w, "defId is required", http.StatusBadRequest)
 			return
 		}
-	default:
-		httpx.AlertError(w, r, fmt.Sprintf("Error: unsupported variable type: %s", form.VarType))
-		return
+		stsId, err := strconv.ParseInt(_stsId, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid defId: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Here you would typically call a method to set the variable value in the database
+		dbVar, err = h.varsHandler.SetListVar(r.Context(), dbNumber, varId, stsId) // Replace 1 with the actual variable ID
+		if err != nil {
+			wa_server_templs.RenderAlertMSG(wa_server_templs.RT_Error, "Error: "+err.Error(), w, r)
+			return
+		}
 	}
 	if dbVar == nil {
-		httpx.AlertError(w, r, "Error: Something goes wrong =/")
+		wa_server_templs.RenderAlertMSG(wa_server_templs.RT_Error, "Error: Something goes wrong =/", w, r)
 		return
 	}
-	applyLiveValues([]*db_models.DbVariable{dbVar})
-	applyHeartbeatLocks(r.Context(), h.varsHandler, []*db_models.DbVariable{dbVar})
 
 	comp := DbVarTempl(dbVar)
 	err = comp.Render(r.Context(), w)
@@ -121,115 +155,4 @@ func (h *DashboardAPi) SetDbVar(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error rendering component: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
-
-type plcValueRow struct {
-	ID      int64  `json:"id"`
-	Address string `json:"address"`
-	Value   string `json:"value,omitempty"`
-	Error   string `json:"error,omitempty"`
-}
-
-func (h *DashboardAPi) GetPLCValues(w http.ResponseWriter, r *http.Request) {
-	query, err := bindGetDbVarsQuery(r)
-	if err != nil {
-		httpx.BadRequest(w, err.Error())
-		return
-	}
-	dbVariables, err := h.varsHandler.GetVariables(query.DBNumber)
-	if err != nil {
-		httpx.InternalError(w, "Error fetching variables: "+err.Error())
-		return
-	}
-	rows := make([]plcValueRow, 0, len(dbVariables))
-	addresses := make([]string, 0, len(dbVariables))
-	for _, v := range dbVariables {
-		addresses = append(addresses, v.ToDBAddress())
-	}
-	liveByAddress := map[string]plc_runtime.ValueSnapshot{}
-	liveValues, err := plc_runtime.ReadValues(addresses)
-	if err == nil {
-		for _, lv := range liveValues {
-			liveByAddress[lv.Address] = lv
-		}
-	}
-	for _, v := range dbVariables {
-		row := plcValueRow{
-			ID:      v.Id,
-			Address: v.ToDBAddress(),
-		}
-		if lv, ok := liveByAddress[row.Address]; ok {
-			row.Value = lv.Value
-			row.Error = lv.Error
-		} else if err != nil {
-			row.Error = "PLC unavailable"
-		}
-		rows = append(rows, row)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(rows)
-}
-
-func applyLiveValues(vars []*db_models.DbVariable) {
-	for _, v := range vars {
-		snapshot, ok := plc_runtime.GetValue(v.ToDBAddress())
-		if !ok {
-			continue
-		}
-		if snapshot.Value != "" {
-			val := snapshot.Value
-			v.PLCReadValue = &val
-		}
-		if snapshot.Error != "" {
-			e := snapshot.Error
-			v.PLCReadError = &e
-		}
-	}
-}
-
-func applyHeartbeatLocks(ctx context.Context, h varHandler, vars []*db_models.DbVariable) {
-	addresses, err := h.ListEnabledHeartbeatAddresses(ctx)
-	if err != nil || len(addresses) == 0 {
-		return
-	}
-	lockMap := make(map[string]struct{}, len(addresses))
-	for _, addr := range addresses {
-		lockMap[strings.ToUpper(strings.TrimSpace(addr))] = struct{}{}
-	}
-	for _, v := range vars {
-		if _, ok := lockMap[strings.ToUpper(strings.TrimSpace(v.ToDBAddress()))]; ok {
-			v.HeartbeatLocked = true
-		}
-	}
-}
-
-type selectDBReq struct {
-	DBNumber int32 `json:"db_number"`
-}
-
-func (h *DashboardAPi) SelectDB(w http.ResponseWriter, r *http.Request) {
-	var body selectDBReq
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.DBNumber <= 0 {
-		httpx.BadRequest(w, "invalid db_number")
-		return
-	}
-	dbVariables, err := h.varsHandler.GetVariables(body.DBNumber)
-	if err != nil {
-		httpx.InternalError(w, "Error fetching variables: "+err.Error())
-		return
-	}
-	addresses := make([]string, 0, len(dbVariables))
-	for _, v := range dbVariables {
-		addresses = append(addresses, v.ToDBAddress())
-	}
-	if err := h.varsHandler.SavePLCWatchList(r.Context(), "dashboard", body.DBNumber, addresses); err != nil {
-		httpx.InternalError(w, "Error saving watch list: "+err.Error())
-		return
-	}
-	plc_runtime.SetDashboardWatchList(body.DBNumber, addresses)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"db_number": body.DBNumber,
-		"count":     len(addresses),
-	})
 }

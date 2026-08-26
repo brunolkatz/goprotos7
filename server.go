@@ -138,10 +138,6 @@ func (c *Connection) DoMsgHandler(msg *Message) {
 		switch msg.S7Request.FunctionCode {
 		case S7FuncReadVar:
 			c.eventS7FuncReadVar(msg, c.conn)
-		case S7FuncWriteVar:
-			c.eventS7FuncWriteVar(msg, c.conn)
-		case S7FuncUserData:
-			c.eventS7FuncUserData(msg, c.conn)
 		default:
 			return
 		}
@@ -195,46 +191,34 @@ func (c *Connection) StartReader() {
 		}
 		log.Println("[SERVER] Connection Confirm sent")
 
-		// Step 2: wait for Setup Communication (ignore unexpected pre-setup packets)
-		for {
-			buffer, err = readConn(c.conn)
-			if err != nil {
-				log.Println("Read error:", err)
-				return
-			}
-			msg, err = unpack(buffer)
-			if err != nil {
-				log.Println("Unpack error:", err)
-				continue
-			}
-			if msg.S7Request == nil {
-				continue
-			}
-			if msg.S7Request.FunctionCode != S7FuncSetupCommunication {
-				ret := getS7FunctionCodeNotSupportedResponse(msg)
-				pack, _ := ret.Pack(COTPData)
-				_, _ = c.conn.Write(pack)
-				continue
-			}
-			var res *Message
-			res, err = getS7ParamSetupCommunicationResponse(msg)
-			if err != nil {
-				log.Println("Error getting Setup Communication response:", err)
-				return
-			}
-			pack, err := res.Pack(COTPData)
-			if err != nil {
-				log.Println("Error packing response:", err)
-				return
-			}
-			_, err = c.conn.Write(pack)
-			if err != nil {
-				log.Println("Write error:", err)
-				return
-			}
-			log.Println("[SERVER] Setup Communication response sent successfully")
-			break
+		// Step 2: send Connection Confirm
+		buffer, err = readConn(c.conn)
+		if err != nil {
+			log.Println("Read error:", err)
+			return
 		}
+		msg, err = unpack(buffer)
+		if err != nil {
+			log.Println("Unpack error:", err)
+			return
+		}
+		if msg.S7Request.FunctionCode != S7FuncSetupCommunication {
+			log.Println("Not a Setup Communication request")
+			return
+		}
+		var res *Message
+		res, err = getS7ParamSetupCommunicationResponse(msg)
+		if err != nil {
+			log.Println("Error getting Setup Communication response:", err)
+			return
+		}
+		pack, err := res.Pack(COTPData)
+		if err != nil {
+			log.Println("Error packing response:", err)
+			return
+		}
+		_, err = c.conn.Write(pack)
+		log.Println("[SERVER] Setup Communication response sent successfully")
 
 		// Everything is ok, now we can read/write data
 		for {
@@ -252,22 +236,14 @@ func (c *Connection) StartReader() {
 			msg, err = unpack(buffer)
 			if err != nil {
 				if errors.Is(err, ErrorFunctionCodeNotSupported) {
-					writeMsg, wErr := unpackWriteVarPacket(buffer)
-					if wErr == nil {
-						msg = writeMsg
-						err = nil
-					} else {
-						ret := getS7FunctionCodeNotSupportedResponse(msg)
-						pack, _ := ret.Pack(COTPData)
-						_, err = c.conn.Write(pack)
-						continue
-					}
-				}
-				if err != nil {
-					// TODO: On error send back to the client some error message
-					log.Println("[CON_HANDLER] Unpack error:", err)
+					ret := getS7FunctionCodeNotSupportedResponse(msg)
+					pack, _ := ret.Pack(COTPData)
+					_, err = c.conn.Write(pack)
 					continue
 				}
+				// TODO: On error send back to the client some error message
+				log.Println("[CON_HANDLER] Unpack error:", err)
+				continue
 			}
 			if msg.S7Request == nil {
 				continue
@@ -285,7 +261,7 @@ func readConn(c net.Conn) ([]byte, error) {
 
 	// Step 1: Read 4 bytes (TPKT Header)
 	header := make([]byte, 4)
-	if _, err := io.ReadFull(c, header); err != nil {
+	if _, err := c.Read(header); err != nil {
 		if errors.Is(err, io.EOF) {
 			return nil, fmt.Errorf("connection closed by client - 1")
 		}
@@ -300,7 +276,7 @@ func readConn(c net.Conn) ([]byte, error) {
 
 	// Step 3: Read the remaining packet (packetLength - 4 because header already read)
 	body := make([]byte, packetLength-4)
-	if _, err := io.ReadFull(c, body); err != nil {
+	if _, err := c.Read(body); err != nil {
 		if errors.Is(err, io.EOF) {
 			return nil, fmt.Errorf("connection closed by client - 2")
 		}
