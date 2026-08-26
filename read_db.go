@@ -69,6 +69,7 @@ func (c *Connection) getDB(dbNumber uint16) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening DB %s: %s", dbFileName, err)
 	}
+	defer f.Close()
 	binFile, err := os.ReadFile(f.Name())
 	return binFile, err
 }
