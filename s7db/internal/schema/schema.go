@@ -1,0 +1,265 @@
+package schema
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/brunolkatz/goprotos7/s7db/internal/address"
+	"gopkg.in/yaml.v3"
+)
+
+type SizeSpec struct {
+	Auto  bool
+	Bytes int
+}
+
+func (s SizeSpec) MarshalYAML() (any, error) {
+	if s.Auto {
+		return "auto", nil
+	}
+	return s.Bytes, nil
+}
+
+func (s *SizeSpec) UnmarshalYAML(n *yaml.Node) error {
+	switch n.Kind {
+	case yaml.ScalarNode:
+		if n.Tag == "!!str" && strings.EqualFold(strings.TrimSpace(n.Value), "auto") {
+			s.Auto = true
+			s.Bytes = 0
+			return nil
+		}
+		var i int
+		if err := n.Decode(&i); err == nil {
+			if i < 0 {
+				return fmt.Errorf("size cannot be negative")
+			}
+			s.Auto = false
+			s.Bytes = i
+			return nil
+		}
+	}
+	return fmt.Errorf("size must be integer or auto")
+}
+
+type Tag struct {
+	Addr string `yaml:"addr" json:"addr"`
+	Name string `yaml:"name,omitempty" json:"name,omitempty"`
+	Type string `yaml:"type" json:"type"`
+	Init any    `yaml:"init,omitempty" json:"init,omitempty"`
+	Desc string `yaml:"desc,omitempty" json:"desc,omitempty"`
+}
+
+type Schema struct {
+	Version   int      `yaml:"version" json:"version"`
+	DB        int      `yaml:"db" json:"db"`
+	Name      string   `yaml:"name,omitempty" json:"name,omitempty"`
+	Optimized bool     `yaml:"optimized,omitempty" json:"optimized,omitempty"`
+	Endian    string   `yaml:"endian" json:"endian"`
+	Size      SizeSpec `yaml:"size" json:"size"`
+	Tags      []Tag    `yaml:"tags" json:"tags"`
+}
+
+func New(db int) Schema {
+	return Schema{
+		Version: 1,
+		DB:      db,
+		Endian:  "big",
+		Size:    SizeSpec{Auto: true},
+		Tags:    []Tag{},
+	}
+}
+
+func Load(path string, defaultDB *int) (Schema, error) {
+	data, err := readAll(path)
+	if err != nil {
+		return Schema{}, err
+	}
+	var s Schema
+	if err := yaml.Unmarshal(data, &s); err != nil {
+		return Schema{}, err
+	}
+	if s.Version == 0 {
+		s.Version = 1
+	}
+	if s.Endian == "" {
+		s.Endian = "big"
+	}
+	if strings.TrimSpace(s.Endian) == "" {
+		s.Endian = "big"
+	}
+	if s.Size == (SizeSpec{}) {
+		s.Size = SizeSpec{Auto: true}
+	}
+	if err := s.Normalize(defaultDB); err != nil {
+		return Schema{}, err
+	}
+	return s, nil
+}
+
+func (s *Schema) Normalize(defaultDB *int) error {
+	s.Endian = strings.ToLower(strings.TrimSpace(s.Endian))
+	if s.Endian == "" {
+		s.Endian = "big"
+	}
+	if s.DB == 0 && defaultDB != nil {
+		s.DB = *defaultDB
+	}
+	db := s.DB
+	for i := range s.Tags {
+		a, err := address.Parse(s.Tags[i].Addr, &db)
+		if err != nil {
+			return fmt.Errorf("tag %d: %w", i+1, err)
+		}
+		s.Tags[i].Addr = a.Canonical()
+		s.Tags[i].Type = normalizeType(s.Tags[i].Type)
+	}
+	return nil
+}
+
+func normalizeType(t string) string {
+	t = strings.TrimSpace(t)
+	up := strings.ToUpper(t)
+	if strings.HasPrefix(up, "STRING[") {
+		return up
+	}
+	return up
+}
+
+func Save(path string, s Schema) error {
+	if err := s.Normalize(&s.DB); err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(s); err != nil {
+		return err
+	}
+	if err := enc.Close(); err != nil {
+		return err
+	}
+	if path == "-" {
+		_, err := os.Stdout.Write(buf.Bytes())
+		return err
+	}
+	return os.WriteFile(path, buf.Bytes(), 0o644)
+}
+
+func Exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func readAll(path string) ([]byte, error) {
+	if path == "-" {
+		return io.ReadAll(os.Stdin)
+	}
+	return os.ReadFile(path)
+}
+
+func Merge(base, incoming Schema, strict bool) (Schema, error) {
+	out := base
+	if incoming.Version != 0 {
+		out.Version = incoming.Version
+	}
+	if incoming.DB != 0 {
+		out.DB = incoming.DB
+	}
+	if incoming.Name != "" {
+		out.Name = incoming.Name
+	}
+	if incoming.Endian != "" {
+		out.Endian = incoming.Endian
+	}
+	out.Optimized = incoming.Optimized
+	if incoming.Size != (SizeSpec{}) {
+		out.Size = incoming.Size
+	}
+	idx := map[string]int{}
+	for i, t := range out.Tags {
+		idx[t.Addr] = i
+	}
+	for _, t := range incoming.Tags {
+		if i, ok := idx[t.Addr]; ok {
+			if strict {
+				return Schema{}, fmt.Errorf("conflicting tag at %s", t.Addr)
+			}
+			out.Tags[i] = t
+			continue
+		}
+		out.Tags = append(out.Tags, t)
+	}
+	return out, nil
+}
+
+func FindTag(s Schema, key string, defaultDB *int) (int, bool) {
+	for i, t := range s.Tags {
+		if strings.EqualFold(t.Name, key) {
+			return i, true
+		}
+	}
+	if addr, err := address.Parse(key, defaultDB); err == nil {
+		c := addr.Canonical()
+		for i, t := range s.Tags {
+			if t.Addr == c {
+				return i, true
+			}
+		}
+	}
+	return -1, false
+}
+
+func ParseExternal(path string, defaultDB *int) (Schema, error) {
+	data, err := readAll(path)
+	if err != nil {
+		return Schema{}, err
+	}
+	var s Schema
+	if json.Unmarshal(data, &s) == nil {
+		if s.Version == 0 {
+			s.Version = 1
+		}
+		if s.Size == (SizeSpec{}) {
+			s.Size = SizeSpec{Auto: true}
+		}
+		if err := s.Normalize(defaultDB); err != nil {
+			return Schema{}, err
+		}
+		return s, nil
+	}
+	if err := yaml.Unmarshal(data, &s); err != nil {
+		return Schema{}, err
+	}
+	if s.Version == 0 {
+		s.Version = 1
+	}
+	if s.Size == (SizeSpec{}) {
+		s.Size = SizeSpec{Auto: true}
+	}
+	if err := s.Normalize(defaultDB); err != nil {
+		return Schema{}, err
+	}
+	return s, nil
+}
+
+func EnsureParentDir(path string) error {
+	if path == "-" {
+		return nil
+	}
+	dir := filepath.Dir(path)
+	if dir == "." || dir == "" {
+		return nil
+	}
+	return os.MkdirAll(dir, 0o755)
+}
