@@ -2,12 +2,6 @@
 
 Used to create/maintain the database blocks used by the goprotos7.
 
-## UI stack
-
-- HTMX + Templ
-- Tailwind CSS (dark theme)
-- Embedded static assets via Go `embed`
-
 # Todos
 
 - [x] Load a list with all datablocks and variable definitions

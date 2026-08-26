@@ -5,7 +5,7 @@ import "github.com/brunolkatz/goprotos7"
 type ListFields struct {
 	Description string
 	IntValue    *int64
-	FloatValue  *float64
+	FloatValue  *int64
 	BoolValue   *bool
 	BitOffset   *int64 // Used when data-type is BOOL, the bit offset of the BOOL value.
 	StaticType  StaticType

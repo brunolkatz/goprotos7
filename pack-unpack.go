@@ -210,10 +210,8 @@ func (s S7Header) Pack() []byte {
 	ret = append(ret, byte(s.ParamLength>>8), byte(s.ParamLength&0xFF))
 	ret = append(ret, byte(s.DataLength>>8), byte(s.DataLength&0xFF))
 
-	if s.ROSCTR == S7FuncAck || s.ROSCTR == S7FuncAckData {
-		ret = append(ret, s.ErrorClass)
-		ret = append(ret, s.ErrorCode)
-	}
+	ret = append(ret, s.ErrorClass)
+	ret = append(ret, s.ErrorCode)
 
 	return ret
 }
@@ -232,10 +230,6 @@ type S7Request struct {
 
 func (s S7Request) Pack() []byte {
 	ret := make([]byte, 0)
-	if s.FunctionCode == S7FuncUserData {
-		ret = append(ret, s.FuncParam.Pack()...)
-		return ret
-	}
 	ret = append(ret, s.FunctionCode)
 	ret = append(ret, s.FuncParam.Pack()...)
 	return ret
@@ -251,45 +245,9 @@ type S7Response struct {
 
 func (s S7Response) Pack() []byte {
 	ret := make([]byte, 0)
-	if s.FunctionCode == S7FuncUserData {
-		ret = append(ret, s.FuncParam.Pack()...)
-		return ret
-	}
 	ret = append(ret, s.FunctionCode)
 	ret = append(ret, s.FuncParam.Pack()...)
 	return ret
-}
-
-type S7ParamUserData struct {
-	Parameter []byte
-	Data      []byte
-}
-
-func (s S7ParamUserData) Pack() []byte {
-	ret := make([]byte, 0, len(s.Parameter)+len(s.Data))
-	ret = append(ret, s.Parameter...)
-	ret = append(ret, s.Data...)
-	return ret
-}
-
-func (s S7ParamUserData) IsReadSZLRequest() bool {
-	return len(s.Parameter) >= 7 && s.Parameter[5] == 0x44 && s.Parameter[6] == 0x01
-}
-
-func (s S7ParamUserData) Sequence() byte {
-	if len(s.Parameter) < 8 {
-		return 0
-	}
-	return s.Parameter[7]
-}
-
-func (s S7ParamUserData) SZLIDIndex() (uint16, uint16, error) {
-	if len(s.Data) < 8 {
-		return 0, 0, errors.New("invalid SZL request payload size")
-	}
-	szlID := binary.BigEndian.Uint16(s.Data[4:6])
-	szlIndex := binary.BigEndian.Uint16(s.Data[6:8])
-	return szlID, szlIndex, nil
 }
 
 type S7ParamReadDBErrorResponse struct {
@@ -490,16 +448,13 @@ func unpack(b []byte) (*Message, error) {
 	}
 
 	// COTP Header
-	if len(b) < 7 { // Validate minimal COTP data header
+	if len(b) < 22 { // Validate the COTP header
 		return nil, errors.New("COTP header is too short")
 	}
 	ret.COTPHeader.Length = b[4]
 	ret.COTPHeader.PDUType = b[5]
 
 	if ret.COTPHeader.PDUType == COTPConnectionRequest {
-		if len(b) < 22 {
-			return nil, errors.New("COTP connection request header is too short")
-		}
 		// COTP Header (17 bytes)
 		// | Length | PDU Type | Destination Ref | Source Ref | Class/Options | Parameters |
 		// |   1    |    1     |       2         |     2     |      1        |    Varies  |
@@ -526,9 +481,6 @@ func unpack(b []byte) (*Message, error) {
 		switch ret.COTPHeader.PDUType {
 		case COTPData: // We need to collect the EoT instead all the data
 			ret.COTPHeader.EoT = b[6] // EoT is the 7th byte of the COTP header
-			if len(b) == 7 {
-				return &ret, nil
-			}
 			if b[7] == S7ProtocolID { // Magic number for S7
 				s7B := b[7:]
 				s7 := &S7Header{
@@ -540,27 +492,9 @@ func unpack(b []byte) (*Message, error) {
 					DataLength:       binary.BigEndian.Uint16(s7B[8:10]),
 				}
 
-				payloadOffset := 10
-				if s7.ROSCTR == S7FuncAck || s7.ROSCTR == S7FuncAckData {
-					if len(s7B) < 12 {
-						return nil, errors.New("S7 header with ACK is too short")
-					}
-					s7.ErrorClass = s7B[10]
-					s7.ErrorCode = s7B[11]
-					payloadOffset = 12
-				}
-
-				s7Request := &S7Request{}
-				switch s7.ROSCTR {
-				case S7FuncUserData:
-					s7Request.FunctionCode = S7FuncUserData
-					s7Request.DataSection = s7B[payloadOffset:]
-				default:
-					if len(s7B[payloadOffset:]) < 1 {
-						return nil, errors.New("S7 payload is too short")
-					}
-					s7Request.FunctionCode = s7B[payloadOffset]
-					s7Request.DataSection = s7B[payloadOffset+1:]
+				s7Request := &S7Request{
+					FunctionCode: s7B[10],  // Return the function code to be used later
+					DataSection:  s7B[11:], // Store the data section, just in case
 				}
 				ret.S7Header = s7
 				ret.S7Request = s7Request
@@ -659,14 +593,6 @@ func unpackS7Function(s7Request *S7Request) (FuncParamType, error) {
 
 		return &S7ParamReadVar{
 			Items: items,
-		}, nil
-	case S7FuncUserData:
-		if len(b) < 8 {
-			return nil, errors.New("S7FuncUserData: invalid payload size")
-		}
-		return &S7ParamUserData{
-			Parameter: append([]byte(nil), b[:8]...),
-			Data:      append([]byte(nil), b[8:]...),
 		}, nil
 	}
 	return nil, ErrorFunctionCodeNotSupported

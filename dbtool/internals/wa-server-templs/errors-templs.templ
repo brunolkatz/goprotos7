@@ -1,31 +1,47 @@
 package wa_server_templs
 
 templ ErrorPage(title *string, msg string) {
-	<div class="mx-auto max-w-4xl">
-		@ErrorAlert(msg)
-	</div>
+    <div class="container">
+        <div class="row mt-5">
+            <div class="col-12">
+                @ErrorAlert(msg)
+            </div>
+        </div>
+    </div>
 }
 
 templ SuccessAlert(msg string) {
-	<div class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-emerald-300" role="alert">
-		@templ.Raw(msg)
-	</div>
+    <div class="alert alert-success d-flex align-items-center" role="alert">
+        <i class="now-ui-icons ui-1_check bi flex-shrink-0 me-2"></i>
+        <div class="ml-2">
+            @templ.Raw(msg)
+        </div>
+    </div>
 }
 
 templ InfoAlert(msg string) {
-	<div class="rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sky-300" role="alert">
-		@templ.Raw(msg)
-	</div>
+    <div class="alert alert-info d-flex align-items-center" role="alert">
+        <i class="now-ui-icons ui-1_check bi flex-shrink-0 me-2"></i>
+        <div class="ml-2">
+            @templ.Raw(msg)
+        </div>
+    </div>
 }
 
 templ WarningAlert(msg string) {
-	<div class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-amber-300" role="alert">
-		@templ.Raw(msg)
-	</div>
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="now-ui-icons ui-1_check bi flex-shrink-0 me-2"></i>
+        <div class="ml-2">
+            @templ.Raw(msg)
+        </div>
+    </div>
 }
 
 templ ErrorAlert(msg string) {
-	<div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-rose-300" role="alert">
-		@templ.Raw(msg)
-	</div>
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="now-ui-icons ui-1_simple-remove bi flex-shrink-0 me-2"></i>
+        <div class="ml-2">
+            @templ.Raw(msg)
+        </div>
+    </div>
 }

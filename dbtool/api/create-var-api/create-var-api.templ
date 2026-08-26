@@ -1,391 +1,227 @@
 package create_var_api
 
 import (
-	"fmt"
-	"github.com/brunolkatz/goprotos7"
+    "github.com/brunolkatz/goprotos7"
+    "fmt"
 )
 
-templ CreateVarPageTempl(dbNumbers []uint32) {
-	<div class="mx-auto w-full max-w-6xl">
-		<div class="mb-8 flex items-end justify-between gap-4">
-			<div>
-				<h1 class="text-4xl font-bold tracking-tight text-white">Create Variable</h1>
-				<p class="mt-2 text-slate-400">Pick the DB, choose a type, then configure defaults and optional state presets.</p>
-			</div>
-			<a href="/vars/import-csv" class="rounded-lg border border-indigo-500/40 bg-indigo-500/20 px-3 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/30">Import from CSV</a>
-		</div>
+templ CreateVarPageTempl() {
+    <div class="container-fluid p-5">
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        Create Variable
+                    </div>
+                    <div class="card-body">
+                        <form
+                                id="create-var-form"
+                                hx-post="/vars/create-var"
+                                hx-target="this"
+                                hx-swap="outerHTML"
+                        >
+                            <div class="mb-3">
+                                <label for="db-number" class="form-label">DB Number</label>
+                                <input type="number" min="0" class="form-control" id="db-number" name="db-number" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="description" name="description" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="data-type" class="form-label">Variable Type</label>
+                                <select
+                                        class="form-select"
+                                        id="data-type"
+                                        name="data_type"
+                                        required
+                                        hx-get="/vars/var-def"
+                                        hx-target="#var-type-def"
+                                >
+                                    <option value="" disabled selected>Select type</option>
+                                    for _, t := range goprotos7.OrderedDataTypes {
+                                        <option value={ fmt.Sprintf("%d", t) }>{ t.String() }</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-md-12">
+                                    <div id="var-type-def"></div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Create Variable</button>
+                        </form>
+                    </div>
 
-		<div class="grid gap-6 lg:grid-cols-3">
-			<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
-				<form
-					id="create-var-form"
-					hx-post="/vars/create-var"
-					hx-target="#create-var-feedback"
-					hx-swap="innerHTML"
-					class="space-y-5"
-				>
-					<div class="grid gap-4 md:grid-cols-2">
-						<div>
-							<label for="db-number-mode" class="mb-2 block text-sm font-medium text-slate-200">DB Source</label>
-							<select id="db-number-mode" name="db-number-mode" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" onchange="toggleDBNumberMode(this.value)">
-								<option value="existing" selected>Use existing DB</option>
-								<option value="new">Create new DB number</option>
-							</select>
-						</div>
-						<div id="db-number-existing-wrap">
-							<label for="db-number-existing" class="mb-2 block text-sm font-medium text-slate-200">Existing DB Number</label>
-							<select id="db-number-existing" name="db-number-existing" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring">
-								if len(dbNumbers) == 0 {
-									<option value="" disabled selected>No DB found, choose create new</option>
-								}
-								for _, dbNumber := range dbNumbers {
-									<option value={ fmt.Sprintf("%d", dbNumber) }>{ fmt.Sprintf("DB%d", dbNumber) }</option>
-								}
-							</select>
-						</div>
-						<div id="db-number-new-wrap" class="hidden">
-							<label for="db-number-new" class="mb-2 block text-sm font-medium text-slate-200">New DB Number</label>
-							<input type="number" min="0" id="db-number-new" name="db-number-new" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring">
-						</div>
-					</div>
-
-					<div class="grid gap-4 md:grid-cols-2">
-						<div>
-							<label for="name" class="mb-2 block text-sm font-medium text-slate-200">Name</label>
-							<input type="text" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" id="name" name="name" required>
-						</div>
-						<div>
-							<label for="data-type" class="mb-2 block text-sm font-medium text-slate-200">Variable Type</label>
-							<select id="data-type" name="data_type" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" required onchange="renderVarTypeDefinition(this.value)">
-								<option value="" disabled selected>Select type</option>
-								for _, t := range goprotos7.OrderedDataTypes {
-									<option value={ fmt.Sprintf("%d", t) }>{ t.String() }</option>
-								}
-							</select>
-						</div>
-					</div>
-
-					<div>
-						<label for="description" class="mb-2 block text-sm font-medium text-slate-200">Description</label>
-						<input type="text" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" id="description" name="description" required>
-					</div>
-
-					<div id="var-type-def" class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-						<p class="text-sm text-slate-400">Select a variable type to configure type-specific fields.</p>
-					</div>
-
-					<div class="flex items-center justify-between gap-3">
-						<button type="submit" class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">Create Variable</button>
-						<div id="create-var-feedback" class="text-sm text-slate-300"></div>
-					</div>
-				</form>
-			</div>
-
-			<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-				<h2 class="text-lg font-semibold text-indigo-300">Tips</h2>
-				<div id="type-tips" class="mt-3 text-sm text-slate-300">
-					<p>Select a variable type to see field-by-field guidance.</p>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	@VarTypeDefinitionTemplates()
-	@VarTypeTipsTemplates()
-	@CreateVarPageScripts()
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
-templ VarTypeDefinitionTemplates() {
-	<div id="var-def-templates" class="hidden">
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.BOOL) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">BOOL type definition</h3>
-			@BoolFieldsBlock()
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.BYTE) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">BYTE definition</h3>
-			@IntFieldsBlock("BYTE", "0 to 255")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.WORD) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">WORD definition</h3>
-			@IntFieldsBlock("WORD", "0 to 65,535")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.DWORD) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">DWORD definition</h3>
-			@IntFieldsBlock("DWORD", "0 to 4,294,967,295")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.LWORD) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">LWORD definition</h3>
-			@IntFieldsBlock("LWORD", "0 or greater (64-bit unsigned)")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.SINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">SINT definition</h3>
-			@IntFieldsBlock("SINT", "-128 to 127")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.USINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">USINT definition</h3>
-			@IntFieldsBlock("USINT", "0 to 255")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.INT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">INT definition</h3>
-			@IntFieldsBlock("INT", "-32,768 to 32,767")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.UINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">UINT definition</h3>
-			@IntFieldsBlock("UINT", "0 to 65,535")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.DINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">DINT definition</h3>
-			@IntFieldsBlock("DINT", "-2,147,483,648 to 2,147,483,647")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.UDINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">UDINT definition</h3>
-			@IntFieldsBlock("UDINT", "0 to 4,294,967,295")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.LINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">LINT definition</h3>
-			@IntFieldsBlock("LINT", "Signed 64-bit integer")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.ULINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">ULINT definition</h3>
-			@IntFieldsBlock("ULINT", "Unsigned 64-bit integer")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.REAL) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">REAL definition</h3>
-			@FloatFieldsBlock("REAL", "32-bit floating-point")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.LREAL) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">LREAL definition</h3>
-			@FloatFieldsBlock("LREAL", "64-bit floating-point")
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.CHAR) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">CHAR type definition</h3>
-			@CharFieldsBlock()
-		</div>
-		<div data-var-type={ fmt.Sprintf("%d", goprotos7.STRING) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">STRING type definition</h3>
-			@StringFieldsBlock()
-		</div>
-	</div>
+
+templ CreateVarDefTempl(varType goprotos7.DataType) {
+    <div class="card">
+        <div class="card-header">
+            { varType }: Type Definition
+        </div>
+        <div class="card-body">
+            switch varType {
+            case goprotos7.BOOL:
+                @DefineBoolVariable()
+            case goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT, goprotos7.ULINT:
+                @DefineIntVariable()
+            case goprotos7.STRING:
+                @DefineStrVariable()
+            }
+        </div>
+    </div>
 }
 
-templ VarTypeTipsTemplates() {
-	<div id="var-tip-templates" class="hidden">
-		@TipCard(goprotos7.BOOL.String(), []string{
-			"Description: label for each bit state shown to operators.",
-			"Bit Offset: bit index inside one byte (0 to 7).",
-			"Default Value: initial state used when writing DB blocks.",
-		}, "Use one row per state flag in the same DB byte.")
-		@TipCard(goprotos7.BYTE.String(), []string{"Default Value: startup BYTE value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 255.")
-		@TipCard(goprotos7.WORD.String(), []string{"Default Value: startup WORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 65,535.")
-		@TipCard(goprotos7.DWORD.String(), []string{"Default Value: startup DWORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 4,294,967,295.")
-		@TipCard(goprotos7.LWORD.String(), []string{"Default Value: startup LWORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: unsigned 64-bit.")
-		@TipCard(goprotos7.SINT.String(), []string{"Default Value: startup SINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -128 to 127.")
-		@TipCard(goprotos7.USINT.String(), []string{"Default Value: startup USINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 255.")
-		@TipCard(goprotos7.INT.String(), []string{"Default Value: startup INT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -32,768 to 32,767.")
-		@TipCard(goprotos7.UINT.String(), []string{"Default Value: startup UINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 65,535.")
-		@TipCard(goprotos7.DINT.String(), []string{"Default Value: startup DINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -2,147,483,648 to 2,147,483,647.")
-		@TipCard(goprotos7.UDINT.String(), []string{"Default Value: startup UDINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 4,294,967,295.")
-		@TipCard(goprotos7.LINT.String(), []string{"Default Value: startup LINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: signed 64-bit.")
-		@TipCard(goprotos7.ULINT.String(), []string{"Default Value: startup ULINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: unsigned 64-bit.")
-		@TipCard(goprotos7.REAL.String(), []string{"Default Value: startup REAL value.", "Optional Presets: quick-select float values shown in dashboard.", "Preset Description: button label visible to users."}, "Use REAL for regular float process values.")
-		@TipCard(goprotos7.LREAL.String(), []string{"Default Value: startup LREAL value.", "Optional Presets: quick-select float values shown in dashboard.", "Preset Description: button label visible to users."}, "Use LREAL for high precision values.")
-		@TipCard(goprotos7.CHAR.String(), []string{"Default Character: single character stored in one byte.", "Description: human-readable meaning of this char flag/value."}, "CHAR accepts exactly one character.")
-		@TipCard(goprotos7.STRING.String(), []string{"String Length: max allocated string size in DB.", "Default Value: startup text stored in the DB block.", "Description: semantic meaning of this text variable."}, "STRING stores max length + actual length + text payload.")
-	</div>
+templ DefineStrVariable() {
+    <div class="input-group mb-3">
+        <label for="str-length" class="form-label">String Length</label>
+        <input type="number" id="str-length" name="str-length" class="form-control" placeholder="" aria-label="Default String Value" required>
+    </div>
+    <div class="input-group mb-3">
+        <label for="str-default-value" class="form-label">Default Value</label>
+        <input type="text" id="str-default-value" name="str-default-value" class="form-control" placeholder="" aria-label="Default String Value" required>
+    </div>
 }
 
-templ TipCard(typeName string, bulletPoints []string, footNote string) {
-	<div data-var-tip={ typeName } class="space-y-2">
-		<p class="font-semibold text-indigo-300">{ typeName }</p>
-		<ul class="list-disc space-y-1 pl-5">
-			for _, bullet := range bulletPoints {
-				<li>{ bullet }</li>
-			}
-		</ul>
-		<p class="text-xs text-slate-400">{ footNote }</p>
-	</div>
+
+// DefineBoolVariable - Create the boolean fields for integer types
+templ DefineBoolVariable() {
+<div id="bool-fields">
+    <!-- Default value -->
+    <div class="row mb-2">
+        <div class="col-12 col-md-12 col-lg-12 mb-3">
+            <label for="desc-bool-field[]" class="form-label">Bit description:</label>
+            <input type="text" id="desc-bool-field[]" name="desc-bool-field[]" placeholder="Bit description" class="form-control">
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="bit-bool-field[]" class="form-label">Bit Offset</label>
+            <input type="number" id="bit-bool-field[]" name="bit-bool-field[]" placeholder="Description" class="form-control">
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="bool-value[]" class="form-label">Default Value</label>
+            <select id="bool-value[]" name="bool-value[]" class="form-select" required>
+                <option value="" disabled selected>Select Value</option>
+                <option value="true">True</option>
+                <option value="false">False</option>
+            </select>
+        </div>
+        <div class="col-12 col-lg-12 col-md-12">
+            <button class="btn btn-outline-secondary" type="button" onclick="addBoolField('bool-fields')">Add New</button>
+            @AddBoolField()
+        </div>
+    </div>
+
+</div>
 }
 
-templ StringFieldsBlock() {
-	<div class="space-y-4">
-		<div>
-			<label for="str-length" class="mb-2 block text-sm font-medium text-slate-200">String Length</label>
-			<input type="number" id="str-length" name="str-length" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" required>
-		</div>
-		<div>
-			<label for="str-default-value" class="mb-2 block text-sm font-medium text-slate-200">Default Value</label>
-			<input type="text" id="str-default-value" name="str-default-value" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" required>
-		</div>
-	</div>
+templ AddBoolField() {
+<script>
+  // Create a new input group for the integer field
+  let lastBoolFieldId = 1
+  function addBoolField(divId) {
+    const container = document.getElementById(divId);
+    const fieldID = "bool-field-" + (lastBoolFieldId + 1);
+    const newDivID = `div-${fieldID}`
+
+    // Create the input group element
+    const newField = document.createElement("div");
+    newField.id = newDivID;
+    newField.className = "row mb-2";
+
+    newField.innerHTML = `
+            <div class="col-12 col-md-12 col-lg-12 mb-3">
+                <label for="desc-bool-field[]" class="form-label">Bit description:</label>
+                <input type="text" id="desc-bool-field[]" name="desc-bool-field[]" placeholder="Bit description" class="form-control">
+            </div>
+            <div class="col-6 col-md-6 col-lg-6 mb-3">
+                <label for="bit-bool-field[]" class="form-label">Bit Offset</label>
+                <input type="number" id="bit-bool-field[]" name="bit-bool-field[]" placeholder="Bit offset" class="form-control">
+            </div>
+            <div class="col-6 col-md-6 col-lg-6 mb-3">
+                <label for="bool-value[]" class="form-label">Bit Offset</label>
+                <select id="bool-value[]" name="bool-value[]" class="form-select" required>
+                    <option value="" disabled selected>Select default value...</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-12 col-lg-12">
+                <button class="btn btn-outline-secondary" type="button" onclick="addBoolField('bool-fields')">Add New</button>
+                <button class="btn btn-outline-danger" type="button" onclick="removeBoolField('${newDivID}')">Remove</button>
+            </div>
+        `;
+
+    // Append the new field to the specified div
+    container.appendChild(newField);
+    lastBoolFieldId += 1;
+  }
+  function removeBoolField(divId) {
+    const field = document.getElementById(divId);
+    if (field) {
+      field.remove();
+    }
+  }
+
+</script>
 }
 
-templ CharFieldsBlock() {
-	<div>
-		<label for="char-default-value" class="mb-2 block text-sm font-medium text-slate-200">Default Character</label>
-		<input maxlength="1" type="text" id="char-default-value" name="char-default-value" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" required>
-	</div>
+// DefineIntVariable - Create the number fields for integer types
+templ DefineIntVariable() {
+    <div id="int-fields">
+        <!-- Default value -->
+        <div class="input-group mb-3">
+            <input type="number" id="default-int-value" name="default-int-value" class="form-control" placeholder="" aria-label="Default Int Value" required>
+        </div>
+        <div class="input-group mb-3">
+            <input type="text" id="desc-int-field[]" name="desc-int-field[]" placeholder="Description" aria-label="Variable value Description" class="form-control">
+            <input type="number" id="int-field[]" name="int-field[]" class="form-control" placeholder="" aria-label="Variable int value" aria-describedby="button-addon1">
+            <button class="btn btn-outline-secondary" type="button" onclick="addIntField('int-fields')">Add New</button>
+            @AddIntField()
+        </div>
+    </div>
 }
 
-templ BoolFieldsBlock() {
-	<div class="space-y-3">
-		<div id="bool-fields-container" class="space-y-3">
-			@BoolFieldRow("", "", "")
-		</div>
-		<button class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800" type="button" onclick="addBoolFieldRow()">Add bool state</button>
-	</div>
-}
+templ AddIntField() {
+    <script>
+    // Create a new input group for the integer field
+    let lastIntFieldId = 1
+    function addIntField(divId) {
+        const container = document.getElementById(divId);
+        const fieldID = "int-field-" + (lastIntFieldId + 1);
+        const newDivID = `div-${fieldID}`
 
-templ BoolFieldRow(desc string, offset string, value string) {
-	<div class="grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4">
-		<input type="text" name="desc-bool-field[]" value={ desc } placeholder="Description" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2">
-		<input type="number" name="bit-bool-field[]" value={ offset } placeholder="Bit offset (0-7)" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring">
-		<select name="bool-value[]" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring">
-			<option value="" selected={ value == "" }>Default</option>
-			<option value="true" selected={ value == "true" }>True</option>
-			<option value="false" selected={ value == "false" }>False</option>
-		</select>
-	</div>
-}
+        // Create the input group element
+        const newField = document.createElement("div");
+        newField.id = newDivID;
+        newField.className = "input-group mb-3";
 
-templ IntFieldsBlock(typeName string, rangeHint string) {
-	<div class="space-y-4">
-		<p class="text-sm text-slate-400">{ fmt.Sprintf("%s valid range: %s.", typeName, rangeHint) }</p>
-		<div>
-			<label for="default-int-value" class="mb-2 block text-sm font-medium text-slate-200">Default Value</label>
-			<input type="number" id="default-int-value" name="default-int-value" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" required>
-		</div>
-		<div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-			<div class="mb-3 flex items-center justify-between">
-				<p class="text-sm text-slate-300">Optional preset values</p>
-				<button class="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-800" type="button" onclick="addIntFieldRow()">Add preset</button>
-			</div>
-			<div id="int-fields-container" class="space-y-3"></div>
-		</div>
-	</div>
-}
+        newField.innerHTML = `
+            <input type="text" id="desc-int-field[]" name="desc-int-field[]" placeholder="Description" aria-label="Variable value Description" class="form-control" required>
+            <input type="number" id="int-field[]" name="int-field[]" aria-placeholder="Value Number" class="form-control" placeholder="" aria-label="Variable Int Value" aria-describedby="button-addon1" required>
+            <button class="btn btn-outline-secondary" type="button" onclick="addIntField('int-fields')">Add New</button>
+            <button class="btn btn-outline-secondary" type="button" onclick="removeIntField('${newDivID}')">Remove</button>
+        `;
 
-templ FloatFieldsBlock(typeName string, formatHint string) {
-	<div class="space-y-4">
-		<p class="text-sm text-slate-400">{ fmt.Sprintf("%s format: %s.", typeName, formatHint) }</p>
-		<div>
-			<label for="default-float-value" class="mb-2 block text-sm font-medium text-slate-200">Default Value</label>
-			<input type="number" step="any" id="default-float-value" name="default-float-value" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" required>
-		</div>
-		<div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-			<div class="mb-3 flex items-center justify-between">
-				<p class="text-sm text-slate-300">Optional preset values</p>
-				<button class="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-800" type="button" onclick="addFloatFieldRow()">Add preset</button>
-			</div>
-			<div id="float-fields-container" class="space-y-3"></div>
-		</div>
-	</div>
-}
+        // Append the new field to the specified div
+        container.appendChild(newField);
+        lastIntFieldId += 1;
+    }
+    function removeIntField(divId) {
+        const field = document.getElementById(divId);
+        if (field) {
+            field.remove();
+        }
+    }
 
-templ CreateVarPageScripts() {
-	<script>
-		function toggleDBNumberMode(mode) {
-			const existingWrap = document.getElementById("db-number-existing-wrap");
-			const newWrap = document.getElementById("db-number-new-wrap");
-			const existingInput = document.getElementById("db-number-existing");
-			const newInput = document.getElementById("db-number-new");
-			if (mode === "new") {
-				existingWrap.classList.add("hidden");
-				newWrap.classList.remove("hidden");
-				existingInput.required = false;
-				newInput.required = true;
-				return;
-			}
-			existingWrap.classList.remove("hidden");
-			newWrap.classList.add("hidden");
-			existingInput.required = true;
-			newInput.required = false;
-		}
-
-		function renderVarTypeDefinition(rawType) {
-			const target = document.getElementById("var-type-def");
-			const templateRoot = document.getElementById("var-def-templates");
-			const source = templateRoot.querySelector(`[data-var-type="${rawType}"]`);
-			if (!source) {
-				target.innerHTML = `<p class="text-sm text-slate-400">Select a variable type to configure type-specific fields.</p>`;
-				renderVarTypeTips("");
-				return;
-			}
-			target.innerHTML = source.innerHTML;
-			renderVarTypeTips(rawType);
-		}
-
-		function renderVarTypeTips(rawType) {
-			const typeSelector = document.getElementById("data-type");
-			const selectedOption = typeSelector ? typeSelector.options[typeSelector.selectedIndex] : null;
-			const selectedTypeName = selectedOption ? selectedOption.text : "";
-			const tipsTarget = document.getElementById("type-tips");
-			const tipsRoot = document.getElementById("var-tip-templates");
-			if (!tipsTarget || !tipsRoot || selectedTypeName === "") {
-				return;
-			}
-			const tip = tipsRoot.querySelector(`[data-var-tip="${selectedTypeName}"]`);
-			if (!tip) {
-				tipsTarget.innerHTML = `<p>No tips available for this type yet.</p>`;
-				return;
-			}
-			tipsTarget.innerHTML = tip.innerHTML;
-		}
-
-		function addIntFieldRow() {
-			const root = document.getElementById("int-fields-container");
-			if (!root) return;
-			const row = document.createElement("div");
-			row.className = "grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4";
-			row.innerHTML = `
-				<input type="text" name="desc-int-field[]" placeholder="Description" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2">
-				<input type="number" name="int-field[]" placeholder="Value" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring">
-				<button type="button" class="rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10" onclick="this.closest('.grid').remove()">Remove</button>
-			`;
-			root.appendChild(row);
-		}
-
-		function addFloatFieldRow() {
-			const root = document.getElementById("float-fields-container");
-			if (!root) return;
-			const row = document.createElement("div");
-			row.className = "grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4";
-			row.innerHTML = `
-				<input type="text" name="desc-float-field[]" placeholder="Description" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2">
-				<input type="number" step="any" name="float-field[]" placeholder="Value" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring">
-				<button type="button" class="rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10" onclick="this.closest('.grid').remove()">Remove</button>
-			`;
-			root.appendChild(row);
-		}
-
-		function addBoolFieldRow() {
-			const root = document.getElementById("bool-fields-container");
-			if (!root) return;
-			const row = document.createElement("div");
-			row.className = "grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4";
-			row.innerHTML = `
-				<input type="text" name="desc-bool-field[]" placeholder="Description" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2">
-				<input type="number" name="bit-bool-field[]" placeholder="Bit offset (0-7)" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring">
-				<select name="bool-value[]" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring">
-					<option value="">Default</option>
-					<option value="true">True</option>
-					<option value="false">False</option>
-				</select>
-				<button type="button" class="md:col-span-4 rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10" onclick="this.parentElement.remove()">Remove</button>
-			`;
-			root.appendChild(row);
-		}
-
-		window.addEventListener("DOMContentLoaded", () => {
-			const modeEl = document.getElementById("db-number-mode");
-			if (modeEl) {
-				toggleDBNumberMode(modeEl.value);
-			}
-		});
-		document.addEventListener("htmx:afterSwap", () => {
-			const modeEl = document.getElementById("db-number-mode");
-			if (modeEl) {
-				toggleDBNumberMode(modeEl.value);
-			}
-		});
-	</script>
+    </script>
 }
