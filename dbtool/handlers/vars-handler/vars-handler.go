@@ -10,6 +10,8 @@ import (
 	"github.com/brunolkatz/goprotos7/dbtool/db/sqlite_db"
 	"github.com/charmbracelet/log"
 	"gorm.io/gorm"
+	"slices"
+	"strings"
 )
 
 type dataBlocksHandler interface {
@@ -42,6 +44,22 @@ func (h *VarsHandler) GetDbNumbers(ctx context.Context) ([]uint32, error) {
 
 func (h *VarsHandler) GetVariables(dbNumber int32) ([]*db_models.DbVariable, error) {
 	return h.db.GetVariables(context.Background(), dbNumber)
+}
+
+func (h *VarsHandler) SavePLCWatchList(ctx context.Context, source string, dbNumber int32, addresses []string) error {
+	normalized := normalizeAddresses(addresses)
+	return h.db.SavePLCWatchList(ctx, source, dbNumber, normalized)
+}
+
+func (h *VarsHandler) GetPLCWatchList(ctx context.Context, source string, dbNumber int32) ([]string, error) {
+	items, err := h.db.GetPLCWatchList(ctx, source, dbNumber)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return make([]string, 0), nil
+		}
+		return nil, err
+	}
+	return normalizeAddresses(items), nil
 }
 
 func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateVarRequest) (*db_models.DbVariable, error) {
@@ -281,4 +299,16 @@ func (h *VarsHandler) SetListVar(ctx context.Context, dbNumber, varId, stsId int
 		return nil, fmt.Errorf("error writing variable to file: %w", err)
 	}
 	return dbVar, nil
+}
+
+func normalizeAddresses(addresses []string) []string {
+	out := make([]string, 0, len(addresses))
+	for _, item := range addresses {
+		v := strings.ToUpper(strings.TrimSpace(item))
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
 }

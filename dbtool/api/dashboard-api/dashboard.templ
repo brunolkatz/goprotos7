@@ -20,6 +20,7 @@ templ DashboardPageTempl(dbNumbers []uint32) {
 				required
 				hx-get="/dashboard/get-db-vars"
 				hx-target="#db-vars"
+				onchange="setDashboardDB(this.value)"
 			>
 				<option value="" disabled selected>Select DB</option>
 				for _, t := range dbNumbers {
@@ -29,6 +30,68 @@ templ DashboardPageTempl(dbNumbers []uint32) {
 		</div>
 		<div id="db-vars" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
 	</div>
+	<script>
+		let dashboardDbNumber = "";
+		let dashboardPLCTimer = null;
+
+		function setDashboardDB(dbNumber) {
+			dashboardDbNumber = String(dbNumber || "").trim();
+			if (dashboardDbNumber) {
+				fetch("/dashboard/select-db", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ db_number: Number(dashboardDbNumber) })
+				}).catch(() => {});
+			}
+			startDashboardPLCPoll();
+		}
+
+		function startDashboardPLCPoll() {
+			if (dashboardPLCTimer) {
+				clearInterval(dashboardPLCTimer);
+				dashboardPLCTimer = null;
+			}
+			if (!dashboardDbNumber) {
+				return;
+			}
+			refreshDashboardPLCValues();
+			dashboardPLCTimer = setInterval(refreshDashboardPLCValues, 1000);
+		}
+
+		async function refreshDashboardPLCValues() {
+			if (!dashboardDbNumber) return;
+			try {
+				const resp = await fetch(`/dashboard/plc-values?db-number=${encodeURIComponent(dashboardDbNumber)}`, {
+					headers: { "Accept": "application/json" }
+				});
+				if (!resp.ok) return;
+				const rows = await resp.json();
+				rows.forEach((row) => {
+					const valueEl = document.getElementById(`db-var-value-${row.id}`);
+					const statusEl = document.getElementById(`db-var-live-${row.id}`);
+					if (!valueEl || !statusEl) return;
+					const fallbackValue = valueEl.getAttribute("data-default-value") || "";
+					if (row.error) {
+						valueEl.textContent = fallbackValue;
+						statusEl.textContent = `PLC read error: ${row.error}`;
+						statusEl.className = "mt-2 rounded border border-rose-700/40 bg-rose-950/30 px-2 py-1 text-xs text-rose-200";
+						return;
+					}
+					if (row.value !== undefined && row.value !== null && row.value !== "") {
+						valueEl.textContent = row.value;
+						statusEl.textContent = "PLC live value";
+						statusEl.className = "mt-2 rounded border border-cyan-700/40 bg-cyan-950/30 px-2 py-1 text-xs text-cyan-200";
+						return;
+					}
+					valueEl.textContent = fallbackValue;
+					statusEl.textContent = "PLC value unavailable";
+					statusEl.className = "mt-2 rounded border border-slate-700/50 bg-slate-900/60 px-2 py-1 text-xs text-slate-300";
+				});
+			} catch (_e) {
+				// no-op; keep last rendered values
+			}
+		}
+	</script>
 }
 
 templ DbVarsTempl(dbVariables []*db_models.DbVariable) {
@@ -42,7 +105,13 @@ templ DbVarTempl(dbVar *db_models.DbVariable) {
 		<h3 class="text-lg font-semibold text-indigo-300">{ dbVar.Name }</h3>
 		<div class="mt-3 space-y-1 text-sm text-slate-300">
 			<p>Type: <code class="rounded bg-slate-950 px-2 py-1 text-indigo-200">{ dbVar.DataType }</code></p>
-			<p>Value: <code class="rounded bg-slate-950 px-2 py-1 text-emerald-300">{ dbVar.FmtValue() }</code></p>
+			<p>Value: <code id={ fmt.Sprintf("db-var-value-%d", dbVar.Id) } data-default-value={ dbVar.FmtValue() } class="rounded bg-slate-950 px-2 py-1 text-emerald-300">
+				if dbVar.PLCReadValue != nil {
+					{ *dbVar.PLCReadValue }
+				} else {
+					{ dbVar.FmtValue() }
+				}
+			</code></p>
 			<p>Address: <code class="rounded bg-slate-950 px-2 py-1 text-amber-300">{ dbVar.ToDBAddress() }</code></p>
 		</div>
 
@@ -56,12 +125,15 @@ templ DbVarTempl(dbVar *db_models.DbVariable) {
 							hx-swap="outerHTML"
 							hx-vals={ fmt.Sprintf(`{ "db-number": %d, "var-id": %d, "t": "%s", "sts-id": %d }`, dbVar.DbNumber, dbVar.Id, dbVar.VarType, def.Id) }
 							hx-target={ fmt.Sprintf("#var-db-%d-id-%d", dbVar.DbNumber, dbVar.Id) }
-						>{ def.Description }</button>
+						>{ getStaticDefLabel(def) }</button>
 					}
 				</div>
 			</div>
-			<p class="mt-3 text-xs text-slate-400">{ dbVar.Description }</p>
 		}
+		<p class="mt-3 text-xs text-slate-400">{ dbVar.Description }</p>
+		<p id={ fmt.Sprintf("db-var-live-%d", dbVar.Id) } class={ getPLCReadLabelClass(dbVar.PLCReadError, dbVar.PLCReadValue) }>
+			{ getPLCReadLabel(dbVar.PLCReadError, dbVar.PLCReadValue) }
+		</p>
 	</div>
 }
 
@@ -70,4 +142,40 @@ func getStaticValueBtnClass(isSelected bool) string {
 		return "rounded-lg bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-300 ring-1 ring-emerald-500/40 transition"
 	}
 	return "rounded-lg bg-indigo-500/20 px-3 py-1.5 text-sm font-semibold text-indigo-300 ring-1 ring-indigo-500/40 transition hover:bg-indigo-500/30"
+}
+
+func getStaticDefLabel(def *db_models.StaticVarDefinition) string {
+	if def == nil {
+		return "N/A"
+	}
+	if def.Description != "" {
+		return def.Description
+	}
+	if def.FloatValue != nil {
+		return fmt.Sprintf("%g", *def.FloatValue)
+	}
+	if def.IntValue != nil {
+		return fmt.Sprintf("%d", *def.IntValue)
+	}
+	return "Value"
+}
+
+func getPLCReadLabelClass(errValue *string, liveValue *string) string {
+	if errValue != nil && *errValue != "" {
+		return "mt-2 rounded border border-rose-700/40 bg-rose-950/30 px-2 py-1 text-xs text-rose-200"
+	}
+	if liveValue != nil && *liveValue != "" {
+		return "mt-2 rounded border border-cyan-700/40 bg-cyan-950/30 px-2 py-1 text-xs text-cyan-200"
+	}
+	return "mt-2 rounded border border-slate-700/50 bg-slate-900/60 px-2 py-1 text-xs text-slate-300"
+}
+
+func getPLCReadLabel(errValue *string, liveValue *string) string {
+	if errValue != nil && *errValue != "" {
+		return "PLC read error: " + *errValue
+	}
+	if liveValue != nil && *liveValue != "" {
+		return "PLC live value"
+	}
+	return "PLC value unavailable"
 }

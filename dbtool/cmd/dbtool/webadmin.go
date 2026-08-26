@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	assets_files_watcher "github.com/brunolkatz/goprotos7/dbtool/api/assets-files-watcher-api"
+	connect_plc_api "github.com/brunolkatz/goprotos7/dbtool/api/connect-plc-api"
 	create_var_api "github.com/brunolkatz/goprotos7/dbtool/api/create-var-api"
 	dashboard_api "github.com/brunolkatz/goprotos7/dbtool/api/dashboard-api"
 	vars_handler "github.com/brunolkatz/goprotos7/dbtool/handlers/vars-handler"
@@ -23,12 +24,17 @@ func registerWebAdminRoutes(router *chi.Mux, varsHandler *vars_handler.VarsHandl
 	if err != nil {
 		return err
 	}
+	connectPlcApi, err := connect_plc_api.New(varsHandler)
+	if err != nil {
+		return err
+	}
 
 	assetsFilesWatcherApi.Register(router)
 	router.Route("/", func(r chi.Router) {
 		r.Use(middleware.SetHeader("Content-Type", "text/html; charset=utf-8"))
 		dashboardApi.Register(r)
 		createVarApi.Register(r)
+		connectPlcApi.Register(r)
 	})
 	return nil
 }

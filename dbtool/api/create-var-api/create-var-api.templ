@@ -82,16 +82,15 @@ templ CreateVarPageTempl(dbNumbers []uint32) {
 
 			<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
 				<h2 class="text-lg font-semibold text-indigo-300">Tips</h2>
-				<ul class="mt-3 space-y-3 text-sm text-slate-300">
-					<li>Use <span class="text-indigo-300 font-medium">STATIC</span> defaults for simple variables.</li>
-					<li>Add optional state presets for types where operators switch common values.</li>
-					<li>For BOOL entries, each field maps to one bit offset in a single DB byte.</li>
-				</ul>
+				<div id="type-tips" class="mt-3 text-sm text-slate-300">
+					<p>Select a variable type to see field-by-field guidance.</p>
+				</div>
 			</div>
 		</div>
 	</div>
 
 	@VarTypeDefinitionTemplates()
+	@VarTypeTipsTemplates()
 	@CreateVarPageScripts()
 }
 
@@ -102,60 +101,60 @@ templ VarTypeDefinitionTemplates() {
 			@BoolFieldsBlock()
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.BYTE) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">BYTE definition</h3>
+			@IntFieldsBlock("BYTE", "0 to 255")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.WORD) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">WORD definition</h3>
+			@IntFieldsBlock("WORD", "0 to 65,535")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.DWORD) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">DWORD definition</h3>
+			@IntFieldsBlock("DWORD", "0 to 4,294,967,295")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.LWORD) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">LWORD definition</h3>
+			@IntFieldsBlock("LWORD", "0 or greater (64-bit unsigned)")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.SINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">SINT definition</h3>
+			@IntFieldsBlock("SINT", "-128 to 127")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.USINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">USINT definition</h3>
+			@IntFieldsBlock("USINT", "0 to 255")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.INT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">INT definition</h3>
+			@IntFieldsBlock("INT", "-32,768 to 32,767")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.UINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">UINT definition</h3>
+			@IntFieldsBlock("UINT", "0 to 65,535")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.DINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">DINT definition</h3>
+			@IntFieldsBlock("DINT", "-2,147,483,648 to 2,147,483,647")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.UDINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">UDINT definition</h3>
+			@IntFieldsBlock("UDINT", "0 to 4,294,967,295")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.LINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">LINT definition</h3>
+			@IntFieldsBlock("LINT", "Signed 64-bit integer")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.ULINT) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Integer type definition</h3>
-			@IntFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">ULINT definition</h3>
+			@IntFieldsBlock("ULINT", "Unsigned 64-bit integer")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.REAL) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Float type definition</h3>
-			@FloatFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">REAL definition</h3>
+			@FloatFieldsBlock("REAL", "32-bit floating-point")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.LREAL) }>
-			<h3 class="mb-4 text-lg font-semibold text-indigo-300">Float type definition</h3>
-			@FloatFieldsBlock()
+			<h3 class="mb-4 text-lg font-semibold text-indigo-300">LREAL definition</h3>
+			@FloatFieldsBlock("LREAL", "64-bit floating-point")
 		</div>
 		<div data-var-type={ fmt.Sprintf("%d", goprotos7.CHAR) }>
 			<h3 class="mb-4 text-lg font-semibold text-indigo-300">CHAR type definition</h3>
@@ -165,6 +164,44 @@ templ VarTypeDefinitionTemplates() {
 			<h3 class="mb-4 text-lg font-semibold text-indigo-300">STRING type definition</h3>
 			@StringFieldsBlock()
 		</div>
+	</div>
+}
+
+templ VarTypeTipsTemplates() {
+	<div id="var-tip-templates" class="hidden">
+		@TipCard(goprotos7.BOOL.String(), []string{
+			"Description: label for each bit state shown to operators.",
+			"Bit Offset: bit index inside one byte (0 to 7).",
+			"Default Value: initial state used when writing DB blocks.",
+		}, "Use one row per state flag in the same DB byte.")
+		@TipCard(goprotos7.BYTE.String(), []string{"Default Value: startup BYTE value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 255.")
+		@TipCard(goprotos7.WORD.String(), []string{"Default Value: startup WORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 65,535.")
+		@TipCard(goprotos7.DWORD.String(), []string{"Default Value: startup DWORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 4,294,967,295.")
+		@TipCard(goprotos7.LWORD.String(), []string{"Default Value: startup LWORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: unsigned 64-bit.")
+		@TipCard(goprotos7.SINT.String(), []string{"Default Value: startup SINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -128 to 127.")
+		@TipCard(goprotos7.USINT.String(), []string{"Default Value: startup USINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 255.")
+		@TipCard(goprotos7.INT.String(), []string{"Default Value: startup INT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -32,768 to 32,767.")
+		@TipCard(goprotos7.UINT.String(), []string{"Default Value: startup UINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 65,535.")
+		@TipCard(goprotos7.DINT.String(), []string{"Default Value: startup DINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -2,147,483,648 to 2,147,483,647.")
+		@TipCard(goprotos7.UDINT.String(), []string{"Default Value: startup UDINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 4,294,967,295.")
+		@TipCard(goprotos7.LINT.String(), []string{"Default Value: startup LINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: signed 64-bit.")
+		@TipCard(goprotos7.ULINT.String(), []string{"Default Value: startup ULINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: unsigned 64-bit.")
+		@TipCard(goprotos7.REAL.String(), []string{"Default Value: startup REAL value.", "Optional Presets: quick-select float values shown in dashboard.", "Preset Description: button label visible to users."}, "Use REAL for regular float process values.")
+		@TipCard(goprotos7.LREAL.String(), []string{"Default Value: startup LREAL value.", "Optional Presets: quick-select float values shown in dashboard.", "Preset Description: button label visible to users."}, "Use LREAL for high precision values.")
+		@TipCard(goprotos7.CHAR.String(), []string{"Default Character: single character stored in one byte.", "Description: human-readable meaning of this char flag/value."}, "CHAR accepts exactly one character.")
+		@TipCard(goprotos7.STRING.String(), []string{"String Length: max allocated string size in DB.", "Default Value: startup text stored in the DB block.", "Description: semantic meaning of this text variable."}, "STRING stores max length + actual length + text payload.")
+	</div>
+}
+
+templ TipCard(typeName string, bulletPoints []string, footNote string) {
+	<div data-var-tip={ typeName } class="space-y-2">
+		<p class="font-semibold text-indigo-300">{ typeName }</p>
+		<ul class="list-disc space-y-1 pl-5">
+			for _, bullet := range bulletPoints {
+				<li>{ bullet }</li>
+			}
+		</ul>
+		<p class="text-xs text-slate-400">{ footNote }</p>
 	</div>
 }
 
@@ -209,8 +246,9 @@ templ BoolFieldRow(desc string, offset string, value string) {
 	</div>
 }
 
-templ IntFieldsBlock() {
+templ IntFieldsBlock(typeName string, rangeHint string) {
 	<div class="space-y-4">
+		<p class="text-sm text-slate-400">{ fmt.Sprintf("%s valid range: %s.", typeName, rangeHint) }</p>
 		<div>
 			<label for="default-int-value" class="mb-2 block text-sm font-medium text-slate-200">Default Value</label>
 			<input type="number" id="default-int-value" name="default-int-value" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" required>
@@ -225,8 +263,9 @@ templ IntFieldsBlock() {
 	</div>
 }
 
-templ FloatFieldsBlock() {
+templ FloatFieldsBlock(typeName string, formatHint string) {
 	<div class="space-y-4">
+		<p class="text-sm text-slate-400">{ fmt.Sprintf("%s format: %s.", typeName, formatHint) }</p>
 		<div>
 			<label for="default-float-value" class="mb-2 block text-sm font-medium text-slate-200">Default Value</label>
 			<input type="number" step="any" id="default-float-value" name="default-float-value" class="block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring" required>
@@ -267,9 +306,28 @@ templ CreateVarPageScripts() {
 			const source = templateRoot.querySelector(`[data-var-type="${rawType}"]`);
 			if (!source) {
 				target.innerHTML = `<p class="text-sm text-slate-400">Select a variable type to configure type-specific fields.</p>`;
+				renderVarTypeTips("");
 				return;
 			}
 			target.innerHTML = source.innerHTML;
+			renderVarTypeTips(rawType);
+		}
+
+		function renderVarTypeTips(rawType) {
+			const typeSelector = document.getElementById("data-type");
+			const selectedOption = typeSelector ? typeSelector.options[typeSelector.selectedIndex] : null;
+			const selectedTypeName = selectedOption ? selectedOption.text : "";
+			const tipsTarget = document.getElementById("type-tips");
+			const tipsRoot = document.getElementById("var-tip-templates");
+			if (!tipsTarget || !tipsRoot || selectedTypeName === "") {
+				return;
+			}
+			const tip = tipsRoot.querySelector(`[data-var-tip="${selectedTypeName}"]`);
+			if (!tip) {
+				tipsTarget.innerHTML = `<p>No tips available for this type yet.</p>`;
+				return;
+			}
+			tipsTarget.innerHTML = tip.innerHTML;
 		}
 
 		function addIntFieldRow() {

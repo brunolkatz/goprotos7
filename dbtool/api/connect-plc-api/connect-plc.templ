@@ -1,0 +1,296 @@
+package connect_plc_api
+
+import (
+	"fmt"
+	"strings"
+)
+
+templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
+	<div class="mx-auto w-full max-w-7xl">
+		<div class="mb-8">
+			<h1 class="text-4xl font-bold tracking-tight text-white">Connect to PLC</h1>
+			<p class="mt-2 text-slate-400">Live read Siemens S7 tags via WebSocket using gos7.</p>
+		</div>
+
+		<div class="grid gap-6 lg:grid-cols-3">
+			<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-1">
+				<div class="space-y-4">
+					<div class="grid gap-3">
+						<label class="text-sm text-slate-300">Address</label>
+						<input id="plc-address" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="127.0.0.1" value="127.0.0.1"/>
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div class="grid gap-2">
+							<label class="text-sm text-slate-300">Port</label>
+							<input id="plc-port" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="102"/>
+						</div>
+						<div class="grid gap-2">
+							<label class="text-sm text-slate-300">Poll (ms)</label>
+							<input id="plc-poll-ms" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="1000"/>
+						</div>
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div class="grid gap-2">
+							<label class="text-sm text-slate-300">Rack</label>
+							<input id="plc-rack" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="0"/>
+						</div>
+						<div class="grid gap-2">
+							<label class="text-sm text-slate-300">Slot</label>
+							<input id="plc-slot" type="number" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" value="2"/>
+						</div>
+					</div>
+					<div class="grid gap-2">
+						<label class="text-sm text-slate-300">Addresses (one per line)</label>
+						<textarea id="plc-addresses" rows="8" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="DB1.DBX0.0&#10;DB1.DBD4" oninput="scheduleConnectWatchListSave()">{ strings.Join(connectWatchList, "\n") }</textarea>
+					</div>
+					<div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+						<div class="mb-2 text-sm font-medium text-slate-200">Add created DB variables</div>
+						<div class="grid gap-2 md:grid-cols-2">
+							<select id="plc-db-number-select" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" onchange="loadCreatedVariables()">
+								<option value="" selected>Select DB</option>
+								for _, db := range dbNumbers {
+									<option value={ fmt.Sprintf("%d", db) }>{ fmt.Sprintf("DB%d", db) }</option>
+								}
+							</select>
+							<input id="plc-variable-search" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="Search name, type, address..." oninput="loadCreatedVariables()"/>
+						</div>
+						<div id="plc-created-vars" class="mt-2 max-h-44 overflow-y-auto rounded border border-slate-800 bg-slate-950/60 p-2 text-xs text-slate-300">
+							Select a DB to load variables.
+						</div>
+					</div>
+					<div class="flex flex-wrap gap-2">
+						<button type="button" onclick="plcConnect()" class="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Connect</button>
+						<button type="button" onclick="plcDisconnect()" class="rounded-lg border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/10">Disconnect</button>
+						<button type="button" onclick="plcReadOnce()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Read once</button>
+						<button type="button" onclick="plcGetStatus()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Status</button>
+						<button type="button" onclick="plcGetCPUInfo()" class="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">CPU Info</button>
+					</div>
+					<div id="plc-conn-msg" class="text-sm text-slate-300"></div>
+				</div>
+			</div>
+
+			<div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+				<div class="mb-4 flex items-center gap-3">
+					<p class="text-sm text-slate-300">PLC Status:</p>
+					<span id="plc-status" class="rounded-md bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-100">UNKNOWN</span>
+				</div>
+				<div class="mb-4 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+					<h2 class="mb-2 text-sm font-semibold text-indigo-300">CPU Info</h2>
+					<pre id="plc-cpu-info" class="overflow-x-auto text-xs text-slate-300">Not loaded</pre>
+				</div>
+				<div class="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+					<div class="mb-2 flex items-center justify-between">
+						<h2 class="text-sm font-semibold text-indigo-300">Live Values</h2>
+						<span id="plc-last-update" class="text-xs text-slate-400">-</span>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="min-w-full text-left text-sm">
+							<thead class="text-slate-400">
+								<tr>
+									<th class="px-2 py-2">Address</th>
+									<th class="px-2 py-2">Value</th>
+									<th class="px-2 py-2">Error</th>
+								</tr>
+							</thead>
+							<tbody id="plc-values" class="text-slate-200">
+								<tr><td class="px-2 py-2 text-slate-500" colspan="3">No values yet</td></tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		let plcWS = null;
+
+		function getWSURL() {
+			const protocol = location.protocol === "https:" ? "wss" : "ws";
+			return `${protocol}://${location.host}/connect-plc/ws`;
+		}
+
+		function collectVariables() {
+			return (document.getElementById("plc-addresses").value || "")
+				.split("\n")
+				.map(v => v.trim())
+				.filter(Boolean);
+		}
+
+		let connectListSaveTimer = null;
+
+		function addAddress(address) {
+			const target = document.getElementById("plc-addresses");
+			const current = collectVariables();
+			const normalized = address.trim().toUpperCase();
+			if (!normalized) return;
+			if (!current.includes(normalized)) {
+				current.push(normalized);
+				target.value = current.join("\n");
+				if (plcWS && plcWS.readyState === WebSocket.OPEN) {
+					plcSend({ type: "set_variables", variables: current });
+				}
+				saveConnectWatchList(current);
+			}
+		}
+
+		function addAddressFromEncoded(encoded) {
+			addAddress(decodeURIComponent(encoded || ""));
+		}
+
+		function scheduleConnectWatchListSave() {
+			if (connectListSaveTimer) {
+				clearTimeout(connectListSaveTimer);
+			}
+			connectListSaveTimer = setTimeout(() => {
+				saveConnectWatchList(collectVariables());
+			}, 250);
+		}
+
+		async function saveConnectWatchList(items) {
+			try {
+				await fetch("/connect-plc/watch-list", {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						source: "connect",
+						db_number: 0,
+						addresses: items || []
+					})
+				});
+			} catch (_e) {
+				// keep UX smooth if save fails temporarily
+			}
+		}
+
+		async function loadCreatedVariables() {
+			const db = document.getElementById("plc-db-number-select").value;
+			const q = document.getElementById("plc-variable-search").value || "";
+			const target = document.getElementById("plc-created-vars");
+			if (!db) {
+				target.innerHTML = "Select a DB to load variables.";
+				return;
+			}
+			try {
+				const url = `/connect-plc/variables?db-number=${encodeURIComponent(db)}&q=${encodeURIComponent(q)}`;
+				const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+				if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+				const items = await resp.json();
+				if (!items.length) {
+					target.innerHTML = "No variables found.";
+					return;
+				}
+				target.innerHTML = items.map((v) => `
+					<div class="mb-1 flex items-center justify-between gap-2 rounded border border-slate-800 px-2 py-1">
+						<div class="min-w-0">
+							<div class="truncate text-slate-200">${v.name || "(unnamed)"} <span class="text-slate-400">(${v.data_type})</span></div>
+							<div class="truncate font-mono text-[11px] text-amber-300">${v.address}</div>
+						</div>
+						<button type="button" class="shrink-0 rounded bg-indigo-500/25 px-2 py-1 text-[11px] font-semibold text-indigo-200 hover:bg-indigo-500/35" onclick="addAddressFromEncoded('${encodeURIComponent(v.address || "")}')">Add</button>
+					</div>
+				`).join("");
+			} catch (_e) {
+				target.innerHTML = `<span class="text-rose-300">Failed to load DB variables.</span>`;
+			}
+		}
+
+		function plcConnect() {
+			if (plcWS && plcWS.readyState === WebSocket.OPEN) {
+				plcSend({ type: "disconnect" });
+				plcWS.close();
+			}
+			plcWS = new WebSocket(getWSURL());
+			plcWS.onopen = () => {
+				plcSend({
+					type: "connect",
+					address: document.getElementById("plc-address").value,
+					port: Number(document.getElementById("plc-port").value || "102"),
+					rack: Number(document.getElementById("plc-rack").value || "0"),
+					slot: Number(document.getElementById("plc-slot").value || "2"),
+					poll_ms: Number(document.getElementById("plc-poll-ms").value || "1000"),
+					variables: collectVariables()
+				});
+			};
+			plcWS.onmessage = (ev) => handlePLCEvent(JSON.parse(ev.data));
+			plcWS.onclose = () => setConnMessage("WebSocket disconnected", true);
+			plcWS.onerror = () => setConnMessage("WebSocket error", true);
+		}
+
+		function plcDisconnect() {
+			if (plcWS && plcWS.readyState === WebSocket.OPEN) {
+				plcSend({ type: "disconnect" });
+				plcWS.close();
+			}
+		}
+
+		function plcReadOnce() { plcSend({ type: "read_once" }); }
+		function plcGetStatus() { plcSend({ type: "get_status" }); }
+		function plcGetCPUInfo() { plcSend({ type: "get_cpu_info" }); }
+
+		function plcSend(payload) {
+			if (!plcWS || plcWS.readyState !== WebSocket.OPEN) {
+				setConnMessage("Not connected", true);
+				return;
+			}
+			plcWS.send(JSON.stringify(payload));
+		}
+
+		function setConnMessage(msg, isError = false) {
+			const el = document.getElementById("plc-conn-msg");
+			el.textContent = msg || "";
+			el.className = isError ? "text-sm text-rose-300" : "text-sm text-emerald-300";
+		}
+
+		function setStatus(status) {
+			const el = document.getElementById("plc-status");
+			el.textContent = status || "UNKNOWN";
+			el.className = "rounded-md px-2 py-1 text-xs font-semibold " +
+				(status === "RUN" ? "bg-emerald-500/20 text-emerald-300" :
+				(status === "STOP" ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-100"));
+		}
+
+		function renderValues(values) {
+			const tbody = document.getElementById("plc-values");
+			if (!values || values.length === 0) {
+				tbody.innerHTML = `<tr><td class="px-2 py-2 text-slate-500" colspan="3">No values yet</td></tr>`;
+				return;
+			}
+			tbody.innerHTML = values.map((v) => `
+				<tr class="border-t border-slate-800">
+					<td class="px-2 py-2 font-mono">${v.address || ""}</td>
+					<td class="px-2 py-2">${v.value || ""}</td>
+					<td class="px-2 py-2 text-rose-300">${v.error || ""}</td>
+				</tr>
+			`).join("");
+		}
+
+		function handlePLCEvent(ev) {
+			if (!ev || !ev.type) return;
+			switch (ev.type) {
+				case "connected":
+					setConnMessage(ev.message || "connected", false);
+					break;
+				case "disconnected":
+					setConnMessage(ev.message || "disconnected", true);
+					break;
+				case "error":
+					setConnMessage(ev.message || "error", true);
+					break;
+				case "status":
+					setStatus(ev.status);
+					break;
+				case "cpu_info":
+					document.getElementById("plc-cpu-info").textContent = JSON.stringify(ev.cpu_info || {}, null, 2);
+					break;
+				case "values":
+					setStatus(ev.status);
+					renderValues(ev.values || []);
+					document.getElementById("plc-last-update").textContent = ev.timestamp || "-";
+					break;
+				case "info":
+					setConnMessage(ev.message || "", false);
+					break;
+			}
+		}
+	</script>
+}

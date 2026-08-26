@@ -112,11 +112,15 @@ func CreateVarPageTempl(dbNumbers []uint32) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</select></div></div><div><label for=\"description\" class=\"mb-2 block text-sm font-medium text-slate-200\">Description</label> <input type=\"text\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" id=\"description\" name=\"description\" required></div><div id=\"var-type-def\" class=\"rounded-xl border border-slate-800 bg-slate-950/60 p-4\"><p class=\"text-sm text-slate-400\">Select a variable type to configure type-specific fields.</p></div><div class=\"flex items-center justify-between gap-3\"><button type=\"submit\" class=\"rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400\">Create Variable</button><div id=\"create-var-feedback\" class=\"text-sm text-slate-300\"></div></div></form></div><div class=\"rounded-xl border border-slate-800 bg-slate-900/70 p-5\"><h2 class=\"text-lg font-semibold text-indigo-300\">Tips</h2><ul class=\"mt-3 space-y-3 text-sm text-slate-300\"><li>Use <span class=\"text-indigo-300 font-medium\">STATIC</span> defaults for simple variables.</li><li>Add optional state presets for types where operators switch common values.</li><li>For BOOL entries, each field maps to one bit offset in a single DB byte.</li></ul></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</select></div></div><div><label for=\"description\" class=\"mb-2 block text-sm font-medium text-slate-200\">Description</label> <input type=\"text\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" id=\"description\" name=\"description\" required></div><div id=\"var-type-def\" class=\"rounded-xl border border-slate-800 bg-slate-950/60 p-4\"><p class=\"text-sm text-slate-400\">Select a variable type to configure type-specific fields.</p></div><div class=\"flex items-center justify-between gap-3\"><button type=\"submit\" class=\"rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400\">Create Variable</button><div id=\"create-var-feedback\" class=\"text-sm text-slate-300\"></div></div></form></div><div class=\"rounded-xl border border-slate-800 bg-slate-900/70 p-5\"><h2 class=\"text-lg font-semibold text-indigo-300\">Tips</h2><div id=\"type-tips\" class=\"mt-3 text-sm text-slate-300\"><p>Select a variable type to see field-by-field guidance.</p></div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = VarTypeDefinitionTemplates().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = VarTypeTipsTemplates().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -156,7 +160,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.BOOL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 100, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 99, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 		if templ_7745c5c3_Err != nil {
@@ -177,17 +181,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.BYTE))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 104, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 103, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">BYTE definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("BYTE", "0 to 255").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -198,17 +202,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.WORD))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 108, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 107, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">WORD definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("WORD", "0 to 65,535").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -219,17 +223,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.DWORD))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 112, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 111, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">DWORD definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("DWORD", "0 to 4,294,967,295").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -240,17 +244,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.LWORD))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 116, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 115, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">LWORD definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("LWORD", "0 or greater (64-bit unsigned)").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -261,17 +265,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.SINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 120, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 119, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">SINT definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("SINT", "-128 to 127").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -282,17 +286,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.USINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 124, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 123, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">USINT definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("USINT", "0 to 255").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -303,17 +307,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.INT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 128, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 127, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">INT definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("INT", "-32,768 to 32,767").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -324,17 +328,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.UINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 132, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 131, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">UINT definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("UINT", "0 to 65,535").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -345,17 +349,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.DINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 136, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 135, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">DINT definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("DINT", "-2,147,483,648 to 2,147,483,647").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -366,17 +370,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.UDINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 140, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 139, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">UDINT definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("UDINT", "0 to 4,294,967,295").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -387,17 +391,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.LINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 144, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 143, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">LINT definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("LINT", "Signed 64-bit integer").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -408,17 +412,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.ULINT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 148, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 147, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Integer type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">ULINT definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = IntFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = IntFieldsBlock("ULINT", "Unsigned 64-bit integer").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -429,17 +433,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.REAL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 152, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 151, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Float type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">REAL definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = FloatFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = FloatFieldsBlock("REAL", "32-bit floating-point").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -450,17 +454,17 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.LREAL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 156, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 155, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">Float type definition</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\"><h3 class=\"mb-4 text-lg font-semibold text-indigo-300\">LREAL definition</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = FloatFieldsBlock().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = FloatFieldsBlock("LREAL", "64-bit floating-point").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -471,7 +475,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.CHAR))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 160, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 159, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 		if templ_7745c5c3_Err != nil {
@@ -492,7 +496,7 @@ func VarTypeDefinitionTemplates() templ.Component {
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", goprotos7.STRING))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 164, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 163, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 		if templ_7745c5c3_Err != nil {
@@ -507,6 +511,202 @@ func VarTypeDefinitionTemplates() templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</div></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func VarTypeTipsTemplates() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var24 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var24 == nil {
+			templ_7745c5c3_Var24 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div id=\"var-tip-templates\" class=\"hidden\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.BOOL.String(), []string{
+			"Description: label for each bit state shown to operators.",
+			"Bit Offset: bit index inside one byte (0 to 7).",
+			"Default Value: initial state used when writing DB blocks.",
+		}, "Use one row per state flag in the same DB byte.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.BYTE.String(), []string{"Default Value: startup BYTE value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 255.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.WORD.String(), []string{"Default Value: startup WORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 65,535.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.DWORD.String(), []string{"Default Value: startup DWORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 4,294,967,295.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.LWORD.String(), []string{"Default Value: startup LWORD value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: unsigned 64-bit.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.SINT.String(), []string{"Default Value: startup SINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -128 to 127.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.USINT.String(), []string{"Default Value: startup USINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 255.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.INT.String(), []string{"Default Value: startup INT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -32,768 to 32,767.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.UINT.String(), []string{"Default Value: startup UINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 65,535.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.DINT.String(), []string{"Default Value: startup DINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: -2,147,483,648 to 2,147,483,647.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.UDINT.String(), []string{"Default Value: startup UDINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: 0 to 4,294,967,295.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.LINT.String(), []string{"Default Value: startup LINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: signed 64-bit.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.ULINT.String(), []string{"Default Value: startup ULINT value.", "Optional Presets: quick-select values shown in dashboard.", "Preset Description: button label visible to users."}, "Range: unsigned 64-bit.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.REAL.String(), []string{"Default Value: startup REAL value.", "Optional Presets: quick-select float values shown in dashboard.", "Preset Description: button label visible to users."}, "Use REAL for regular float process values.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.LREAL.String(), []string{"Default Value: startup LREAL value.", "Optional Presets: quick-select float values shown in dashboard.", "Preset Description: button label visible to users."}, "Use LREAL for high precision values.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.CHAR.String(), []string{"Default Character: single character stored in one byte.", "Description: human-readable meaning of this char flag/value."}, "CHAR accepts exactly one character.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = TipCard(goprotos7.STRING.String(), []string{"String Length: max allocated string size in DB.", "Default Value: startup text stored in the DB block.", "Description: semantic meaning of this text variable."}, "STRING stores max length + actual length + text payload.").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func TipCard(typeName string, bulletPoints []string, footNote string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var25 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var25 == nil {
+			templ_7745c5c3_Var25 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<div data-var-tip=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var26 string
+		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(typeName)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 197, Col: 29}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "\" class=\"space-y-2\"><p class=\"font-semibold text-indigo-300\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var27 string
+		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(typeName)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 198, Col: 53}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</p><ul class=\"list-disc space-y-1 pl-5\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, bullet := range bulletPoints {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<li>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var28 string
+			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(bullet)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 201, Col: 16}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</li>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</ul><p class=\"text-xs text-slate-400\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var29 string
+		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(footNote)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 204, Col: 46}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -530,12 +730,12 @@ func StringFieldsBlock() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var24 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var24 == nil {
-			templ_7745c5c3_Var24 = templ.NopComponent
+		templ_7745c5c3_Var30 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var30 == nil {
+			templ_7745c5c3_Var30 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div class=\"space-y-4\"><div><label for=\"str-length\" class=\"mb-2 block text-sm font-medium text-slate-200\">String Length</label> <input type=\"number\" id=\"str-length\" name=\"str-length\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div><div><label for=\"str-default-value\" class=\"mb-2 block text-sm font-medium text-slate-200\">Default Value</label> <input type=\"text\" id=\"str-default-value\" name=\"str-default-value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<div class=\"space-y-4\"><div><label for=\"str-length\" class=\"mb-2 block text-sm font-medium text-slate-200\">String Length</label> <input type=\"number\" id=\"str-length\" name=\"str-length\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div><div><label for=\"str-default-value\" class=\"mb-2 block text-sm font-medium text-slate-200\">Default Value</label> <input type=\"text\" id=\"str-default-value\" name=\"str-default-value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -559,12 +759,12 @@ func CharFieldsBlock() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var25 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var25 == nil {
-			templ_7745c5c3_Var25 = templ.NopComponent
+		templ_7745c5c3_Var31 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var31 == nil {
+			templ_7745c5c3_Var31 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<div><label for=\"char-default-value\" class=\"mb-2 block text-sm font-medium text-slate-200\">Default Character</label> <input maxlength=\"1\" type=\"text\" id=\"char-default-value\" name=\"char-default-value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<div><label for=\"char-default-value\" class=\"mb-2 block text-sm font-medium text-slate-200\">Default Character</label> <input maxlength=\"1\" type=\"text\" id=\"char-default-value\" name=\"char-default-value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -588,12 +788,12 @@ func BoolFieldsBlock() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var26 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var26 == nil {
-			templ_7745c5c3_Var26 = templ.NopComponent
+		templ_7745c5c3_Var32 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var32 == nil {
+			templ_7745c5c3_Var32 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<div class=\"space-y-3\"><div id=\"bool-fields-container\" class=\"space-y-3\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<div class=\"space-y-3\"><div id=\"bool-fields-container\" class=\"space-y-3\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -601,7 +801,7 @@ func BoolFieldsBlock() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "</div><button class=\"rounded-lg border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800\" type=\"button\" onclick=\"addBoolFieldRow()\">Add bool state</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</div><button class=\"rounded-lg border border-slate-600 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800\" type=\"button\" onclick=\"addBoolFieldRow()\">Add bool state</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -625,106 +825,77 @@ func BoolFieldRow(desc string, offset string, value string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var27 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var27 == nil {
-			templ_7745c5c3_Var27 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<div class=\"grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4\"><input type=\"text\" name=\"desc-bool-field[]\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var28 string
-		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(desc)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 202, Col: 58}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\" placeholder=\"Description\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2\"> <input type=\"number\" name=\"bit-bool-field[]\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var29 string
-		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.ResolveAttributeValue(offset)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 203, Col: 61}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var29)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "\" placeholder=\"Bit offset (0-7)\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\"> <select name=\"bool-value[]\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\"><option value=\"\" selected=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var30 string
-		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "")
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 205, Col: 42}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\">Default</option> <option value=\"true\" selected=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var31 string
-		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "true")
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 206, Col: 50}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\">True</option> <option value=\"false\" selected=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var32 string
-		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "false")
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 207, Col: 52}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\">False</option></select></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-func IntFieldsBlock() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
 		templ_7745c5c3_Var33 := templ.GetChildren(ctx)
 		if templ_7745c5c3_Var33 == nil {
 			templ_7745c5c3_Var33 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<div class=\"space-y-4\"><div><label for=\"default-int-value\" class=\"mb-2 block text-sm font-medium text-slate-200\">Default Value</label> <input type=\"number\" id=\"default-int-value\" name=\"default-int-value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div><div class=\"rounded-lg border border-slate-800 bg-slate-950/50 p-3\"><div class=\"mb-3 flex items-center justify-between\"><p class=\"text-sm text-slate-300\">Optional preset values</p><button class=\"rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-800\" type=\"button\" onclick=\"addIntFieldRow()\">Add preset</button></div><div id=\"int-fields-container\" class=\"space-y-3\"></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<div class=\"grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4\"><input type=\"text\" name=\"desc-bool-field[]\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var34 string
+		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue(desc)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 239, Col: 58}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\" placeholder=\"Description\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2\"> <input type=\"number\" name=\"bit-bool-field[]\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var35 string
+		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.ResolveAttributeValue(offset)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 240, Col: 61}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var35)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\" placeholder=\"Bit offset (0-7)\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\"> <select name=\"bool-value[]\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\"><option value=\"\" selected=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var36 string
+		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 242, Col: 42}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var36)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "\">Default</option> <option value=\"true\" selected=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var37 string
+		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "true")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 243, Col: 50}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var37)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\">True</option> <option value=\"false\" selected=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var38 string
+		templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.ResolveAttributeValue(value == "false")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 244, Col: 52}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var38)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\">False</option></select></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -732,7 +903,7 @@ func IntFieldsBlock() templ.Component {
 	})
 }
 
-func FloatFieldsBlock() templ.Component {
+func IntFieldsBlock(typeName string, rangeHint string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -748,12 +919,67 @@ func FloatFieldsBlock() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var34 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var34 == nil {
-			templ_7745c5c3_Var34 = templ.NopComponent
+		templ_7745c5c3_Var39 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var39 == nil {
+			templ_7745c5c3_Var39 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<div class=\"space-y-4\"><div><label for=\"default-float-value\" class=\"mb-2 block text-sm font-medium text-slate-200\">Default Value</label> <input type=\"number\" step=\"any\" id=\"default-float-value\" name=\"default-float-value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div><div class=\"rounded-lg border border-slate-800 bg-slate-950/50 p-3\"><div class=\"mb-3 flex items-center justify-between\"><p class=\"text-sm text-slate-300\">Optional preset values</p><button class=\"rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-800\" type=\"button\" onclick=\"addFloatFieldRow()\">Add preset</button></div><div id=\"float-fields-container\" class=\"space-y-3\"></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<div class=\"space-y-4\"><p class=\"text-sm text-slate-400\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var40 string
+		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%s valid range: %s.", typeName, rangeHint))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 251, Col: 93}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</p><div><label for=\"default-int-value\" class=\"mb-2 block text-sm font-medium text-slate-200\">Default Value</label> <input type=\"number\" id=\"default-int-value\" name=\"default-int-value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div><div class=\"rounded-lg border border-slate-800 bg-slate-950/50 p-3\"><div class=\"mb-3 flex items-center justify-between\"><p class=\"text-sm text-slate-300\">Optional preset values</p><button class=\"rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-800\" type=\"button\" onclick=\"addIntFieldRow()\">Add preset</button></div><div id=\"int-fields-container\" class=\"space-y-3\"></div></div></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func FloatFieldsBlock(typeName string, formatHint string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var41 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var41 == nil {
+			templ_7745c5c3_Var41 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<div class=\"space-y-4\"><p class=\"text-sm text-slate-400\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var42 string
+		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%s format: %s.", typeName, formatHint))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/create-var-api/create-var-api.templ`, Line: 268, Col: 89}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</p><div><label for=\"default-float-value\" class=\"mb-2 block text-sm font-medium text-slate-200\">Default Value</label> <input type=\"number\" step=\"any\" id=\"default-float-value\" name=\"default-float-value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\" required></div><div class=\"rounded-lg border border-slate-800 bg-slate-950/50 p-3\"><div class=\"mb-3 flex items-center justify-between\"><p class=\"text-sm text-slate-300\">Optional preset values</p><button class=\"rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-800\" type=\"button\" onclick=\"addFloatFieldRow()\">Add preset</button></div><div id=\"float-fields-container\" class=\"space-y-3\"></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -777,12 +1003,12 @@ func CreateVarPageScripts() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var35 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var35 == nil {
-			templ_7745c5c3_Var35 = templ.NopComponent
+		templ_7745c5c3_Var43 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var43 == nil {
+			templ_7745c5c3_Var43 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<script>\n\t\tfunction toggleDBNumberMode(mode) {\n\t\t\tconst existingWrap = document.getElementById(\"db-number-existing-wrap\");\n\t\t\tconst newWrap = document.getElementById(\"db-number-new-wrap\");\n\t\t\tconst existingInput = document.getElementById(\"db-number-existing\");\n\t\t\tconst newInput = document.getElementById(\"db-number-new\");\n\t\t\tif (mode === \"new\") {\n\t\t\t\texistingWrap.classList.add(\"hidden\");\n\t\t\t\tnewWrap.classList.remove(\"hidden\");\n\t\t\t\texistingInput.required = false;\n\t\t\t\tnewInput.required = true;\n\t\t\t\treturn;\n\t\t\t}\n\t\t\texistingWrap.classList.remove(\"hidden\");\n\t\t\tnewWrap.classList.add(\"hidden\");\n\t\t\texistingInput.required = true;\n\t\t\tnewInput.required = false;\n\t\t}\n\n\t\tfunction renderVarTypeDefinition(rawType) {\n\t\t\tconst target = document.getElementById(\"var-type-def\");\n\t\t\tconst templateRoot = document.getElementById(\"var-def-templates\");\n\t\t\tconst source = templateRoot.querySelector(`[data-var-type=\"${rawType}\"]`);\n\t\t\tif (!source) {\n\t\t\t\ttarget.innerHTML = `<p class=\"text-sm text-slate-400\">Select a variable type to configure type-specific fields.</p>`;\n\t\t\t\treturn;\n\t\t\t}\n\t\t\ttarget.innerHTML = source.innerHTML;\n\t\t}\n\n\t\tfunction addIntFieldRow() {\n\t\t\tconst root = document.getElementById(\"int-fields-container\");\n\t\t\tif (!root) return;\n\t\t\tconst row = document.createElement(\"div\");\n\t\t\trow.className = \"grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4\";\n\t\t\trow.innerHTML = `\n\t\t\t\t<input type=\"text\" name=\"desc-int-field[]\" placeholder=\"Description\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2\">\n\t\t\t\t<input type=\"number\" name=\"int-field[]\" placeholder=\"Value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">\n\t\t\t\t<button type=\"button\" class=\"rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10\" onclick=\"this.closest('.grid').remove()\">Remove</button>\n\t\t\t`;\n\t\t\troot.appendChild(row);\n\t\t}\n\n\t\tfunction addFloatFieldRow() {\n\t\t\tconst root = document.getElementById(\"float-fields-container\");\n\t\t\tif (!root) return;\n\t\t\tconst row = document.createElement(\"div\");\n\t\t\trow.className = \"grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4\";\n\t\t\trow.innerHTML = `\n\t\t\t\t<input type=\"text\" name=\"desc-float-field[]\" placeholder=\"Description\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2\">\n\t\t\t\t<input type=\"number\" step=\"any\" name=\"float-field[]\" placeholder=\"Value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">\n\t\t\t\t<button type=\"button\" class=\"rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10\" onclick=\"this.closest('.grid').remove()\">Remove</button>\n\t\t\t`;\n\t\t\troot.appendChild(row);\n\t\t}\n\n\t\tfunction addBoolFieldRow() {\n\t\t\tconst root = document.getElementById(\"bool-fields-container\");\n\t\t\tif (!root) return;\n\t\t\tconst row = document.createElement(\"div\");\n\t\t\trow.className = \"grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4\";\n\t\t\trow.innerHTML = `\n\t\t\t\t<input type=\"text\" name=\"desc-bool-field[]\" placeholder=\"Description\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2\">\n\t\t\t\t<input type=\"number\" name=\"bit-bool-field[]\" placeholder=\"Bit offset (0-7)\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">\n\t\t\t\t<select name=\"bool-value[]\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">\n\t\t\t\t\t<option value=\"\">Default</option>\n\t\t\t\t\t<option value=\"true\">True</option>\n\t\t\t\t\t<option value=\"false\">False</option>\n\t\t\t\t</select>\n\t\t\t\t<button type=\"button\" class=\"md:col-span-4 rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10\" onclick=\"this.parentElement.remove()\">Remove</button>\n\t\t\t`;\n\t\t\troot.appendChild(row);\n\t\t}\n\n\t\twindow.addEventListener(\"DOMContentLoaded\", () => {\n\t\t\tconst modeEl = document.getElementById(\"db-number-mode\");\n\t\t\tif (modeEl) {\n\t\t\t\ttoggleDBNumberMode(modeEl.value);\n\t\t\t}\n\t\t});\n\t\tdocument.addEventListener(\"htmx:afterSwap\", () => {\n\t\t\tconst modeEl = document.getElementById(\"db-number-mode\");\n\t\t\tif (modeEl) {\n\t\t\t\ttoggleDBNumberMode(modeEl.value);\n\t\t\t}\n\t\t});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<script>\n\t\tfunction toggleDBNumberMode(mode) {\n\t\t\tconst existingWrap = document.getElementById(\"db-number-existing-wrap\");\n\t\t\tconst newWrap = document.getElementById(\"db-number-new-wrap\");\n\t\t\tconst existingInput = document.getElementById(\"db-number-existing\");\n\t\t\tconst newInput = document.getElementById(\"db-number-new\");\n\t\t\tif (mode === \"new\") {\n\t\t\t\texistingWrap.classList.add(\"hidden\");\n\t\t\t\tnewWrap.classList.remove(\"hidden\");\n\t\t\t\texistingInput.required = false;\n\t\t\t\tnewInput.required = true;\n\t\t\t\treturn;\n\t\t\t}\n\t\t\texistingWrap.classList.remove(\"hidden\");\n\t\t\tnewWrap.classList.add(\"hidden\");\n\t\t\texistingInput.required = true;\n\t\t\tnewInput.required = false;\n\t\t}\n\n\t\tfunction renderVarTypeDefinition(rawType) {\n\t\t\tconst target = document.getElementById(\"var-type-def\");\n\t\t\tconst templateRoot = document.getElementById(\"var-def-templates\");\n\t\t\tconst source = templateRoot.querySelector(`[data-var-type=\"${rawType}\"]`);\n\t\t\tif (!source) {\n\t\t\t\ttarget.innerHTML = `<p class=\"text-sm text-slate-400\">Select a variable type to configure type-specific fields.</p>`;\n\t\t\t\trenderVarTypeTips(\"\");\n\t\t\t\treturn;\n\t\t\t}\n\t\t\ttarget.innerHTML = source.innerHTML;\n\t\t\trenderVarTypeTips(rawType);\n\t\t}\n\n\t\tfunction renderVarTypeTips(rawType) {\n\t\t\tconst typeSelector = document.getElementById(\"data-type\");\n\t\t\tconst selectedOption = typeSelector ? typeSelector.options[typeSelector.selectedIndex] : null;\n\t\t\tconst selectedTypeName = selectedOption ? selectedOption.text : \"\";\n\t\t\tconst tipsTarget = document.getElementById(\"type-tips\");\n\t\t\tconst tipsRoot = document.getElementById(\"var-tip-templates\");\n\t\t\tif (!tipsTarget || !tipsRoot || selectedTypeName === \"\") {\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tconst tip = tipsRoot.querySelector(`[data-var-tip=\"${selectedTypeName}\"]`);\n\t\t\tif (!tip) {\n\t\t\t\ttipsTarget.innerHTML = `<p>No tips available for this type yet.</p>`;\n\t\t\t\treturn;\n\t\t\t}\n\t\t\ttipsTarget.innerHTML = tip.innerHTML;\n\t\t}\n\n\t\tfunction addIntFieldRow() {\n\t\t\tconst root = document.getElementById(\"int-fields-container\");\n\t\t\tif (!root) return;\n\t\t\tconst row = document.createElement(\"div\");\n\t\t\trow.className = \"grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4\";\n\t\t\trow.innerHTML = `\n\t\t\t\t<input type=\"text\" name=\"desc-int-field[]\" placeholder=\"Description\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2\">\n\t\t\t\t<input type=\"number\" name=\"int-field[]\" placeholder=\"Value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">\n\t\t\t\t<button type=\"button\" class=\"rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10\" onclick=\"this.closest('.grid').remove()\">Remove</button>\n\t\t\t`;\n\t\t\troot.appendChild(row);\n\t\t}\n\n\t\tfunction addFloatFieldRow() {\n\t\t\tconst root = document.getElementById(\"float-fields-container\");\n\t\t\tif (!root) return;\n\t\t\tconst row = document.createElement(\"div\");\n\t\t\trow.className = \"grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4\";\n\t\t\trow.innerHTML = `\n\t\t\t\t<input type=\"text\" name=\"desc-float-field[]\" placeholder=\"Description\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2\">\n\t\t\t\t<input type=\"number\" step=\"any\" name=\"float-field[]\" placeholder=\"Value\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">\n\t\t\t\t<button type=\"button\" class=\"rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10\" onclick=\"this.closest('.grid').remove()\">Remove</button>\n\t\t\t`;\n\t\t\troot.appendChild(row);\n\t\t}\n\n\t\tfunction addBoolFieldRow() {\n\t\t\tconst root = document.getElementById(\"bool-fields-container\");\n\t\t\tif (!root) return;\n\t\t\tconst row = document.createElement(\"div\");\n\t\t\trow.className = \"grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3 md:grid-cols-4\";\n\t\t\trow.innerHTML = `\n\t\t\t\t<input type=\"text\" name=\"desc-bool-field[]\" placeholder=\"Description\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring md:col-span-2\">\n\t\t\t\t<input type=\"number\" name=\"bit-bool-field[]\" placeholder=\"Bit offset (0-7)\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">\n\t\t\t\t<select name=\"bool-value[]\" class=\"block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-indigo-500/50 focus:ring\">\n\t\t\t\t\t<option value=\"\">Default</option>\n\t\t\t\t\t<option value=\"true\">True</option>\n\t\t\t\t\t<option value=\"false\">False</option>\n\t\t\t\t</select>\n\t\t\t\t<button type=\"button\" class=\"md:col-span-4 rounded-lg border border-rose-500/50 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10\" onclick=\"this.parentElement.remove()\">Remove</button>\n\t\t\t`;\n\t\t\troot.appendChild(row);\n\t\t}\n\n\t\twindow.addEventListener(\"DOMContentLoaded\", () => {\n\t\t\tconst modeEl = document.getElementById(\"db-number-mode\");\n\t\t\tif (modeEl) {\n\t\t\t\ttoggleDBNumberMode(modeEl.value);\n\t\t\t}\n\t\t});\n\t\tdocument.addEventListener(\"htmx:afterSwap\", () => {\n\t\t\tconst modeEl = document.getElementById(\"db-number-mode\");\n\t\t\tif (modeEl) {\n\t\t\t\ttoggleDBNumberMode(modeEl.value);\n\t\t\t}\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
