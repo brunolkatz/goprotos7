@@ -18,6 +18,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/brunolkatz/goprotos7/s7db/internal/address"
 	"github.com/brunolkatz/goprotos7/s7db/internal/config"
+	heartbeatpkg "github.com/brunolkatz/goprotos7/s7db/internal/heartbeat"
 	"github.com/brunolkatz/goprotos7/s7db/internal/layout"
 	"github.com/brunolkatz/goprotos7/s7db/internal/output"
 	"github.com/brunolkatz/goprotos7/s7db/internal/pack"
@@ -41,18 +42,19 @@ type CLI struct {
 	Endian  string `help:"Default endian (big|little)."`
 	DB      *int   `help:"Default DB number for short addresses."`
 
-	Root   RootCmd   `cmd:"" hidden:"" default:"1" name:"__root"`
-	Init   InitCmd   `cmd:"" help:"Create a new schema file."`
-	Reset  ResetCmd  `cmd:"" help:"Reset schema file (wipe and optionally re-import)."`
-	Add    AddCmd    `cmd:"" help:"Add one or more tags."`
-	Set    SetCmd    `cmd:"" help:"Update a tag by address or name."`
-	Remove RemoveCmd `cmd:"" name:"remove" aliases:"rm" help:"Remove tags by address or name."`
-	List   ListCmd   `cmd:"" help:"List tags from schema."`
-	Pack   PackCmd   `cmd:"" help:"Pack schema into a DB binary image."`
-	Unpack UnpackCmd `cmd:"" help:"Unpack a binary image back to a schema."`
-	Check  CheckCmd  `cmd:"" help:"Validate schema layout and types."`
-	Info   InfoCmd   `cmd:"" help:"Print schema summary."`
-	Watch  WatchCmd  `cmd:"" help:"Watch live PLC values."`
+	Root      RootCmd      `cmd:"" hidden:"" default:"1" name:"__root"`
+	Init      InitCmd      `cmd:"" help:"Create a new schema file."`
+	Reset     ResetCmd     `cmd:"" help:"Reset schema file (wipe and optionally re-import)."`
+	Add       AddCmd       `cmd:"" help:"Add one or more tags."`
+	Set       SetCmd       `cmd:"" help:"Update a tag by address or name."`
+	Remove    RemoveCmd    `cmd:"" name:"remove" aliases:"rm" help:"Remove tags by address or name."`
+	List      ListCmd      `cmd:"" help:"List tags from schema."`
+	Pack      PackCmd      `cmd:"" help:"Pack schema into a DB binary image."`
+	Unpack    UnpackCmd    `cmd:"" help:"Unpack a binary image back to a schema."`
+	Check     CheckCmd     `cmd:"" help:"Validate schema layout and types."`
+	Info      InfoCmd      `cmd:"" help:"Print schema summary."`
+	Watch     WatchCmd     `cmd:"" help:"Watch live PLC values."`
+	Heartbeat HeartbeatCmd `cmd:"" help:"Write a PLC heartbeat bit from OS service."`
 }
 
 type InitLikeFlags struct {
@@ -129,6 +131,25 @@ type WatchCmd struct {
 	Reconnect bool     `help:"Auto reconnect with exponential backoff."`
 	Output    string   `short:"o" enum:"table,json" default:"table" help:"Output format."`
 	Args      []string `arg:"" optional:"" name:"var" help:"Addresses or tag names."`
+}
+
+type HeartbeatCmd struct {
+	Addr             string `name:"addr" aliases:"ip" help:"PLC host/IP."`
+	Rack             *int   `help:"PLC rack (default 0)."`
+	Slot             *int   `help:"PLC slot (default 1)."`
+	Port             *int   `help:"PLC port (default 102)."`
+	Interval         string `short:"i" help:"Write interval (default schema heartbeat.interval or 1s)."`
+	HeartbeatTimeout string `name:"heartbeat-timeout" help:"PLC heartbeat policy timeout (default schema heartbeat.timeout or 5s)."`
+	Mode             string `help:"Beat mode (set-true|toggle)."`
+	Tag              string `help:"Tag name alternative to operand."`
+	Count            int    `default:"0" help:"Stop after N beats (0 forever)."`
+	Once             bool   `help:"Single write then exit."`
+	NoReadback       bool   `help:"Skip read-after-write."`
+	RequireClear     bool   `help:"After set-true, require PLC clear within --clear-within."`
+	ClearWithin      string `help:"Clear verification window (default interval)."`
+	JSON             bool   `help:"Emit NDJSON events on stdout."`
+	Reconnect        bool   `help:"Auto reconnect with exponential backoff."`
+	Ref              string `arg:"" optional:"" name:"addr-or-name" help:"Heartbeat target address or tag name."`
 }
 
 type App struct {
@@ -439,7 +460,7 @@ func (c *ListCmd) Run(app *App) error {
 	if c.Addr != "" {
 		rows = filterRows(rows, c.Addr, app.CLI.DB)
 	}
-	cols := []string{"addr", "name", "type", "offset", "size", "init", "desc"}
+	cols := []string{"addr", "name", "type", "role", "hb_interval", "hb_timeout", "offset", "size", "init", "desc"}
 	if strings.TrimSpace(c.Columns) != "" {
 		cols = splitCSV(c.Columns)
 	}
@@ -514,10 +535,17 @@ func (c *CheckCmd) Run(app *App) error {
 	if err != nil {
 		return usagef("%s", err.Error())
 	}
+	diags, err := schema.Validate(s, app.CLI.Strict)
+	if err != nil {
+		return usagef("%s", err.Error())
+	}
 	for _, d := range res.Diagnostics {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", d.Level, d.Message)
 	}
-	if app.CLI.Strict && len(res.Diagnostics) > 0 {
+	for _, d := range diags {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", d.Level, d.Message)
+	}
+	if app.CLI.Strict && (len(res.Diagnostics) > 0 || len(diags) > 0) {
 		return usagef("strict check failed")
 	}
 	return nil
@@ -542,9 +570,124 @@ func (c *InfoCmd) Run(app *App) error {
 		"tag_count":     len(s.Tags),
 		"schema_path":   app.CLI.File,
 	}
+	heartbeatTags := []map[string]any{}
+	for _, t := range s.Tags {
+		if t.Role != "heartbeat" || t.Heartbeat == nil {
+			continue
+		}
+		heartbeatTags = append(heartbeatTags, map[string]any{
+			"addr":     t.Addr,
+			"name":     t.Name,
+			"interval": t.Heartbeat.Interval,
+			"timeout":  t.Heartbeat.Timeout,
+			"polarity": t.Heartbeat.Polarity,
+		})
+	}
+	if len(heartbeatTags) > 0 {
+		summary["heartbeat_tags"] = heartbeatTags
+	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(summary)
+}
+
+func (c *HeartbeatCmd) Run(app *App) error {
+	s, _ := schema.Load(app.CLI.File, app.CLI.DB)
+	target, err := resolveHeartbeatTarget(s, c.Ref, c.Tag, app.CLI.DB)
+	if err != nil {
+		return usagef("heartbeat: %v", err)
+	}
+	if !strings.EqualFold(target.Tag.Type, "BOOL") {
+		if app.CLI.Strict && !app.CLI.Force {
+			return usagef("heartbeat: tag %s must be BOOL", target.Address.Canonical())
+		}
+		if !app.CLI.Quiet {
+			fmt.Fprintf(os.Stderr, "warning: heartbeat tag %s is type %s (expected BOOL)\n", target.Address.Canonical(), target.Tag.Type)
+		}
+	}
+
+	hb := target.Tag.Heartbeat
+	if hb == nil {
+		hb = &schema.HeartbeatSpec{Interval: "1s", Timeout: "5s", Polarity: "set-true"}
+	}
+	intervalRaw := hb.Interval
+	if c.Interval != "" {
+		intervalRaw = c.Interval
+	}
+	timeoutRaw := hb.Timeout
+	if c.HeartbeatTimeout != "" {
+		timeoutRaw = c.HeartbeatTimeout
+	}
+	mode := hb.Polarity
+	if mode == "" {
+		mode = "set-true"
+	}
+	if c.Mode != "" {
+		mode = c.Mode
+	}
+	if mode != "set-true" && mode != "toggle" {
+		return usagef("heartbeat: invalid mode %q (expected set-true|toggle)", mode)
+	}
+	interval, err := time.ParseDuration(intervalRaw)
+	if err != nil {
+		return usagef("heartbeat: invalid interval %q", intervalRaw)
+	}
+	timeoutVal, err := time.ParseDuration(timeoutRaw)
+	if err != nil {
+		return usagef("heartbeat: invalid timeout %q", timeoutRaw)
+	}
+	if interval >= timeoutVal && !app.CLI.Force {
+		return usagef("heartbeat: interval (%s) must be < timeout (%s)", interval, timeoutVal)
+	}
+	if interval >= timeoutVal && !app.CLI.Quiet {
+		fmt.Fprintf(os.Stderr, "warning: heartbeat interval (%s) >= timeout (%s)\n", interval, timeoutVal)
+	}
+	clearWithin := interval
+	if c.ClearWithin != "" {
+		clearWithin, err = time.ParseDuration(c.ClearWithin)
+		if err != nil {
+			return usagef("heartbeat: invalid --clear-within %q", c.ClearWithin)
+		}
+	}
+
+	addr := c.Addr
+	if addr == "" {
+		addr = app.Config.PLC.Addr
+	}
+	if addr == "" && !app.CLI.DryRun {
+		return usagef("heartbeat: --addr is required")
+	}
+	rack := valueIntPtrDefault(0, c.Rack, app.Config.PLC.Rack)
+	slot := valueIntPtrDefault(1, c.Slot, app.Config.PLC.Slot)
+	port := valueIntPtrDefault(102, c.Port, app.Config.PLC.Port)
+
+	var client heartbeatpkg.Client
+	if !app.CLI.DryRun {
+		client = plc.New(addr, rack, slot, port, app.Timeout)
+	}
+
+	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	return heartbeatpkg.Run(sigCtx, client, heartbeatpkg.Config{
+		Address:      target.Address,
+		Name:         target.Tag.Name,
+		Interval:     interval,
+		Timeout:      timeoutVal,
+		Mode:         mode,
+		Count:        c.Count,
+		Once:         c.Once,
+		NoReadback:   c.NoReadback,
+		RequireClear: c.RequireClear,
+		ClearWithin:  clearWithin,
+		Reconnect:    c.Reconnect,
+		Strict:       app.CLI.Strict,
+		Quiet:        app.CLI.Quiet,
+		JSON:         c.JSON,
+		DryRun:       app.CLI.DryRun,
+		Now:          app.Now,
+		Out:          os.Stdout,
+		Err:          os.Stderr,
+	})
 }
 
 func (c *WatchCmd) Run(app *App) error {
@@ -640,6 +783,62 @@ type watchVar struct {
 	Type    layout.TypeSpec
 }
 
+type heartbeatTarget struct {
+	Tag     schema.Tag
+	Address address.Address
+}
+
+func resolveHeartbeatTarget(s schema.Schema, ref, tagName string, defaultDB *int) (heartbeatTarget, error) {
+	db := s.DB
+	if db == 0 && defaultDB != nil {
+		db = *defaultDB
+	}
+	key := strings.TrimSpace(ref)
+	if key == "" {
+		key = strings.TrimSpace(tagName)
+	}
+	if key != "" {
+		if i, ok := schema.FindTag(s, key, &db); ok {
+			addrValue, err := address.Parse(s.Tags[i].Addr, &db)
+			if err != nil {
+				return heartbeatTarget{}, err
+			}
+			return heartbeatTarget{Tag: s.Tags[i], Address: addrValue}, nil
+		}
+		addrValue, err := address.Parse(key, &db)
+		if err != nil {
+			return heartbeatTarget{}, err
+		}
+		return heartbeatTarget{
+			Tag: schema.Tag{
+				Addr:      addrValue.Canonical(),
+				Name:      key,
+				Type:      "BOOL",
+				Role:      "heartbeat",
+				Heartbeat: &schema.HeartbeatSpec{Interval: "1s", Timeout: "5s", Polarity: "set-true"},
+			},
+			Address: addrValue,
+		}, nil
+	}
+	var candidates []schema.Tag
+	for _, t := range s.Tags {
+		if t.Role == "heartbeat" {
+			candidates = append(candidates, t)
+		}
+	}
+	if len(candidates) == 1 {
+		addrValue, err := address.Parse(candidates[0].Addr, &db)
+		if err != nil {
+			return heartbeatTarget{}, err
+		}
+		return heartbeatTarget{Tag: candidates[0], Address: addrValue}, nil
+	}
+	if len(candidates) == 0 {
+		return heartbeatTarget{}, fmt.Errorf("no heartbeat target provided and schema has no tag with role=heartbeat")
+	}
+	return heartbeatTarget{}, fmt.Errorf("multiple heartbeat tags found, provide operand or --tag")
+}
+
 func resolveWatchVars(s schema.Schema, vars []string, defaultDB *int) ([]watchVar, error) {
 	out := make([]watchVar, 0, len(vars))
 	db := s.DB
@@ -653,7 +852,7 @@ func resolveWatchVars(s schema.Schema, vars []string, defaultDB *int) ([]watchVa
 			if err != nil {
 				return nil, err
 			}
-			ts, err := layout.ParseType(t.Type)
+			ts, err := layout.ParseType(t)
 			if err != nil {
 				return nil, err
 			}
@@ -763,13 +962,16 @@ func rowsFromSchema(s schema.Schema) ([]output.TagRow, error) {
 			offset = fmt.Sprintf("%d.%d", t.Address.Byte, t.Address.Bit)
 		}
 		rows = append(rows, output.TagRow{
-			Addr:   t.Address.Canonical(),
-			Name:   t.Tag.Name,
-			Type:   t.Type.Name,
-			Offset: offset,
-			Size:   t.Type.SizeBytes,
-			Init:   t.Tag.Init,
-			Desc:   t.Tag.Desc,
+			Addr:              t.Address.Canonical(),
+			Name:              t.Tag.Name,
+			Type:              t.Type.Name,
+			Role:              t.Tag.Role,
+			HeartbeatInterval: heartbeatInterval(t.Tag),
+			HeartbeatTimeout:  heartbeatTimeout(t.Tag),
+			Offset:            offset,
+			Size:              t.Type.SizeBytes,
+			Init:              t.Tag.Init,
+			Desc:              t.Tag.Desc,
 		})
 	}
 	slices.SortFunc(rows, func(a, b output.TagRow) int { return strings.Compare(a.Addr, b.Addr) })
@@ -975,4 +1177,18 @@ func looksLikeHeader(cols []string) bool {
 	}
 	first := strings.ToLower(strings.TrimSpace(cols[0]))
 	return first == "addr" || first == "address"
+}
+
+func heartbeatInterval(t schema.Tag) string {
+	if t.Heartbeat == nil {
+		return ""
+	}
+	return t.Heartbeat.Interval
+}
+
+func heartbeatTimeout(t schema.Tag) string {
+	if t.Heartbeat == nil {
+		return ""
+	}
+	return t.Heartbeat.Timeout
 }

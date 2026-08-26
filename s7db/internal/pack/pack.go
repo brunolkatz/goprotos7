@@ -183,6 +183,19 @@ func encodeValue(ts layout.TypeSpec, init any, order binary.ByteOrder) ([]byte, 
 		out := make([]byte, 4)
 		order.PutUint32(out, math.Float32bits(float32(v)))
 		return out, nil
+	case "STRING":
+		raw, err := asString(init)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]byte, ts.SizeBytes)
+		out[0] = byte(ts.StringLen)
+		if len(raw) > ts.StringLen {
+			raw = raw[:ts.StringLen]
+		}
+		out[1] = byte(len(raw))
+		copy(out[2:], []byte(raw))
+		return out, nil
 	}
 	if strings.HasPrefix(ts.Name, "STRING[") {
 		raw, err := asString(init)
@@ -217,6 +230,19 @@ func decodeValue(raw []byte, ts layout.TypeSpec, order binary.ByteOrder) (any, e
 		return uint64(order.Uint32(raw)), nil
 	case "REAL":
 		return math.Float32frombits(order.Uint32(raw)), nil
+	case "STRING":
+		if len(raw) < 2 {
+			return "", nil
+		}
+		length := int(raw[1])
+		max := int(raw[0])
+		if max > len(raw)-2 {
+			max = len(raw) - 2
+		}
+		if length > max {
+			length = max
+		}
+		return string(raw[2 : 2+length]), nil
 	}
 	if strings.HasPrefix(ts.Name, "STRING[") {
 		if len(raw) < 2 {

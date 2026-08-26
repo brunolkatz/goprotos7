@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/brunolkatz/goprotos7/s7db/internal/address"
 	"gopkg.in/yaml.v3"
@@ -47,11 +48,24 @@ func (s *SizeSpec) UnmarshalYAML(n *yaml.Node) error {
 }
 
 type Tag struct {
-	Addr string `yaml:"addr" json:"addr"`
-	Name string `yaml:"name,omitempty" json:"name,omitempty"`
-	Type string `yaml:"type" json:"type"`
-	Init any    `yaml:"init,omitempty" json:"init,omitempty"`
-	Desc string `yaml:"desc,omitempty" json:"desc,omitempty"`
+	Addr      string         `yaml:"addr" json:"addr"`
+	Name      string         `yaml:"name,omitempty" json:"name,omitempty"`
+	Type      string         `yaml:"type" json:"type"`
+	Init      any            `yaml:"init,omitempty" json:"init,omitempty"`
+	Desc      string         `yaml:"desc,omitempty" json:"desc,omitempty"`
+	Role      string         `yaml:"role,omitempty" json:"role,omitempty"`
+	Heartbeat *HeartbeatSpec `yaml:"heartbeat,omitempty" json:"heartbeat,omitempty"`
+}
+
+type HeartbeatSpec struct {
+	Interval string `yaml:"interval,omitempty" json:"interval,omitempty"`
+	Timeout  string `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	Polarity string `yaml:"polarity,omitempty" json:"polarity,omitempty"`
+}
+
+type Diagnostic struct {
+	Level   string
+	Message string
 }
 
 type Schema struct {
@@ -117,6 +131,27 @@ func (s *Schema) Normalize(defaultDB *int) error {
 		}
 		s.Tags[i].Addr = a.Canonical()
 		s.Tags[i].Type = normalizeType(s.Tags[i].Type)
+		s.Tags[i].Role = strings.ToLower(strings.TrimSpace(s.Tags[i].Role))
+		if s.Tags[i].Heartbeat != nil && s.Tags[i].Role == "" {
+			s.Tags[i].Role = "heartbeat"
+		}
+		if s.Tags[i].Role == "heartbeat" {
+			if s.Tags[i].Heartbeat == nil {
+				s.Tags[i].Heartbeat = &HeartbeatSpec{}
+			}
+			if strings.TrimSpace(s.Tags[i].Heartbeat.Interval) == "" {
+				s.Tags[i].Heartbeat.Interval = "1s"
+			}
+			if strings.TrimSpace(s.Tags[i].Heartbeat.Timeout) == "" {
+				s.Tags[i].Heartbeat.Timeout = "5s"
+			}
+			if strings.TrimSpace(s.Tags[i].Heartbeat.Polarity) == "" {
+				s.Tags[i].Heartbeat.Polarity = "set-true"
+			}
+		}
+		if s.Tags[i].Heartbeat != nil {
+			s.Tags[i].Heartbeat.Polarity = strings.ToLower(strings.TrimSpace(s.Tags[i].Heartbeat.Polarity))
+		}
 	}
 	return nil
 }
@@ -262,4 +297,58 @@ func EnsureParentDir(path string) error {
 		return nil
 	}
 	return os.MkdirAll(dir, 0o755)
+}
+
+func Validate(s Schema, strict bool) ([]Diagnostic, error) {
+	var diags []Diagnostic
+	for _, t := range s.Tags {
+		switch t.Role {
+		case "", "heartbeat":
+		default:
+			msg := fmt.Sprintf("tag %s has unknown role %q", t.Addr, t.Role)
+			if strict {
+				return nil, fmt.Errorf("%s", msg)
+			}
+			diags = append(diags, Diagnostic{Level: "warning", Message: msg})
+		}
+		if t.Role != "heartbeat" {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(t.Type), "BOOL") {
+			msg := fmt.Sprintf("tag %s role=heartbeat requires type BOOL", t.Addr)
+			if strict {
+				return nil, fmt.Errorf("%s", msg)
+			}
+			diags = append(diags, Diagnostic{Level: "warning", Message: msg})
+		}
+		hb := t.Heartbeat
+		if hb == nil {
+			hb = &HeartbeatSpec{Interval: "1s", Timeout: "5s", Polarity: "set-true"}
+		}
+		interval, err := time.ParseDuration(strings.TrimSpace(hb.Interval))
+		if err != nil {
+			return nil, fmt.Errorf("tag %s invalid heartbeat.interval: %w", t.Addr, err)
+		}
+		timeout, err := time.ParseDuration(strings.TrimSpace(hb.Timeout))
+		if err != nil {
+			return nil, fmt.Errorf("tag %s invalid heartbeat.timeout: %w", t.Addr, err)
+		}
+		if interval >= timeout {
+			msg := fmt.Sprintf("tag %s heartbeat interval (%s) must be < timeout (%s)", t.Addr, interval, timeout)
+			if strict {
+				return nil, fmt.Errorf("%s", msg)
+			}
+			diags = append(diags, Diagnostic{Level: "warning", Message: msg})
+		}
+		switch hb.Polarity {
+		case "", "set-true", "toggle":
+		default:
+			msg := fmt.Sprintf("tag %s invalid heartbeat polarity %q", t.Addr, hb.Polarity)
+			if strict {
+				return nil, fmt.Errorf("%s", msg)
+			}
+			diags = append(diags, Diagnostic{Level: "warning", Message: msg})
+		}
+	}
+	return diags, nil
 }

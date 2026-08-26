@@ -10,13 +10,16 @@ import (
 )
 
 type TagRow struct {
-	Addr   string `json:"addr"`
-	Name   string `json:"name,omitempty"`
-	Type   string `json:"type"`
-	Offset string `json:"offset"`
-	Size   int    `json:"size"`
-	Init   any    `json:"init,omitempty"`
-	Desc   string `json:"desc,omitempty"`
+	Addr              string `json:"addr"`
+	Name              string `json:"name,omitempty"`
+	Type              string `json:"type"`
+	Role              string `json:"role,omitempty"`
+	HeartbeatInterval string `json:"heartbeat_interval,omitempty"`
+	HeartbeatTimeout  string `json:"heartbeat_timeout,omitempty"`
+	Offset            string `json:"offset"`
+	Size              int    `json:"size"`
+	Init              any    `json:"init,omitempty"`
+	Desc              string `json:"desc,omitempty"`
 }
 
 func WriteTable(w io.Writer, rows []TagRow, columns []string, color bool) error {
@@ -78,6 +81,12 @@ func rowValue(row TagRow, col string) string {
 		return row.Type
 	case "offset":
 		return row.Offset
+	case "role":
+		return row.Role
+	case "heartbeat_interval", "hb_interval":
+		return row.HeartbeatInterval
+	case "heartbeat_timeout", "hb_timeout":
+		return row.HeartbeatTimeout
 	case "size":
 		return fmt.Sprintf("%d", row.Size)
 	case "init":

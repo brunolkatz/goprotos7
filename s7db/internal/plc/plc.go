@@ -75,3 +75,44 @@ func (c *Client) ReadDB(db, start, size int) ([]byte, error) {
 	}
 	return buf, nil
 }
+
+func (c *Client) ReadBool(ctx context.Context, db, by, bit int) (bool, error) {
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	default:
+	}
+	if bit < 0 || bit > 7 {
+		return false, fmt.Errorf("invalid bit offset %d", bit)
+	}
+	buf, err := c.ReadDB(db, by, 1)
+	if err != nil {
+		return false, err
+	}
+	return buf[0]&(1<<bit) != 0, nil
+}
+
+func (c *Client) WriteBool(ctx context.Context, db, by, bit int, value bool) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if bit < 0 || bit > 7 {
+		return fmt.Errorf("invalid bit offset %d", bit)
+	}
+	current := []byte{0}
+	if c.client == nil {
+		return fmt.Errorf("not connected")
+	}
+	if err := c.client.AGReadDB(db, by, 1, current); err != nil {
+		return err
+	}
+	mask := byte(1 << bit)
+	if value {
+		current[0] |= mask
+	} else {
+		current[0] &^= mask
+	}
+	return c.client.AGWriteDB(db, by, 1, current)
+}

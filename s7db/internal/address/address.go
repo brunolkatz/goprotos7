@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	fullAddressRE  = regexp.MustCompile(`^DB(\d+)\.DB([XBWDbwxd])(\d+)(?:\.(\d+))?$`)
-	shortAddressRE = regexp.MustCompile(`^([XBWDbwxd])(\d+)(?:\.(\d+))?$`)
+	fullAddressRE  = regexp.MustCompile(`^DB(\d+)\.(S|STRING|DB[SXBWDbwxd])(\d+)(?:\.(\d+))?$`)
+	shortAddressRE = regexp.MustCompile(`^(S|STRING|[SXBWDbwxd])(\d+)(?:\.(\d+))?$`)
 )
 
 type Address struct {
@@ -20,10 +20,13 @@ type Address struct {
 }
 
 func (a Address) Canonical() string {
-	if a.Area == "X" {
+	if a.Area == "X" || a.Area == "DBX" {
 		return fmt.Sprintf("DB%d.DBX%d.%d", a.DB, a.Byte, a.Bit)
 	}
-	return fmt.Sprintf("DB%d.DB%s%d", a.DB, a.Area, a.Byte)
+	if a.Area == "S" || a.Area == "STRING" || a.Area == "DBS" {
+		return fmt.Sprintf("DB%d.%s%d.%d", a.DB, a.Area, a.Byte, a.Bit)
+	}
+	return fmt.Sprintf("DB%d.%s%d", a.DB, a.Area, a.Byte)
 }
 
 func (a Address) CanonicalShort() string {
@@ -65,11 +68,19 @@ func fromParts(dbRaw, areaRaw, byteRaw, bitRaw string, short bool) (Address, err
 	}
 	b, err := strconv.Atoi(byteRaw)
 	if err != nil || b < 0 {
-		return Address{}, fmt.Errorf("invalid byte offset %q", byteRaw)
+		return Address{}, fmt.Errorf("invalid byte offset %q - byteRaw - parts: %v", byteRaw, []string{dbRaw, areaRaw, byteRaw, bitRaw})
 	}
 	area := strings.ToUpper(areaRaw)
 	addr := Address{DB: db, Area: area, Byte: b}
-	if area == "X" {
+	if area == "STRING" || area == "S" || area == "DBS" {
+		bit, err := strconv.Atoi(bitRaw)
+		if err != nil || bit < 0 || bit > 254 {
+			return Address{}, fmt.Errorf("invalid bit offset %q", bitRaw)
+		}
+		addr.Bit = bit
+		return addr, nil
+	}
+	if area == "X" || area == "DBX" {
 		if bitRaw == "" {
 			return Address{}, fmt.Errorf("bit index is required for BOOL address")
 		}

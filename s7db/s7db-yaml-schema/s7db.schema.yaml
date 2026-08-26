@@ -87,7 +87,29 @@ $defs:
               - DWORD
               - REAL
               - TIME
+              - STRING
           - pattern: "^STRING\\[(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4])\\]$"
+      role:
+        type: string
+        description: "Special semantic role for tag."
+        enum: ["", heartbeat]
+      heartbeat:
+        type: object
+        additionalProperties: false
+        description: "Heartbeat policy metadata (layout-neutral)."
+        properties:
+          interval:
+            type: string
+            default: 1s
+            pattern: "^[0-9]+(?:ns|us|µs|ms|s|m|h)$"
+          timeout:
+            type: string
+            default: 5s
+            pattern: "^[0-9]+(?:ns|us|µs|ms|s|m|h)$"
+          polarity:
+            type: string
+            enum: [set-true, toggle]
+            default: set-true
       init:
         description: "Initial value, constrained by the selected `type`."
         oneOf:
@@ -99,6 +121,34 @@ $defs:
         type: string
         description: "Human-readable description."
     allOf:
+      - if:
+          properties:
+            heartbeat: {}
+          required: [heartbeat]
+        then:
+          properties:
+            role:
+              const: heartbeat
+      - if:
+          properties:
+            role:
+              const: heartbeat
+          required: [role]
+        then:
+          properties:
+            type:
+              const: BOOL
+            heartbeat:
+              type: object
+              additionalProperties: false
+              properties:
+                interval:
+                  type: string
+                timeout:
+                  type: string
+                polarity:
+                  type: string
+                  enum: [set-true, toggle]
       - if:
           properties:
             type:

@@ -23,3 +23,4 @@ bin/
 secrets.env
 .idea
 .DS_Store
+/goprotos7

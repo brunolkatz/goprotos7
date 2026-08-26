@@ -43,8 +43,8 @@ type Result struct {
 	FinalSize    int
 }
 
-func ParseType(raw string) (TypeSpec, error) {
-	t := strings.ToUpper(strings.TrimSpace(raw))
+func ParseType(tag schema.Tag) (TypeSpec, error) {
+	t := strings.ToUpper(strings.TrimSpace(tag.Type))
 	switch t {
 	case "BOOL":
 		return TypeSpec{Name: t, SizeBytes: 1, BitSize: 1}, nil
@@ -55,6 +55,16 @@ func ParseType(raw string) (TypeSpec, error) {
 	case "DINT", "UDINT", "DWORD", "REAL", "TIME":
 		return TypeSpec{Name: t, SizeBytes: 4, BitSize: 32}, nil
 	}
+	if t == "STRING" {
+		// parse the address to get the length of the string
+		addr, err := address.Parse(tag.Addr, nil)
+		if err != nil {
+			return TypeSpec{}, fmt.Errorf("invalid STRING address %q: %w", tag.Addr, err)
+		}
+		// possible problem, the string must start from the length byte, so the length is in the first byte, and the
+		// string is in the next bytes, so the size is length + 2 bytes
+		return TypeSpec{Name: t, StringLen: addr.Bit, SizeBytes: addr.Bit, BitSize: addr.Bit}, nil
+	}
 	if m := stringTypeRE.FindStringSubmatch(t); m != nil {
 		n, _ := strconv.Atoi(m[1])
 		if n < 1 || n > 254 {
@@ -62,7 +72,7 @@ func ParseType(raw string) (TypeSpec, error) {
 		}
 		return TypeSpec{Name: t, StringLen: n, SizeBytes: n + 2, BitSize: (n + 2) * 8}, nil
 	}
-	return TypeSpec{}, fmt.Errorf("unknown type %q", raw)
+	return TypeSpec{}, fmt.Errorf("unknown type %q", tag.Type)
 }
 
 func Build(s schema.Schema, strict bool) (Result, error) {
@@ -76,7 +86,7 @@ func Build(s schema.Schema, strict bool) (Result, error) {
 		if err != nil {
 			return Result{}, fmt.Errorf("tag %q: %w", t.Addr, err)
 		}
-		spec, err := ParseType(t.Type)
+		spec, err := ParseType(t)
 		if err != nil {
 			return Result{}, fmt.Errorf("tag %s: %w", t.Addr, err)
 		}
@@ -87,7 +97,7 @@ func Build(s schema.Schema, strict bool) (Result, error) {
 			}
 			out.Diagnostics = append(out.Diagnostics, Diagnostic{Level: "warning", Message: msg})
 		}
-		if want := expectedArea(spec); want != "" && addrValue.Area != want {
+		if want, ok := expectedArea(addrValue.Area, spec); !ok {
 			msg := fmt.Sprintf("type %s usually maps to DB%s addresses, got %s", spec.Name, want, addrValue.Canonical())
 			if strict {
 				return Result{}, fmt.Errorf("%s", msg)
@@ -124,19 +134,58 @@ func Build(s schema.Schema, strict bool) (Result, error) {
 	return out, nil
 }
 
-func expectedArea(ts TypeSpec) string {
+func expectedArea(area string, ts TypeSpec) (string, bool) {
 	switch ts.Name {
 	case "BOOL":
-		return "X"
-	case "BYTE", "CHAR", "SINT", "USINT", "STRING":
-		return "B"
+		switch area {
+		case "DBX", "X":
+			return "", true
+		default:
+			return "DBX or X", false
+		}
+	case "CHAR":
+		switch area {
+		case "DBB", "DBW", "DBD":
+			return "", true
+		default:
+			return "DBB, DBW, or DBD", false
+		}
+	case "BYTE":
+		switch area {
+		case "DBB", "DBW", "DBD":
+			return "", true
+		default:
+			return "DBB, DBW, or DBD", false
+		}
 	case "INT", "UINT", "WORD":
-		return "W"
+		switch area {
+		case "DBW":
+			return "", true
+		default:
+			return "DBW", false
+		}
 	case "DINT", "UDINT", "DWORD", "REAL", "TIME":
-		return "D"
+		switch area {
+		case "DBD":
+			return "", true
+		default:
+			return "DBD", false
+		}
+	case "STRING":
+		switch area {
+		case "S", "STRING":
+			return "", true
+		default:
+			return "S or STRING", false
+		}
 	}
 	if strings.HasPrefix(ts.Name, "STRING[") {
-		return "B"
+		switch area {
+		case "DBB", "DBW", "DBD":
+			return "", true
+		default:
+			return "DBB, DBW, or DBD", false
+		}
 	}
-	return ""
+	return "type Name not recognized", true
 }

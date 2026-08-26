@@ -155,9 +155,43 @@ s7db watch --addr 192.168.0.10 --once --json
 s7db watch --addr 192.168.0.10 --reconnect --count 0
 ```
 
+### heartbeat (OS Service)
+Write the heartbeat watchdog bit from OS to PLC.
+
+Schema example:
+
+```yaml
+tags:
+  - addr: DB300.DBX0.0
+    name: OsServiceHeartbeat
+    type: BOOL
+    init: false
+    desc: Heartbeat OS Service moves to true PLC Moves to false
+    role: heartbeat
+    heartbeat:
+      interval: 1s
+      timeout: 5s
+      polarity: set-true
+```
+
+CLI examples:
+
+```bash
+s7db heartbeat -f machine.yml --reconnect
+s7db heartbeat DB300.DBX0.0 -i 1s --heartbeat-timeout 5s --addr 192.168.0.10 --rack 0 --slot 1
+```
+
+Modes:
+- `set-true`: OS writes `true` each beat, PLC clears to `false`
+- `toggle`: OS alternates `0`/`1`
+
+Notes:
+- PLC fault handling and safe-state actions remain PLC logic; `s7db` only refreshes the bit and reports communication health.
+- On shutdown, `s7db` does **not** force-write `false`; PLC owns the clear behavior.
+
 ## Config file
 
-Path: `~/.config/s7db/config.yaml` (or `$S7DB_CONFIG`).
+Path: `~/.config/s7db/config.yaml` (or `$S7DB_CONFIG`).x
 
 ```yaml
 file: ./s7db.yml
@@ -178,4 +212,3 @@ plc:
 - `2`: usage / validation error
 
 Stdout is data-only output; diagnostics are written to stderr.
-
