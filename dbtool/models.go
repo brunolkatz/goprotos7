@@ -62,6 +62,7 @@ type Config struct {
 
 	Flags struct {
 		EnableWebAdmin bool `long:"enable-web-admin" env:"ENABLE_WEB_ADMIN" description:"Disable the web admin interface, only will recreate the data bin blocks"`
+		SilentDBLogs   bool `long:"silent-db-logs" env:"SILENT_DB_LOGS" description:"Silence SQLite/GORM query logs"`
 	} `group:"flags" namespace:"flags" env-namespace:"FLAGS" description:""`
 
 	LogLevel struct {

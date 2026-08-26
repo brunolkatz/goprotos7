@@ -24,6 +24,10 @@ type DbVariable struct {
 	VarType dbtool.VarType `gorm:"column:var_type;type:TEXT;serializer:var_type_serializer" json:"var_type" xml:"var_type" db:"var_type"` // e.g., "STATIC", "LIST", etc. see VarType at models.go file
 
 	StaticVarDefinitions []*StaticVarDefinition `gorm:"foreignKey:DbVariableId;references:Id;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"static_var_definitions,omitempty" `
+
+	PLCReadValue    *string `gorm:"-" json:"plc_read_value,omitempty"`
+	PLCReadError    *string `gorm:"-" json:"plc_read_error,omitempty"`
+	HeartbeatLocked bool    `gorm:"-" json:"heartbeat_locked,omitempty"`
 }
 
 func (d *DbVariable) UpdateIsSelected() {
@@ -56,6 +60,13 @@ func (d *DbVariable) UpdateIsSelected() {
 						break OUTFOR
 					}
 				}
+			case "FLOAT":
+				if s.FloatValue != nil && d.FloatVal != nil {
+					if *s.FloatValue == *d.FloatVal {
+						s.IsSelected = true
+						break OUTFOR
+					}
+				}
 			}
 		}
 	}
@@ -75,7 +86,7 @@ func (d *DbVariable) ToDBAddress() string {
 	case goprotos7.WORD: // 2 bytes unsigned integer -> uint16
 		addr += fmt.Sprintf(".DBW%d", d.ByteOffset)
 	case goprotos7.DWORD: // 4 bytes unsigned integer -> uint32
-		addr += fmt.Sprintf(".DBDW%d", d.ByteOffset)
+		addr += fmt.Sprintf(".DBD%d", d.ByteOffset)
 	case goprotos7.LWORD: // 8 bytes unsigned integer -> uint64
 		addr += fmt.Sprintf(".DBL%d", d.ByteOffset)
 	case goprotos7.SINT: // 1 byte signed integer -> int8
@@ -95,7 +106,7 @@ func (d *DbVariable) ToDBAddress() string {
 	case goprotos7.ULINT: // 8 bytes unsigned integer -> uint64
 		addr += fmt.Sprintf(".DBL%d", d.ByteOffset)
 	case goprotos7.REAL: // 4 bytes floating point number -> float32
-		addr += fmt.Sprintf(".DBD%d", *d.BitOffset)
+		addr += fmt.Sprintf(".DBD%d", d.ByteOffset)
 	case goprotos7.LREAL: // 8 bytes floating point number -> float64
 		addr += fmt.Sprintf(".DBL%d", d.ByteOffset)
 	case goprotos7.CHAR: // 1 byte character -> char
@@ -130,7 +141,7 @@ func (d *DbVariable) FmtValue() string {
 			return "false"
 		}
 		return "boolean value not set"
-	case goprotos7.BYTE, goprotos7.WORD, goprotos7.DWORD, goprotos7.LWORD, goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT:
+	case goprotos7.BYTE, goprotos7.WORD, goprotos7.DWORD, goprotos7.LWORD, goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT, goprotos7.ULINT:
 		if d.IntVal != nil {
 			return fmt.Sprintf("%d", *d.IntVal)
 		}

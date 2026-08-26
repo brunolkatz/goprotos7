@@ -10,6 +10,9 @@ import (
 	"github.com/brunolkatz/goprotos7/dbtool/db/sqlite_db"
 	"github.com/charmbracelet/log"
 	"gorm.io/gorm"
+	"slices"
+	"strings"
+	"time"
 )
 
 type dataBlocksHandler interface {
@@ -42,6 +45,50 @@ func (h *VarsHandler) GetDbNumbers(ctx context.Context) ([]uint32, error) {
 
 func (h *VarsHandler) GetVariables(dbNumber int32) ([]*db_models.DbVariable, error) {
 	return h.db.GetVariables(context.Background(), dbNumber)
+}
+
+func (h *VarsHandler) SavePLCWatchList(ctx context.Context, source string, dbNumber int32, addresses []string) error {
+	normalized := normalizeAddresses(addresses)
+	return h.db.SavePLCWatchList(ctx, source, dbNumber, normalized)
+}
+
+func (h *VarsHandler) GetPLCWatchList(ctx context.Context, source string, dbNumber int32) ([]string, error) {
+	items, err := h.db.GetPLCWatchList(ctx, source, dbNumber)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return make([]string, 0), nil
+		}
+		return nil, err
+	}
+	return normalizeAddresses(items), nil
+}
+
+func (h *VarsHandler) CreateHeartbeat(ctx context.Context, hb *db_models.HeartbeatRegistration) error {
+	return h.db.CreateHeartbeat(ctx, hb)
+}
+
+func (h *VarsHandler) ListHeartbeats(ctx context.Context) ([]*db_models.HeartbeatRegistration, error) {
+	return h.db.ListHeartbeats(ctx)
+}
+
+func (h *VarsHandler) GetHeartbeatByID(ctx context.Context, id int64) (*db_models.HeartbeatRegistration, error) {
+	return h.db.GetHeartbeatByID(ctx, id)
+}
+
+func (h *VarsHandler) DeleteHeartbeatByID(ctx context.Context, id int64) error {
+	return h.db.DeleteHeartbeatByID(ctx, id)
+}
+
+func (h *VarsHandler) ListActiveHeartbeats(ctx context.Context) ([]*db_models.HeartbeatRegistration, error) {
+	return h.db.ListActiveHeartbeats(ctx)
+}
+
+func (h *VarsHandler) ListEnabledHeartbeatAddresses(ctx context.Context) ([]string, error) {
+	return h.db.ListEnabledHeartbeatAddresses(ctx)
+}
+
+func (h *VarsHandler) UpdateHeartbeatRuntime(ctx context.Context, id int64, lastValue *bool, lastCheckAt, lastChangeAt *time.Time, isFailing bool, lastError string) error {
+	return h.db.UpdateHeartbeatRuntime(ctx, id, lastValue, lastCheckAt, lastChangeAt, isFailing, lastError)
 }
 
 func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateVarRequest) (*db_models.DbVariable, error) {
@@ -80,7 +127,7 @@ func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateV
 			BitOffset:   nil,
 			Length:      l,
 			Description: newVar.Description,
-			VarType:     dbtool.VarTypeList,
+			VarType:     dbtool.VarTypeStatic,
 		}
 
 		var intVal *int64
@@ -149,18 +196,22 @@ func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateV
 				}
 			}
 			return nil // Exit early after creating the BOOL variable
-		case goprotos7.BYTE, goprotos7.WORD, goprotos7.DWORD, goprotos7.LWORD, goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT:
+		case goprotos7.BYTE, goprotos7.WORD, goprotos7.DWORD, goprotos7.LWORD, goprotos7.SINT, goprotos7.USINT, goprotos7.INT, goprotos7.UINT, goprotos7.DINT, goprotos7.UDINT, goprotos7.LINT, goprotos7.ULINT:
 			if newVar.IntVal == nil {
 				return fmt.Errorf("integer value is required for %s data type", newVar.DataType)
 			}
 			intVal = newVar.IntVal
-			tVar.VarType = dbtool.VarTypeList
+			if newVar.ListFields != nil && len(newVar.ListFields) > 0 {
+				tVar.VarType = dbtool.VarTypeList
+			}
 		case goprotos7.REAL, goprotos7.LREAL:
 			if newVar.FloatVal == nil {
 				return fmt.Errorf("float value is required for %s data type", newVar.DataType)
 			}
 			floatVal = newVar.FloatVal
-			tVar.VarType = dbtool.VarTypeList
+			if newVar.ListFields != nil && len(newVar.ListFields) > 0 {
+				tVar.VarType = dbtool.VarTypeList
+			}
 		default:
 			return fmt.Errorf("unsupported data type: %s", newVar.DataType)
 		}
@@ -182,12 +233,16 @@ func (h *VarsHandler) CreateVariable(ctx context.Context, newVar *dbtool.CreateV
 				return fmt.Errorf("list values are required for LIST data type")
 			}
 			for _, field := range newVar.ListFields {
+				tStaticType := dbtool.StaticTypeInt
+				if field.FloatValue != nil {
+					tStaticType = dbtool.StaticTypeFloat
+				}
 				tStaticVarDef := db_models.StaticVarDefinition{
 					DbVariableId: tVar.Id,
 					Description:  field.Description,
 					IntValue:     field.IntValue,
-					FloatValue:   nil,
-					StaticType:   dbtool.StaticTypeInt,
+					FloatValue:   field.FloatValue,
+					StaticType:   tStaticType,
 				}
 				err := tx.WithContext(ctx).Create(&tStaticVarDef).Error
 				if err != nil {
@@ -273,4 +328,16 @@ func (h *VarsHandler) SetListVar(ctx context.Context, dbNumber, varId, stsId int
 		return nil, fmt.Errorf("error writing variable to file: %w", err)
 	}
 	return dbVar, nil
+}
+
+func normalizeAddresses(addresses []string) []string {
+	out := make([]string, 0, len(addresses))
+	for _, item := range addresses {
+		v := strings.ToUpper(strings.TrimSpace(item))
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
 }
