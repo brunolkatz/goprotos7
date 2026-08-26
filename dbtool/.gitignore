@@ -26,3 +26,5 @@ secrets.env
 /assets/node_modules/
 /*.db
 /*.bin
+/.binpath/**
+/.sqlite/**

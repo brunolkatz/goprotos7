@@ -61,7 +61,7 @@ type Config struct {
 	DBBinPaths     string `long:"db-bin-path" env:"DB_BIN_PATH" default:"" short:"b" description:"Path where the bin files will be created. If empty, the \"pwd\" path will be applied."`
 
 	Flags struct {
-		EnableWebAdmin bool `long:"enable-web-admin" env:"ENABLE_WEB_ADMIN" description:"Disable the web admin interface, only will recreate the data bin blocks"`
+		Port string `long:"port" env:"PORT" default:"8080" short:"p" description:"Print the port number and exit."`
 	} `group:"flags" namespace:"flags" env-namespace:"FLAGS" description:""`
 
 	LogLevel struct {

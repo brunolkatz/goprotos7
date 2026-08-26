@@ -3,6 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/brunolkatz/goprotos7/dbtool"
 	"github.com/brunolkatz/goprotos7/dbtool/api"
 	"github.com/brunolkatz/goprotos7/dbtool/api/assets-files-watcher-api"
@@ -17,10 +23,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jessevdk/go-flags"
 	"golang.org/x/sync/errgroup"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 func main() {
@@ -71,78 +73,63 @@ func main() {
 	// ┃                                           Initialize HTTP handlers                                            ┃
 	// ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-	if webAdminConfig.Flags.EnableWebAdmin {
-
-		varsHandler, err := vars_handler.New(db, dbHandler, logger)
-		if err != nil {
-			logger.Errorf("Error creating vars handler: %v", err)
-			panic(err)
-		}
-
-		logger.Infof("Webadmin enabled, starting web admin...")
-		httpServer, err := api.NewHTTPServer(ctx, ":8080")
-		if err != nil {
-			panic(err)
-		}
-
-		assetsFilesWatcherApi, err := assets_files_watcher.New(ctx)
-		if err != nil {
-			panic(err)
-		}
-
-		dasboardApi, err := dashboard_api.New(varsHandler)
-		if err != nil {
-			panic(err)
-		}
-
-		createVarApi, err := create_var_api.New(varsHandler)
-		if err != nil {
-			panic(err)
-		}
-
-		assetsFilesWatcherApi.Register(httpServer.Router)
-
-		// Register the HTML Pages
-		// Add all HTML pages here
-		httpServer.Router.Route("/", func(r chi.Router) {
-			r.Use(middleware.SetHeader("Content-Type", "text/html; charset=utf-8"))
-			dasboardApi.Register(r)  // Register the dashboard page
-			createVarApi.Register(r) // Register the create variable page
-		})
-
-		g.Go(func() error {
-			// Ugly hack to make sure the server is initialized before returning
-			// This works like the group.Go() function in errgroup package
-			if err = httpServer.ServeForErrGroup()(); err != nil {
-				logger.Errorf("Error serving http server on port %s - Error: %+v", "8080", err)
-				return err
-			}
-			return nil
-		})
-
-		var errStop = errors.New("stop")
-		g.Go(func() error {
-			sigs := make(chan os.Signal, 1)
-			signal.Notify(sigs, syscall.SIGINT)
-			for {
-				select {
-				case <-ctx.Done():
-					return errStop
-				case _ = <-sigs:
-					cancel()
-				}
-			}
-		})
-
-		_ = browser.Open("http://localhost:8080") // open the browser automatically
-
-		logger.Infof("Webadmin initialized...")
-		if err = g.Wait(); err != nil || errors.Is(err, errStop) {
-			logger.Errorf("Error running errgroup: %v", err)
-			return
-		}
-		log.Info("WebAdmin server stopped")
-	} else {
-		log.Warnf("WebAdmin server disabled, exiting...")
+	varsHandler, err2 := vars_handler.New(db, dbHandler, logger)
+	if err2 != nil {
+		logger.Errorf("Error creating vars handler: %v", err2)
+		panic(err2)
 	}
+	logger.Infof("Webadmin enabled, starting web admin...")
+	httpServer, err2 := api.NewHTTPServer(ctx, fmt.Sprintf(":%s", webAdminConfig.Flags.Port))
+	if err2 != nil {
+		panic(err2)
+	}
+	assetsFilesWatcherApi, err2 := assets_files_watcher.New(ctx)
+	if err2 != nil {
+		panic(err2)
+	}
+	dasboardApi, err2 := dashboard_api.New(varsHandler)
+	if err2 != nil {
+		panic(err2)
+	}
+	createVarApi, err2 := create_var_api.New(varsHandler)
+	if err2 != nil {
+		panic(err2)
+	}
+	assetsFilesWatcherApi.Register(httpServer.Router)
+	// Register the HTML Pages
+	// Add all HTML pages here
+	httpServer.Router.Route("/", func(r chi.Router) {
+		r.Use(middleware.SetHeader("Content-Type", "text/html; charset=utf-8"))
+		dasboardApi.Register(r)  // Register the dashboard page
+		createVarApi.Register(r) // Register the create variable page
+	})
+	g.Go(func() error {
+		// Ugly hack to make sure the server is initialized before returning
+		// This works like the group.Go() function in errgroup package
+		if err2 = httpServer.ServeForErrGroup()(); err2 != nil {
+			logger.Errorf("Error serving http server on port %s - Error: %+v", "8080", err2)
+			return err2
+		}
+		return nil
+	})
+	var errStop = errors.New("stop")
+	g.Go(func() error {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT)
+		for {
+			select {
+			case <-ctx.Done():
+				return errStop
+			case _ = <-sigs:
+				cancel()
+			}
+		}
+	})
+	_ = browser.Open(fmt.Sprintf("http://localhost:%s", webAdminConfig.Flags.Port)) // open the browser automatically
+	logger.Infof("Webadmin initialized...")
+	if err2 = g.Wait(); err2 != nil || errors.Is(err2, errStop) {
+		logger.Errorf("Error running errgroup: %v", err2)
+		return
+	}
+	log.Info("WebAdmin server stopped")
 }
