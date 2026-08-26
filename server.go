@@ -138,6 +138,8 @@ func (c *Connection) DoMsgHandler(msg *Message) {
 		switch msg.S7Request.FunctionCode {
 		case S7FuncReadVar:
 			c.eventS7FuncReadVar(msg, c.conn)
+		case S7FuncWriteVar:
+			c.eventS7FuncWriteVar(msg, c.conn)
 		case S7FuncUserData:
 			c.eventS7FuncUserData(msg, c.conn)
 		default:
@@ -250,14 +252,22 @@ func (c *Connection) StartReader() {
 			msg, err = unpack(buffer)
 			if err != nil {
 				if errors.Is(err, ErrorFunctionCodeNotSupported) {
-					ret := getS7FunctionCodeNotSupportedResponse(msg)
-					pack, _ := ret.Pack(COTPData)
-					_, err = c.conn.Write(pack)
+					writeMsg, wErr := unpackWriteVarPacket(buffer)
+					if wErr == nil {
+						msg = writeMsg
+						err = nil
+					} else {
+						ret := getS7FunctionCodeNotSupportedResponse(msg)
+						pack, _ := ret.Pack(COTPData)
+						_, err = c.conn.Write(pack)
+						continue
+					}
+				}
+				if err != nil {
+					// TODO: On error send back to the client some error message
+					log.Println("[CON_HANDLER] Unpack error:", err)
 					continue
 				}
-				// TODO: On error send back to the client some error message
-				log.Println("[CON_HANDLER] Unpack error:", err)
-				continue
 			}
 			if msg.S7Request == nil {
 				continue
