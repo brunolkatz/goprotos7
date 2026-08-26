@@ -11,6 +11,7 @@ import (
 	"github.com/brunolkatz/goprotos7"
 	"github.com/brunolkatz/goprotos7/dbtool/api/httpx"
 	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
+	ws_handler "github.com/brunolkatz/goprotos7/dbtool/handlers/ws-handler"
 	"github.com/brunolkatz/goprotos7/dbtool/internals/wa-server-templs"
 	"github.com/go-chi/chi/v5"
 )
@@ -21,6 +22,7 @@ type varsHandler interface {
 	CreateHeartbeat(ctx context.Context, hb *db_models.HeartbeatRegistration) error
 	ListHeartbeats(ctx context.Context) ([]*db_models.HeartbeatRegistration, error)
 	GetHeartbeatByID(ctx context.Context, id int64) (*db_models.HeartbeatRegistration, error)
+	DeleteHeartbeatByID(ctx context.Context, id int64) error
 }
 
 type HeartbeatsAPI struct {
@@ -40,6 +42,7 @@ func (h *HeartbeatsAPI) Register(r chi.Router) {
 		r.Get("/bool-vars", h.GetBoolVariables)
 		r.Get("/list", h.GetHeartbeatList)
 		r.Get("/card/{id}", h.GetHeartbeatCard)
+		r.Post("/delete/{id}", h.DeleteHeartbeat)
 		r.Post("/register", h.RegisterHeartbeat)
 	})
 }
@@ -163,5 +166,30 @@ func (h *HeartbeatsAPI) GetHeartbeatCard(w http.ResponseWriter, r *http.Request)
 	comp := HeartbeatCardTempl(hb)
 	if err := comp.Render(r.Context(), w); err != nil {
 		httpx.InternalError(w, "Error rendering heartbeat card: "+err.Error())
+	}
+}
+
+func (h *HeartbeatsAPI) DeleteHeartbeat(w http.ResponseWriter, r *http.Request) {
+	idText := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(strings.TrimSpace(idText), 10, 64)
+	if err != nil || id <= 0 {
+		httpx.BadRequest(w, "invalid heartbeat id")
+		return
+	}
+	if ws := ws_handler.Instance(); ws != nil {
+		ws.StopHeartbeat(id)
+	}
+	if err := h.varsHandler.DeleteHeartbeatByID(r.Context(), id); err != nil {
+		httpx.InternalError(w, "Error deleting heartbeat: "+err.Error())
+		return
+	}
+	heartbeats, err := h.varsHandler.ListHeartbeats(r.Context())
+	if err != nil {
+		httpx.InternalError(w, "Error loading heartbeats: "+err.Error())
+		return
+	}
+	comp := HeartbeatListTempl(heartbeats)
+	if err := comp.Render(r.Context(), w); err != nil {
+		httpx.InternalError(w, "Error rendering heartbeat list: "+err.Error())
 	}
 }

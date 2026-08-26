@@ -105,7 +105,7 @@ func HeartbeatsPageTempl(dbNumbers []uint32, heartbeats []*db_models.HeartbeatRe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div></div></div><script>\n\t\tlet heartbeatBoolVars = [];\n\t\tfunction showHeartbeatTab(tab) {\n\t\t\tconst create = document.getElementById(\"hb-tab-create\");\n\t\t\tconst view = document.getElementById(\"hb-tab-view\");\n\t\t\tconst cBtn = document.getElementById(\"hb-tab-create-btn\");\n\t\t\tconst vBtn = document.getElementById(\"hb-tab-view-btn\");\n\t\t\tconst on = \"rounded-md bg-indigo-500/25 px-3 py-1.5 text-sm font-semibold text-indigo-200\";\n\t\t\tconst off = \"rounded-md px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800\";\n\t\t\tcreate.classList.toggle(\"hidden\", tab !== \"create\");\n\t\t\tview.classList.toggle(\"hidden\", tab !== \"view\");\n\t\t\tcBtn.className = tab === \"create\" ? on : off;\n\t\t\tvBtn.className = tab === \"view\" ? on : off;\n\t\t\tif (tab === \"view\") {\n\t\t\t\tscheduleHeartbeatCardRefreshes();\n\t\t\t}\n\t\t}\n\t\tfunction syncHeartbeatAddressWithBitIndex() {\n\t\t\tconst select = document.getElementById(\"hb-address\");\n\t\t\tconst bitInput = document.getElementById(\"hb-bit-index\");\n\t\t\tconst hidden = document.getElementById(\"hb-address-final\");\n\t\t\tconst preview = document.getElementById(\"hb-address-final-preview\");\n\t\t\tconst selected = (select.value || \"\").toUpperCase();\n\t\t\tif (!selected) {\n\t\t\t\thidden.value = \"\";\n\t\t\t\tpreview.value = \"\";\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tconst parts = selected.split(\".DBX\");\n\t\t\tif (parts.length !== 2) {\n\t\t\t\thidden.value = selected;\n\t\t\t\tpreview.value = selected;\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tconst byteAndBit = parts[1].split(\".\");\n\t\t\tconst byteOffset = byteAndBit[0];\n\t\t\tlet bit = byteAndBit.length > 1 ? byteAndBit[1] : \"0\";\n\t\t\tconst entered = bitInput.value;\n\t\t\tif (entered !== \"\") {\n\t\t\t\tconst n = Number(entered);\n\t\t\t\tif (!Number.isNaN(n) && n >= 0 && n <= 7) {\n\t\t\t\t\tbit = String(n);\n\t\t\t\t}\n\t\t\t}\n\t\t\tconst finalAddr = `${parts[0]}.DBX${byteOffset}.${bit}`;\n\t\t\thidden.value = finalAddr;\n\t\t\tpreview.value = finalAddr;\n\t\t}\n\t\tfunction copyHeartbeatAddress() {\n\t\t\tconst value = document.getElementById(\"hb-address-final\").value || \"\";\n\t\t\tnavigator.clipboard?.writeText(value).catch(() => {});\n\t\t}\n\t\tfunction copyHeartbeatCardAddress(btn) {\n\t\t\tconst value = btn?.getAttribute(\"data-copy-address\") || \"\";\n\t\t\tnavigator.clipboard?.writeText(value).catch(() => {});\n\t\t}\n\t\tfunction syncHeartbeatVarName() {\n\t\t\tconst address = document.getElementById(\"hb-address\").value;\n\t\t\tconst found = heartbeatBoolVars.find(v => v.address === address);\n\t\t\tdocument.getElementById(\"hb-variable-name\").value = found ? found.name : \"\";\n\t\t\tconst currentBit = (address.split(\".DBX\")[1] || \"\").split(\".\")[1];\n\t\t\tdocument.getElementById(\"hb-bit-index\").value = currentBit || \"\";\n\t\t\tsyncHeartbeatAddressWithBitIndex();\n\t\t}\n\t\tasync function loadHeartbeatBoolVars() {\n\t\t\tconst db = document.getElementById(\"hb-db-number\").value;\n\t\t\tconst select = document.getElementById(\"hb-address\");\n\t\t\tconst msg = document.getElementById(\"hb-no-bool-msg\");\n\t\t\tselect.innerHTML = `<option value=\"\" selected disabled>Loading...</option>`;\n\t\t\ttry {\n\t\t\t\tconst resp = await fetch(`/heartbeats/bool-vars?db-number=${encodeURIComponent(db)}`);\n\t\t\t\tif (!resp.ok) throw new Error();\n\t\t\t\tconst rows = await resp.json();\n\t\t\t\theartbeatBoolVars = rows || [];\n\t\t\t\tif (!heartbeatBoolVars.length) {\n\t\t\t\t\tselect.innerHTML = `<option value=\"\" selected disabled>No BOOL variables found</option>`;\n\t\t\t\t\tmsg.classList.remove(\"hidden\");\n\t\t\t\t\tdocument.getElementById(\"hb-address-final\").value = \"\";\n\t\t\t\t\tdocument.getElementById(\"hb-address-final-preview\").value = \"\";\n\t\t\t\t\treturn;\n\t\t\t\t}\n\t\t\t\tmsg.classList.add(\"hidden\");\n\t\t\t\tselect.innerHTML = `<option value=\"\" selected disabled>Select BOOL variable</option>` + heartbeatBoolVars.map(v => `<option value=\"${v.address}\">${v.name} (${v.address})</option>`).join(\"\");\n\t\t\t\tdocument.getElementById(\"hb-address-final\").value = \"\";\n\t\t\t\tdocument.getElementById(\"hb-address-final-preview\").value = \"\";\n\t\t\t} catch (_e) {\n\t\t\t\tselect.innerHTML = `<option value=\"\" selected disabled>Failed to load BOOL variables</option>`;\n\t\t\t}\n\t\t}\n\t\tasync function refreshHeartbeatList() {\n\t\t\tconst target = document.getElementById(\"heartbeat-list\");\n\t\t\ttry {\n\t\t\t\tconst resp = await fetch(\"/heartbeats/list\");\n\t\t\t\tif (!resp.ok) throw new Error();\n\t\t\t\ttarget.innerHTML = await resp.text();\n\t\t\t\tscheduleHeartbeatCardRefreshes();\n\t\t\t} catch (_e) {\n\t\t\t\ttarget.innerHTML = `<p class=\"text-rose-300\">Failed to refresh heartbeat list.</p>`;\n\t\t\t}\n\t\t}\n\t\tconst hbCardTimers = new Map();\n\t\tfunction clearHeartbeatCardTimers() {\n\t\t\thbCardTimers.forEach((timerId) => clearTimeout(timerId));\n\t\t\thbCardTimers.clear();\n\t\t}\n\t\tasync function refreshHeartbeatCard(id) {\n\t\t\ttry {\n\t\t\t\tconst resp = await fetch(`/heartbeats/card/${encodeURIComponent(id)}`);\n\t\t\t\tif (!resp.ok) return;\n\t\t\t\tconst html = await resp.text();\n\t\t\t\tconst current = document.getElementById(`hb-card-${id}`);\n\t\t\t\tif (current) {\n\t\t\t\t\tcurrent.outerHTML = html;\n\t\t\t\t}\n\t\t\t} catch (_e) {}\n\t\t\tscheduleSingleHeartbeatCard(id);\n\t\t}\n\t\tfunction scheduleSingleHeartbeatCard(id) {\n\t\t\tconst card = document.getElementById(`hb-card-${id}`);\n\t\t\tif (!card) return;\n\t\t\tconst sec = Number(card.getAttribute(\"data-refresh-seconds\") || \"5\");\n\t\t\tconst interval = Math.max(1, Number.isNaN(sec) ? 5 : sec);\n\t\t\tconst timer = setTimeout(() => refreshHeartbeatCard(id), interval * 1000);\n\t\t\thbCardTimers.set(id, timer);\n\t\t}\n\t\tfunction scheduleHeartbeatCardRefreshes() {\n\t\t\tclearHeartbeatCardTimers();\n\t\t\tdocument.querySelectorAll(\"[data-heartbeat-id]\").forEach((card) => {\n\t\t\t\tconst id = card.getAttribute(\"data-heartbeat-id\");\n\t\t\t\tif (!id) return;\n\t\t\t\tscheduleSingleHeartbeatCard(id);\n\t\t\t});\n\t\t}\n\t\tscheduleHeartbeatCardRefreshes();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div></div></div><script>\n\t\tlet heartbeatBoolVars = [];\n\t\tfunction showHeartbeatTab(tab) {\n\t\t\tconst create = document.getElementById(\"hb-tab-create\");\n\t\t\tconst view = document.getElementById(\"hb-tab-view\");\n\t\t\tconst cBtn = document.getElementById(\"hb-tab-create-btn\");\n\t\t\tconst vBtn = document.getElementById(\"hb-tab-view-btn\");\n\t\t\tconst on = \"rounded-md bg-indigo-500/25 px-3 py-1.5 text-sm font-semibold text-indigo-200\";\n\t\t\tconst off = \"rounded-md px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800\";\n\t\t\tcreate.classList.toggle(\"hidden\", tab !== \"create\");\n\t\t\tview.classList.toggle(\"hidden\", tab !== \"view\");\n\t\t\tcBtn.className = tab === \"create\" ? on : off;\n\t\t\tvBtn.className = tab === \"view\" ? on : off;\n\t\t\tif (tab === \"view\") {\n\t\t\t\tscheduleHeartbeatCardRefreshes();\n\t\t\t}\n\t\t}\n\t\tfunction syncHeartbeatAddressWithBitIndex() {\n\t\t\tconst select = document.getElementById(\"hb-address\");\n\t\t\tconst bitInput = document.getElementById(\"hb-bit-index\");\n\t\t\tconst hidden = document.getElementById(\"hb-address-final\");\n\t\t\tconst preview = document.getElementById(\"hb-address-final-preview\");\n\t\t\tconst selected = (select.value || \"\").toUpperCase();\n\t\t\tif (!selected) {\n\t\t\t\thidden.value = \"\";\n\t\t\t\tpreview.value = \"\";\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tconst parts = selected.split(\".DBX\");\n\t\t\tif (parts.length !== 2) {\n\t\t\t\thidden.value = selected;\n\t\t\t\tpreview.value = selected;\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tconst byteAndBit = parts[1].split(\".\");\n\t\t\tconst byteOffset = byteAndBit[0];\n\t\t\tlet bit = byteAndBit.length > 1 ? byteAndBit[1] : \"0\";\n\t\t\tconst entered = bitInput.value;\n\t\t\tif (entered !== \"\") {\n\t\t\t\tconst n = Number(entered);\n\t\t\t\tif (!Number.isNaN(n) && n >= 0 && n <= 7) {\n\t\t\t\t\tbit = String(n);\n\t\t\t\t}\n\t\t\t}\n\t\t\tconst finalAddr = `${parts[0]}.DBX${byteOffset}.${bit}`;\n\t\t\thidden.value = finalAddr;\n\t\t\tpreview.value = finalAddr;\n\t\t}\n\t\tfunction copyHeartbeatAddress() {\n\t\t\tconst value = document.getElementById(\"hb-address-final\").value || \"\";\n\t\t\tnavigator.clipboard?.writeText(value).catch(() => {});\n\t\t}\n\t\tfunction copyHeartbeatCardAddress(btn) {\n\t\t\tconst value = btn?.getAttribute(\"data-copy-address\") || \"\";\n\t\t\tnavigator.clipboard?.writeText(value).catch(() => {});\n\t\t}\n\t\tfunction syncHeartbeatVarName() {\n\t\t\tconst address = document.getElementById(\"hb-address\").value;\n\t\t\tconst found = heartbeatBoolVars.find(v => v.address === address);\n\t\t\tdocument.getElementById(\"hb-variable-name\").value = found ? found.name : \"\";\n\t\t\tconst currentBit = (address.split(\".DBX\")[1] || \"\").split(\".\")[1];\n\t\t\tdocument.getElementById(\"hb-bit-index\").value = currentBit || \"\";\n\t\t\tsyncHeartbeatAddressWithBitIndex();\n\t\t}\n\t\tasync function loadHeartbeatBoolVars() {\n\t\t\tconst db = document.getElementById(\"hb-db-number\").value;\n\t\t\tconst select = document.getElementById(\"hb-address\");\n\t\t\tconst msg = document.getElementById(\"hb-no-bool-msg\");\n\t\t\tselect.innerHTML = `<option value=\"\" selected disabled>Loading...</option>`;\n\t\t\ttry {\n\t\t\t\tconst resp = await fetch(`/heartbeats/bool-vars?db-number=${encodeURIComponent(db)}`);\n\t\t\t\tif (!resp.ok) throw new Error();\n\t\t\t\tconst rows = await resp.json();\n\t\t\t\theartbeatBoolVars = rows || [];\n\t\t\t\tif (!heartbeatBoolVars.length) {\n\t\t\t\t\tselect.innerHTML = `<option value=\"\" selected disabled>No BOOL variables found</option>`;\n\t\t\t\t\tmsg.classList.remove(\"hidden\");\n\t\t\t\t\tdocument.getElementById(\"hb-address-final\").value = \"\";\n\t\t\t\t\tdocument.getElementById(\"hb-address-final-preview\").value = \"\";\n\t\t\t\t\treturn;\n\t\t\t\t}\n\t\t\t\tmsg.classList.add(\"hidden\");\n\t\t\t\tselect.innerHTML = `<option value=\"\" selected disabled>Select BOOL variable</option>` + heartbeatBoolVars.map(v => `<option value=\"${v.address}\">${v.name} (${v.address})</option>`).join(\"\");\n\t\t\t\tdocument.getElementById(\"hb-address-final\").value = \"\";\n\t\t\t\tdocument.getElementById(\"hb-address-final-preview\").value = \"\";\n\t\t\t} catch (_e) {\n\t\t\t\tselect.innerHTML = `<option value=\"\" selected disabled>Failed to load BOOL variables</option>`;\n\t\t\t}\n\t\t}\n\t\tasync function refreshHeartbeatList() {\n\t\t\tconst target = document.getElementById(\"heartbeat-list\");\n\t\t\ttry {\n\t\t\t\tconst resp = await fetch(\"/heartbeats/list\");\n\t\t\t\tif (!resp.ok) throw new Error();\n\t\t\t\ttarget.innerHTML = await resp.text();\n\t\t\t\tscheduleHeartbeatCardRefreshes();\n\t\t\t} catch (_e) {\n\t\t\t\ttarget.innerHTML = `<p class=\"text-rose-300\">Failed to refresh heartbeat list.</p>`;\n\t\t\t}\n\t\t}\n\t\tconst hbCardTimers = new Map();\n\t\tfunction clearHeartbeatCardTimers() {\n\t\t\thbCardTimers.forEach((timerId) => clearTimeout(timerId));\n\t\t\thbCardTimers.clear();\n\t\t}\n\t\tasync function refreshHeartbeatCard(id) {\n\t\t\ttry {\n\t\t\t\tconst resp = await fetch(`/heartbeats/card/${encodeURIComponent(id)}`);\n\t\t\t\tif (!resp.ok) return;\n\t\t\t\tconst html = await resp.text();\n\t\t\t\tconst current = document.getElementById(`hb-card-${id}`);\n\t\t\t\tif (current) {\n\t\t\t\t\tcurrent.outerHTML = html;\n\t\t\t\t}\n\t\t\t} catch (_e) {}\n\t\t\tscheduleSingleHeartbeatCard(id);\n\t\t}\n\t\tfunction scheduleSingleHeartbeatCard(id) {\n\t\t\tconst card = document.getElementById(`hb-card-${id}`);\n\t\t\tif (!card) return;\n\t\t\tconst sec = Number(card.getAttribute(\"data-refresh-seconds\") || \"5\");\n\t\t\tconst interval = Math.max(1, Number.isNaN(sec) ? 5 : sec);\n\t\t\tconst timer = setTimeout(() => refreshHeartbeatCard(id), interval * 1000);\n\t\t\thbCardTimers.set(id, timer);\n\t\t}\n\t\tfunction scheduleHeartbeatCardRefreshes() {\n\t\t\tclearHeartbeatCardTimers();\n\t\t\tdocument.querySelectorAll(\"[data-heartbeat-id]\").forEach((card) => {\n\t\t\t\tconst id = card.getAttribute(\"data-heartbeat-id\");\n\t\t\t\tif (!id) return;\n\t\t\t\tscheduleSingleHeartbeatCard(id);\n\t\t\t});\n\t\t}\n\t\tdocument.addEventListener(\"htmx:afterSwap\", (ev) => {\n\t\t\tif (ev && ev.target && ev.target.id === \"heartbeat-list\") {\n\t\t\t\tscheduleHeartbeatCardRefreshes();\n\t\t\t}\n\t\t});\n\t\tscheduleHeartbeatCardRefreshes();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -192,7 +192,7 @@ func HeartbeatCardTempl(hb *db_models.HeartbeatRegistration) templ.Component {
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("hb-card-%d", hb.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 242, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 247, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 		if templ_7745c5c3_Err != nil {
@@ -205,7 +205,7 @@ func HeartbeatCardTempl(hb *db_models.HeartbeatRegistration) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", hb.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 242, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 247, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -218,7 +218,7 @@ func HeartbeatCardTempl(hb *db_models.HeartbeatRegistration) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%d", hb.AlarmSeconds))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 242, Col: 150}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 247, Col: 150}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -244,153 +244,166 @@ func HeartbeatCardTempl(hb *db_models.HeartbeatRegistration) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(hb.VariableName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 244, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 249, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</p><span class=\"rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</p><div class=\"flex items-center gap-2\"><span class=\"rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("DB%d", hb.DBNumber))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 245, Col: 107}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 251, Col: 108}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</span></div><div class=\"flex items-center gap-2\"><p class=\"font-mono text-xs text-amber-300\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</span> <button type=\"button\" hx-post=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(hb.Address)
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("/heartbeats/delete/%d", hb.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 248, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 254, Col: 58}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</p><button type=\"button\" data-copy-address=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" hx-target=\"#heartbeat-list\" hx-swap=\"innerHTML\" class=\"rounded border border-rose-500/40 px-2 py-0.5 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/10\">Delete</button></div></div><div class=\"flex items-center gap-2\"><p class=\"font-mono text-xs text-amber-300\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
-		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(hb.Address)
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(hb.Address)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 249, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 262, Col: 59}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" onclick=\"copyHeartbeatCardAddress(this)\" class=\"rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800\">Copy</button></div><p class=\"mt-2 text-xs text-slate-300\">Type: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</p><button type=\"button\" data-copy-address=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(heartbeatTypeLabel(hb.HeartbeatType))
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(hb.Address)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 251, Col: 85}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 263, Col: 55}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</p><p class=\"text-xs text-slate-300\">Alarm: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" onclick=\"copyHeartbeatCardAddress(this)\" class=\"rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800\">Copy</button></div><p class=\"mt-2 text-xs text-slate-300\">Type: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 string
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%ds", hb.AlarmSeconds))
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(heartbeatTypeLabel(hb.HeartbeatType))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 252, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 265, Col: 85}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</p><p class=\"text-xs text-slate-300\">Start on connect: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</p><p class=\"text-xs text-slate-300\">Alarm: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var19 string
-		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(boolLabel(hb.StartOnConnect))
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%ds", hb.AlarmSeconds))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 253, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 266, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</p><p class=\"text-xs text-emerald-300\">Actual value: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</p><p class=\"text-xs text-slate-300\">Start on connect: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var20 string
-		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(heartbeatValueLabel(hb.LastValue))
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(boolLabel(hb.StartOnConnect))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 254, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 267, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</p><p class=\"text-xs text-slate-300\">Last read value: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</p><p class=\"text-xs text-emerald-300\">Actual value: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(heartbeatValueLabel(hb.LastValue))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 255, Col: 88}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 268, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</p><p class=\"mt-2 text-xs text-slate-400\">Last check: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</p><p class=\"text-xs text-slate-300\">Last read value: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var22 string
-		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(formatHBTime(hb.LastCheckAt))
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(heartbeatValueLabel(hb.LastValue))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 256, Col: 83}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 269, Col: 88}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</p><p class=\"mt-2 text-xs text-slate-400\">Last check: ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var23 string
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(formatHBTime(hb.LastCheckAt))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 270, Col: 83}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if hb.LastError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<p class=\"mt-1 text-xs text-rose-300\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<p class=\"mt-1 text-xs text-rose-300\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var23 string
-			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(hb.LastError)
+			var templ_7745c5c3_Var24 string
+			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(hb.LastError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 258, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `api/heartbeats-api/heartbeats.templ`, Line: 272, Col: 55}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

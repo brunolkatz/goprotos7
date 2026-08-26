@@ -75,6 +75,10 @@ func (h *VarsHandler) GetHeartbeatByID(ctx context.Context, id int64) (*db_model
 	return h.db.GetHeartbeatByID(ctx, id)
 }
 
+func (h *VarsHandler) DeleteHeartbeatByID(ctx context.Context, id int64) error {
+	return h.db.DeleteHeartbeatByID(ctx, id)
+}
+
 func (h *VarsHandler) ListActiveHeartbeats(ctx context.Context) ([]*db_models.HeartbeatRegistration, error) {
 	return h.db.ListActiveHeartbeats(ctx)
 }

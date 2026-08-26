@@ -158,18 +158,25 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 
 		function getWSURL() {
 			const protocol = location.protocol === "https:" ? "wss" : "ws";
-			return `${protocol}://${location.host}/connect-plc/ws`;
+			const host = location.hostname || "localhost";
+			return `${protocol}://${host}:3001/ws`;
 		}
 
 		function openSetupDrawer() {
 			localStorage.setItem("dbtools.plcSetupDrawerOpen", "1");
-			document.getElementById("setup-drawer").classList.remove("translate-x-full");
-			document.getElementById("setup-drawer-backdrop").classList.remove("hidden");
+			const drawer = document.getElementById("setup-drawer");
+			const backdrop = document.getElementById("setup-drawer-backdrop");
+			if (!drawer || !backdrop) return;
+			drawer.classList.remove("translate-x-full");
+			backdrop.classList.remove("hidden");
 		}
 		function closeSetupDrawer() {
 			localStorage.setItem("dbtools.plcSetupDrawerOpen", "0");
-			document.getElementById("setup-drawer").classList.add("translate-x-full");
-			document.getElementById("setup-drawer-backdrop").classList.add("hidden");
+			const drawer = document.getElementById("setup-drawer");
+			const backdrop = document.getElementById("setup-drawer-backdrop");
+			if (!drawer || !backdrop) return;
+			drawer.classList.add("translate-x-full");
+			backdrop.classList.add("hidden");
 		}
 		function restoreDrawerState() {
 			const qs = new URLSearchParams(location.search);
@@ -183,7 +190,8 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 		function showSetupTab(tab) {
 			const tabs = ["connection", "tags", "status"];
 			tabs.forEach((t) => {
-				document.getElementById(`setup-tab-${t}`).classList.toggle("hidden", t !== tab);
+				const panel = document.getElementById(`setup-tab-${t}`);
+				if (panel) panel.classList.toggle("hidden", t !== tab);
 				const btn = document.getElementById(`tab-${t}-btn`);
 				if (!btn) return;
 				btn.className = t === tab ? "rounded-md bg-indigo-500/25 px-3 py-1.5 font-medium text-indigo-200" : "rounded-md px-3 py-1.5 text-slate-300 hover:bg-slate-800";
@@ -191,7 +199,9 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 		}
 
 		function collectVariables() {
-			return (document.getElementById("plc-addresses").value || "")
+			const input = document.getElementById("plc-addresses");
+			if (!input) return [];
+			return (input.value || "")
 				.split("\n")
 				.map(v => v.trim().toUpperCase())
 				.filter(Boolean);
@@ -201,7 +211,8 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 		}
 		function applySubscriptions() {
 			const valid = collectVariables().filter(validateAddress);
-			document.getElementById("subscribed-count").textContent = String(valid.length);
+			const count = document.getElementById("subscribed-count");
+			if (count) count.textContent = String(valid.length);
 			saveConnectWatchList(valid);
 			if (plcWS && plcWS.readyState === WebSocket.OPEN) {
 				plcSend({ type: "set_variables", variables: valid });
@@ -228,15 +239,19 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 			const current = collectVariables();
 			if (!current.includes(address)) {
 				current.push(address);
-				document.getElementById("plc-addresses").value = current.join("\n");
+				const input = document.getElementById("plc-addresses");
+				if (input) input.value = current.join("\n");
 				applySubscriptions();
 			}
 		}
 
 		async function loadCreatedVariables() {
-			const db = document.getElementById("plc-db-number-select").value;
-			const q = document.getElementById("plc-variable-search").value || "";
 			const target = document.getElementById("plc-created-vars");
+			if (!target) return;
+			const dbInput = document.getElementById("plc-db-number-select");
+			const qInput = document.getElementById("plc-variable-search");
+			const db = dbInput ? dbInput.value : "";
+			const q = qInput ? qInput.value : "";
 			if (!db) {
 				target.innerHTML = "Select a DB to load variables.";
 				return;
@@ -284,6 +299,7 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 		}
 		function updateDrawerStatus() {
 			const el = document.getElementById("drawer-live-status");
+			if (!el) return;
 			el.textContent = currentStatus;
 			el.className = "mb-3 rounded-md px-3 py-1.5 text-xs font-semibold " + (
 				currentStatus === "RUN" || currentStatus === "CONNECTED" ? "border border-emerald-500/30 bg-emerald-500/20 text-emerald-300" :
@@ -361,6 +377,7 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 
 		function setConnMessage(msg, isError = false) {
 			const el = document.getElementById("plc-conn-msg");
+			if (!el) return;
 			el.textContent = msg || "";
 			el.className = isError
 				? "rounded-lg border border-rose-700/30 bg-rose-950/20 px-3 py-2 text-xs text-rose-300"
@@ -376,7 +393,8 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 			if (row.error) return "error";
 			if (!row.updatedAt) return "stale";
 			const ageSec = (Date.now() - row.updatedAt) / 1000;
-			const poll = Number(document.getElementById("plc-poll-ms").value || "1000") / 1000;
+			const pollInput = document.getElementById("plc-poll-ms");
+			const poll = Number((pollInput && pollInput.value) || "1000") / 1000;
 			if (ageSec > Math.max(3, poll * 3)) return "stale";
 			return "live";
 		}
@@ -390,9 +408,14 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 		}
 		function renderLiveRows() {
 			const tbody = document.getElementById("live-values-rows");
-			const search = (document.getElementById("live-search").value || "").toLowerCase().trim();
-			const filter = document.getElementById("live-filter").value || "all";
-			const density = document.getElementById("live-density").value || "compact";
+			if (!tbody) return;
+			const searchInput = document.getElementById("live-search");
+			const filterInput = document.getElementById("live-filter");
+			const densityInput = document.getElementById("live-density");
+			const countEl = document.getElementById("live-count");
+			const search = ((searchInput && searchInput.value) || "").toLowerCase().trim();
+			const filter = (filterInput && filterInput.value) || "all";
+			const density = (densityInput && densityInput.value) || "compact";
 			const addresses = collectVariables();
 			addresses.forEach((addr) => {
 				const key = addr.toUpperCase();
@@ -401,12 +424,12 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 
 			if (!plcConnected) {
 				tbody.innerHTML = `<tr><td class="px-2 py-8 text-center text-slate-400" colspan="7">PLC disconnected. Open Setup to connect.</td></tr>`;
-				document.getElementById("live-count").textContent = `${addresses.length} tags · disconnected`;
+				if (countEl) countEl.textContent = `${addresses.length} tags · disconnected`;
 				return;
 			}
 			if (addresses.length === 0) {
 				tbody.innerHTML = `<tr><td class="px-2 py-8 text-center text-slate-400" colspan="7">No tags subscribed. Open Setup and add addresses or a DB.</td></tr>`;
-				document.getElementById("live-count").textContent = "0 tags";
+				if (countEl) countEl.textContent = "0 tags";
 				return;
 			}
 
@@ -436,7 +459,7 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 				`);
 			}
 			tbody.innerHTML = rows.length ? rows.join("") : `<tr><td class="px-2 py-8 text-center text-slate-400" colspan="7">No rows match current filters.</td></tr>`;
-			document.getElementById("live-count").textContent = `${addresses.length} tags · ${liveCount} live · ${staleCount} stale · ${errCount} error`;
+			if (countEl) countEl.textContent = `${addresses.length} tags · ${liveCount} live · ${staleCount} stale · ${errCount} error`;
 		}
 		function flashRow(address) {
 			const id = `row-${String(address || "").toUpperCase().replaceAll('.', '-')}`;
@@ -447,6 +470,12 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 		}
 
 		function handlePLCEvent(ev) {
+			if (!document.getElementById("drawer-connect-toggle")) {
+				if (plcWS && plcWS.readyState === WebSocket.OPEN) {
+					plcWS.close();
+				}
+				return;
+			}
 			if (!ev || !ev.type) return;
 			switch (ev.type) {
 				case "connected":
@@ -470,7 +499,10 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 					setStatus(ev.status);
 					break;
 				case "cpu_info":
-					document.getElementById("plc-cpu-info").textContent = JSON.stringify(ev.cpu_info || {}, null, 2);
+					{
+						const cpuInfo = document.getElementById("plc-cpu-info");
+						if (cpuInfo) cpuInfo.textContent = JSON.stringify(ev.cpu_info || {}, null, 2);
+					}
 					break;
 				case "values":
 					setStatus(ev.status);
@@ -492,7 +524,8 @@ templ ConnectPLCPageTempl(dbNumbers []uint32, connectWatchList []string) {
 				const resp = await fetch("/connect-plc/runtime-status", { headers: { "Accept": "application/json" } });
 				if (!resp.ok) return;
 				const info = await resp.json();
-				document.getElementById("plc-runtime-status").textContent = JSON.stringify(info, null, 2);
+				const runtime = document.getElementById("plc-runtime-status");
+				if (runtime) runtime.textContent = JSON.stringify(info, null, 2);
 			} catch (_e) {}
 		}
 

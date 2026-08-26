@@ -2,6 +2,7 @@ package sql_lite_db
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
@@ -45,6 +46,24 @@ func (d *DB) GetHeartbeatByID(ctx context.Context, id int64) (*db_models.Heartbe
 		return nil, err
 	}
 	return &hb, nil
+}
+
+func (d *DB) DeleteHeartbeatByID(ctx context.Context, id int64) error {
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		err := d.DbConn.WithContext(ctx).
+			Where("id = ?", id).
+			Delete(db_models.HeartbeatRegistration{}).Error
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if !strings.Contains(strings.ToLower(err.Error()), "database is locked") {
+			return err
+		}
+		time.Sleep(time.Duration(50*(attempt+1)) * time.Millisecond)
+	}
+	return lastErr
 }
 
 func (d *DB) ListEnabledHeartbeatAddresses(ctx context.Context) ([]string, error) {

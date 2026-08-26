@@ -13,6 +13,7 @@ import (
 	"github.com/brunolkatz/goprotos7/dbtool/db/sqlite_db"
 	"github.com/brunolkatz/goprotos7/dbtool/handlers/data-block-handlers"
 	vars_handler "github.com/brunolkatz/goprotos7/dbtool/handlers/vars-handler"
+	ws_handler "github.com/brunolkatz/goprotos7/dbtool/handlers/ws-handler"
 	"github.com/brunolkatz/goprotos7/dbtool/internals/browser"
 	"github.com/charmbracelet/log"
 	"github.com/jessevdk/go-flags"
@@ -76,6 +77,10 @@ func main() {
 		}
 
 		logger.Infof("Webadmin enabled, starting web admin...")
+		wsServer, err := ws_handler.New(varsHandler, ":3001")
+		if err != nil {
+			panic(err)
+		}
 		httpServer, err := api.NewHTTPServer(ctx, ":8080")
 		if err != nil {
 			panic(err)
@@ -93,6 +98,7 @@ func main() {
 			}
 			return nil
 		})
+		g.Go(wsServer.ServeForErrGroup())
 
 		var errStop = errors.New("stop")
 		g.Go(func() error {
@@ -105,6 +111,7 @@ func main() {
 				case _ = <-sigs:
 					cancel()
 					httpServer.StopServer()
+					_ = wsServer.Stop(context.Background())
 				}
 			}
 		})

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/brunolkatz/goprotos7/dbtool/db/db_models"
+	"gorm.io/gorm/clause"
 )
 
 func (d *DB) SavePLCWatchList(ctx context.Context, source string, dbNumber int32, addresses []string) error {
@@ -13,7 +14,13 @@ func (d *DB) SavePLCWatchList(ctx context.Context, source string, dbNumber int32
 		DBNumber:  dbNumber,
 		Addresses: strings.Join(addresses, "\n"),
 	}
-	return d.DbConn.WithContext(ctx).Model(db_models.PLCWatchList{}).Save(&row).Error
+	return d.DbConn.WithContext(ctx).
+		Model(db_models.PLCWatchList{}).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "source"}, {Name: "db_number"}},
+			DoUpdates: clause.AssignmentColumns([]string{"addresses"}),
+		}).
+		Create(&row).Error
 }
 
 func (d *DB) GetPLCWatchList(ctx context.Context, source string, dbNumber int32) ([]string, error) {

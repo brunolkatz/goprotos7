@@ -222,6 +222,11 @@ templ HeartbeatsPageTempl(dbNumbers []uint32, heartbeats []*db_models.HeartbeatR
 				scheduleSingleHeartbeatCard(id);
 			});
 		}
+		document.addEventListener("htmx:afterSwap", (ev) => {
+			if (ev && ev.target && ev.target.id === "heartbeat-list") {
+				scheduleHeartbeatCardRefreshes();
+			}
+		});
 		scheduleHeartbeatCardRefreshes();
 	</script>
 }
@@ -242,7 +247,16 @@ templ HeartbeatCardTempl(hb *db_models.HeartbeatRegistration) {
 	<div id={ fmt.Sprintf("hb-card-%d", hb.ID) } data-heartbeat-id={ fmt.Sprintf("%d", hb.ID) } data-refresh-seconds={ fmt.Sprintf("%d", hb.AlarmSeconds) } class={ heartbeatCardClass(hb) }>
 		<div class="mb-2 flex items-center justify-between gap-2">
 			<p class="font-semibold text-slate-100">{ hb.VariableName }</p>
-			<span class="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300">{ fmt.Sprintf("DB%d", hb.DBNumber) }</span>
+			<div class="flex items-center gap-2">
+				<span class="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300">{ fmt.Sprintf("DB%d", hb.DBNumber) }</span>
+				<button
+					type="button"
+					hx-post={ fmt.Sprintf("/heartbeats/delete/%d", hb.ID) }
+					hx-target="#heartbeat-list"
+					hx-swap="innerHTML"
+					class="rounded border border-rose-500/40 px-2 py-0.5 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/10"
+				>Delete</button>
+			</div>
 		</div>
 		<div class="flex items-center gap-2">
 			<p class="font-mono text-xs text-amber-300">{ hb.Address }</p>
