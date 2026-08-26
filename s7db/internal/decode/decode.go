@@ -107,7 +107,7 @@ func parseTypeSpec(typ string, addr *address.Address) (TypeSpec, error) {
 	}
 	if m := stringTypeRE.FindStringSubmatch(t); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		if n < 1 || n > 254 {
+		if n < 1 || n > 16382 {
 			return TypeSpec{}, fmt.Errorf("invalid STRING length %d", n)
 		}
 		return TypeSpec{Name: "STRING", StringLen: n, SizeBytes: n + 2}, nil
