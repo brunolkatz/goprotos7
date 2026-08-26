@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"testing"
 
+	"github.com/brunolkatz/goprotos7/s7db/internal/address"
 	"github.com/brunolkatz/goprotos7/s7db/internal/layout"
 	"github.com/brunolkatz/goprotos7/s7db/internal/pack"
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
@@ -73,7 +74,7 @@ func TestStringLayout(t *testing.T) {
 		Endian:  "big",
 		Size:    schema.SizeSpec{Auto: true},
 		Tags: []schema.Tag{
-			{Addr: "DB10.DBB0", Type: "STRING[4]", Init: "ABCDE"},
+			{Addr: "DB10.DBB0", Type: "STRING[4]", Init: "ABCD"},
 		},
 	}
 	got, _, err := pack.Pack(s, 0x00, 0, true)
@@ -85,5 +86,47 @@ func TestStringLayout(t *testing.T) {
 	}
 	if got[0] != 4 || got[1] != 4 {
 		t.Fatalf("unexpected string header: %v", got[:2])
+	}
+}
+
+func TestStringTypeLayoutFromAddress(t *testing.T) {
+	s := schema.Schema{
+		Version: 1,
+		DB:      10,
+		Endian:  "big",
+		Size:    schema.SizeSpec{Auto: true},
+		Tags: []schema.Tag{
+			{Addr: "DB10.STRING10.4", Type: "STRING", Init: "AB"},
+		},
+	}
+	got, _, err := pack.Pack(s, 0x00, 0, true)
+	if err != nil {
+		t.Fatalf("pack failed: %v", err)
+	}
+
+	addrValue, err := address.Parse("DB10.STRING10.4", nil)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if addrValue.StartBit() != 80 {
+		t.Fatalf("unexpected start bit: %d", addrValue.StartBit())
+	}
+
+	ts, err := layout.ParseType(s.Tags[0])
+	if err != nil {
+		t.Fatalf("parse type failed: %v", err)
+	}
+	if ts.StringLen != 4 || ts.SizeBytes != 6 || ts.BitSize != 48 {
+		t.Fatalf("unexpected type spec: %+v", ts)
+	}
+
+	if len(got) != 16 {
+		t.Fatalf("unexpected size: %d", len(got))
+	}
+	if got[10] != 4 || got[11] != 2 {
+		t.Fatalf("unexpected string header at offset 10: %v", got[10:12])
+	}
+	if string(got[12:14]) != "AB" {
+		t.Fatalf("unexpected payload: %q", string(got[12:14]))
 	}
 }

@@ -76,6 +76,18 @@ func (c *Client) ReadDB(db, start, size int) ([]byte, error) {
 	return buf, nil
 }
 
+func (c *Client) Read(address string, size int) (any, error) {
+	if c.client == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+	buf := make([]byte, size)
+	v, err := c.client.Read(address, buf)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 func (c *Client) ReadBool(ctx context.Context, db, by, bit int) (bool, error) {
 	select {
 	case <-ctx.Done():

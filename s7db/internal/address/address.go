@@ -37,6 +37,9 @@ func (a Address) CanonicalShort() string {
 }
 
 func (a Address) StartBit() int {
+	if a.Area == "S" || a.Area == "STRING" || a.Area == "DBS" {
+		return a.Byte * 8
+	}
 	return a.Byte*8 + a.Bit
 }
 

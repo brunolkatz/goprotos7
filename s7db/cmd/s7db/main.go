@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/brunolkatz/goprotos7/s7db/internal/address"
 	"github.com/brunolkatz/goprotos7/s7db/internal/config"
+	"github.com/brunolkatz/goprotos7/s7db/internal/decode"
 	heartbeatpkg "github.com/brunolkatz/goprotos7/s7db/internal/heartbeat"
 	"github.com/brunolkatz/goprotos7/s7db/internal/layout"
 	"github.com/brunolkatz/goprotos7/s7db/internal/output"
@@ -53,7 +55,7 @@ type CLI struct {
 	Unpack    UnpackCmd    `cmd:"" help:"Unpack a binary image back to a schema."`
 	Check     CheckCmd     `cmd:"" help:"Validate schema layout and types."`
 	Info      InfoCmd      `cmd:"" help:"Print schema summary."`
-	Watch     WatchCmd     `cmd:"" help:"Watch live PLC values."`
+	Watch     WatchCmd     `cmd:"" help:"Watch live PLC values (raw bytes + typed decode)."`
 	Heartbeat HeartbeatCmd `cmd:"" help:"Write a PLC heartbeat bit from OS service."`
 }
 
@@ -124,13 +126,13 @@ type WatchCmd struct {
 	Port      *int     `help:"PLC port (default 102)."`
 	Interval  string   `short:"i" default:"500ms" help:"Poll interval."`
 	Count     int      `default:"0" help:"Stop after N samples (0 forever)."`
-	Vars      string   `help:"Comma-separated addresses or tag names."`
+	Vars      string   `help:"Comma-separated addresses or tag names (names use schema type; DBX/DBB/DBW/DBD infer BOOL/BYTE/WORD/DWORD)."`
 	Once      bool     `help:"Read once and exit."`
 	Diff      bool     `help:"Only print changed values."`
 	JSON      bool     `help:"Emit one JSON object per sample."`
 	Reconnect bool     `help:"Auto reconnect with exponential backoff."`
 	Output    string   `short:"o" enum:"table,json" default:"table" help:"Output format."`
-	Args      []string `arg:"" optional:"" name:"var" help:"Addresses or tag names."`
+	Args      []string `arg:"" optional:"" name:"var" help:"Addresses or tag names (names use schema type; DBX/DBB/DBW/DBD infer BOOL/BYTE/WORD/DWORD)."`
 }
 
 type HeartbeatCmd struct {
@@ -718,9 +720,12 @@ func (c *WatchCmd) Run(app *App) error {
 	}
 
 	s, _ := schema.Load(app.CLI.File, app.CLI.DB)
-	resolved, err := resolveWatchVars(s, vars, app.CLI.DB)
+	resolved, resolveErrs, err := resolveWatchVars(s, vars, app.CLI.DB, app.CLI.Endian)
 	if err != nil {
-		return err
+		return usagef("watch: %v", err)
+	}
+	for _, resolveErr := range resolveErrs {
+		fmt.Fprintf(os.Stderr, "s7db: watch: %v\n", resolveErr)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), app.Timeout)
@@ -738,7 +743,7 @@ func (c *WatchCmd) Run(app *App) error {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
 
-	prev := map[string]any{}
+	prev := map[string]watchDiffState{}
 	sampleCount := 0
 	for {
 		if err := c.printSample(sigCtx, app, client, resolved, prev); err != nil {
@@ -777,10 +782,13 @@ func (c *WatchCmd) Run(app *App) error {
 }
 
 type watchVar struct {
-	Key     string
-	Name    string
-	Address address.Address
-	Type    layout.TypeSpec
+	Key       string
+	Name      string
+	Address   address.Address
+	Type      string
+	Size      int
+	Bit       int
+	ByteOrder binary.ByteOrder
 }
 
 type heartbeatTarget struct {
@@ -839,85 +847,162 @@ func resolveHeartbeatTarget(s schema.Schema, ref, tagName string, defaultDB *int
 	return heartbeatTarget{}, fmt.Errorf("multiple heartbeat tags found, provide operand or --tag")
 }
 
-func resolveWatchVars(s schema.Schema, vars []string, defaultDB *int) ([]watchVar, error) {
+func resolveWatchVars(s schema.Schema, vars []string, defaultDB *int, fallbackEndian string) ([]watchVar, []error, error) {
 	out := make([]watchVar, 0, len(vars))
+	errs := make([]error, 0)
 	db := s.DB
 	if db == 0 && defaultDB != nil {
 		db = *defaultDB
 	}
+	schemaEndian := s.Endian
+	if strings.TrimSpace(schemaEndian) == "" {
+		schemaEndian = "big"
+	}
+	schemaOrder, err := decode.ByteOrder(schemaEndian)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid schema endian %q", s.Endian)
+	}
+	fallbackOrder, err := decode.ByteOrder(fallbackEndian)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid --endian %q", fallbackEndian)
+	}
 	for _, v := range vars {
-		if i, ok := schema.FindTag(s, v, &db); ok {
+		if i, ok := findTagByName(s, v); ok {
 			t := s.Tags[i]
 			addrValue, err := address.Parse(t.Addr, &db)
 			if err != nil {
-				return nil, err
+				errs = append(errs, fmt.Errorf("%s: %w", v, err))
+				continue
 			}
-			ts, err := layout.ParseType(t)
+			ts, err := decode.ResolveSchemaType(t.Type, addrValue)
 			if err != nil {
-				return nil, err
+				errs = append(errs, fmt.Errorf("%s: %w", v, err))
+				continue
 			}
 			key := t.Name
 			if key == "" {
 				key = addrValue.Canonical()
 			}
 			out = append(out, watchVar{
-				Key:     key,
-				Name:    t.Name,
-				Address: addrValue,
-				Type:    ts,
+				Key:       key,
+				Name:      t.Name,
+				Address:   addrValue,
+				Type:      strings.ToUpper(strings.TrimSpace(t.Type)),
+				Size:      ts.SizeBytes,
+				Bit:       addrValue.Bit,
+				ByteOrder: schemaOrder,
 			})
 			continue
 		}
 		addrValue, err := address.Parse(v, &db)
 		if err != nil {
-			return nil, err
+			errs = append(errs, fmt.Errorf("%s: %w", v, err))
+			continue
+		}
+		ts, err := decode.InferAddressType(addrValue)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", v, err))
+			continue
 		}
 		out = append(out, watchVar{
-			Key:     addrValue.Canonical(),
-			Address: addrValue,
-			Type:    layout.TypeSpec{Name: "BYTE", SizeBytes: 1, BitSize: 8},
+			Key:       addrValue.Canonical(),
+			Address:   addrValue,
+			Type:      ts.Name,
+			Size:      ts.SizeBytes,
+			Bit:       addrValue.Bit,
+			ByteOrder: fallbackOrder,
 		})
 	}
-	return out, nil
+	if len(out) == 0 {
+		if len(errs) == 0 {
+			return nil, nil, fmt.Errorf("no variables resolved")
+		}
+		return nil, nil, fmt.Errorf("no variables resolved: %v", errs[0])
+	}
+	return out, errs, nil
 }
 
-func (c *WatchCmd) printSample(ctx context.Context, app *App, client *plc.Client, vars []watchVar, prev map[string]any) error {
+type watchDiffState struct {
+	Decoded bool
+	Value   any
+	RawHex  string
+}
+
+type watchSample struct {
+	Addr      string `json:"addr"`
+	Name      string `json:"name,omitempty"`
+	Type      string `json:"type"`
+	Raw       string `json:"raw"`
+	RawHex    string `json:"raw_hex"`
+	Value     any    `json:"value"`
+	Bit       *int   `json:"bit,omitempty"`
+	DecodeErr string `json:"error,omitempty"`
+}
+
+func (c *WatchCmd) printSample(ctx context.Context, app *App, client *plc.Client, vars []watchVar, prev map[string]watchDiffState) error {
+	ts := app.Now().UTC().Format(time.RFC3339Nano)
 	values := map[string]any{}
+	samples := make([]watchSample, 0, len(vars))
 	for _, v := range vars {
-		raw, err := client.ReadDB(v.Address.DB, v.Address.Byte, v.Type.SizeBytes)
+		raw, err := client.ReadDB(v.Address.DB, v.Address.Byte, v.Size)
 		if err != nil {
 			return err
 		}
-		val := decodeWatchValue(raw, v)
+		rawDisplay, rawHex := rawHex(raw)
+
+		decodedValue, err := client.Read(v.Address.Canonical(), 255)
+		if err != nil {
+			return err
+		}
+
+		val, _, decErr := decode.Decode(decodedValue)
+		state := watchDiffState{Decoded: decErr == nil, Value: val, RawHex: rawHex}
 		if c.Diff {
-			if old, ok := prev[v.Key]; ok && fmt.Sprintf("%v", old) == fmt.Sprintf("%v", val) {
+			if old, ok := prev[v.Key]; ok && !changedWatchValue(old, state) {
 				continue
 			}
 		}
-		values[v.Key] = val
-		prev[v.Key] = val
+		if decErr != nil {
+			values[v.Key] = "err"
+		} else {
+			values[v.Key] = val
+		}
+		prev[v.Key] = state
+		item := watchSample{
+			Addr:   v.Address.Canonical(),
+			Name:   v.Name,
+			Type:   v.Type,
+			Raw:    rawDisplay,
+			RawHex: rawHex,
+			Value:  val,
+		}
+		if v.Type == "BOOL" {
+			bit := v.Bit
+			item.Bit = &bit
+		}
+		if decErr != nil {
+			item.Value = "err"
+			item.DecodeErr = decErr.Error()
+		}
+		samples = append(samples, item)
 	}
-	if len(values) == 0 && c.Diff {
+	if len(samples) == 0 && c.Diff {
 		return nil
 	}
 	if c.Output == "json" {
 		payload := map[string]any{
-			"ts":     app.Now().UTC().Format(time.RFC3339Nano),
-			"values": values,
+			"ts":      ts,
+			"values":  values,
+			"samples": samples,
 		}
 		return json.NewEncoder(os.Stdout).Encode(payload)
 	}
-	ts := app.Now().UTC().Format(time.RFC3339Nano)
-	for _, v := range vars {
-		val, ok := values[v.Key]
-		if !ok {
-			continue
+	for _, item := range samples {
+		ref := item.Addr
+		if item.Name != "" {
+			ref = item.Name
 		}
-		label := v.Key
-		if v.Name != "" {
-			label = v.Name
-		}
-		fmt.Fprintf(os.Stdout, "%s\t%s\t%v\n", ts, label, val)
+		fmt.Fprintf(os.Stdout, "%s\t%s\t%s\t%s\t%v\n", ts, ref, item.Type, item.Raw, item.Value)
 	}
 	select {
 	case <-ctx.Done():
@@ -927,27 +1012,38 @@ func (c *WatchCmd) printSample(ctx context.Context, app *App, client *plc.Client
 	}
 }
 
-func decodeWatchValue(raw []byte, v watchVar) any {
-	if v.Type.Name == "BOOL" {
-		return raw[0]&(1<<v.Address.Bit) != 0
+func findTagByName(s schema.Schema, key string) (int, bool) {
+	needle := strings.TrimSpace(key)
+	if needle == "" {
+		return -1, false
 	}
-	tmp := schema.Schema{
-		Version: 1,
-		DB:      v.Address.DB,
-		Endian:  "big",
-		Size:    schema.SizeSpec{Auto: false, Bytes: len(raw)},
-		Tags: []schema.Tag{
-			{
-				Addr: v.Address.Canonical(),
-				Type: v.Type.Name,
-			},
-		},
+	for i, t := range s.Tags {
+		if strings.EqualFold(strings.TrimSpace(t.Name), needle) {
+			return i, true
+		}
 	}
-	out, err := pack.Unpack(raw, v.Address.DB, &tmp)
-	if err != nil || len(out.Tags) == 0 {
-		return raw
+	return -1, false
+}
+
+func changedWatchValue(old watchDiffState, current watchDiffState) bool {
+	if old.Decoded && current.Decoded {
+		return fmt.Sprintf("%v", old.Value) != fmt.Sprintf("%v", current.Value)
 	}
-	return out.Tags[0].Init
+	return old.RawHex != current.RawHex
+}
+
+func rawHex(raw []byte) (string, string) {
+	if len(raw) == 0 {
+		return "", ""
+	}
+	parts := make([]string, 0, len(raw))
+	compact := strings.Builder{}
+	for _, b := range raw {
+		h := fmt.Sprintf("%02X", b)
+		parts = append(parts, h)
+		compact.WriteString(h)
+	}
+	return strings.Join(parts, " "), compact.String()
 }
 
 func rowsFromSchema(s schema.Schema) ([]output.TagRow, error) {

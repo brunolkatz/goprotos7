@@ -188,11 +188,14 @@ func encodeValue(ts layout.TypeSpec, init any, order binary.ByteOrder) ([]byte, 
 		if err != nil {
 			return nil, err
 		}
+		if ts.StringLen < 1 || ts.SizeBytes != ts.StringLen+2 {
+			return nil, fmt.Errorf("invalid STRING type layout")
+		}
+		if len(raw) > ts.StringLen {
+			return nil, fmt.Errorf("string length %d exceeds max %d", len(raw), ts.StringLen)
+		}
 		out := make([]byte, ts.SizeBytes)
 		out[0] = byte(ts.StringLen)
-		if len(raw) > ts.StringLen {
-			raw = raw[:ts.StringLen]
-		}
 		out[1] = byte(len(raw))
 		copy(out[2:], []byte(raw))
 		return out, nil
@@ -202,8 +205,11 @@ func encodeValue(ts layout.TypeSpec, init any, order binary.ByteOrder) ([]byte, 
 		if err != nil {
 			return nil, err
 		}
+		if ts.StringLen < 1 || ts.SizeBytes != ts.StringLen+2 {
+			return nil, fmt.Errorf("invalid %s type layout", ts.Name)
+		}
 		if len(raw) > ts.StringLen {
-			raw = raw[:ts.StringLen]
+			return nil, fmt.Errorf("string length %d exceeds max %d", len(raw), ts.StringLen)
 		}
 		out := make([]byte, ts.SizeBytes)
 		out[0] = byte(ts.StringLen)
@@ -211,6 +217,7 @@ func encodeValue(ts layout.TypeSpec, init any, order binary.ByteOrder) ([]byte, 
 		copy(out[2:], []byte(raw))
 		return out, nil
 	}
+
 	return nil, fmt.Errorf("unsupported type %s", ts.Name)
 }
 

@@ -148,11 +148,61 @@ s7db info
 ### watch
 Live-read variables from PLC via `github.com/get-notify/gos7`.
 
+`watch` always prints both:
+- raw PLC bytes (`raw`, hex)
+- decoded typed value (`value`)
+
+Decode rules:
+- tag name operand (`-f/--file` schema): uses the tag `type` and schema endian
+- address operand: infers fixed types from address letter
+  - `DBX` / `X` → `BOOL`
+  - `DBB` / `B` → `BYTE`
+  - `DBW` / `W` → `WORD` (unsigned)
+  - `DBD` / `D` → `DWORD` (unsigned)
+- for signed/float semantics (`INT`, `DINT`, `REAL`), use schema tags by name
+
 ```bash
 s7db watch --addr 192.168.0.10 --vars Setpoint,DB10.DBX0.0
 s7db watch --addr 192.168.0.10 Setpoint Level --interval 1s --diff
 s7db watch --addr 192.168.0.10 --once --json
 s7db watch --addr 192.168.0.10 --reconnect --count 0
+```
+
+Human output columns are:
+- `ts`
+- `name-or-addr`
+- `type`
+- `raw`
+- `value`
+
+Example:
+
+```text
+2026-08-26T14:45:01Z	OsServiceHeartbeat	BOOL	01	true
+2026-08-26T14:45:01Z	DB300.DBW2	WORD	00 FA	250
+2026-08-26T14:45:01Z	Level	REAL	41 48 00 00	12.5
+```
+
+JSON (`--json`) keeps `values` and adds typed per-variable records:
+
+```json
+{
+  "ts": "2026-08-26T14:45:01Z",
+  "values": {
+    "OsServiceHeartbeat": true
+  },
+  "samples": [
+    {
+      "addr": "DB300.DBX0.0",
+      "name": "OsServiceHeartbeat",
+      "type": "BOOL",
+      "raw": "01",
+      "raw_hex": "01",
+      "value": true,
+      "bit": 0
+    }
+  ]
+}
 ```
 
 ### heartbeat (OS Service)

@@ -56,14 +56,14 @@ func ParseType(tag schema.Tag) (TypeSpec, error) {
 		return TypeSpec{Name: t, SizeBytes: 4, BitSize: 32}, nil
 	}
 	if t == "STRING" {
-		// parse the address to get the length of the string
 		addr, err := address.Parse(tag.Addr, nil)
 		if err != nil {
 			return TypeSpec{}, fmt.Errorf("invalid STRING address %q: %w", tag.Addr, err)
 		}
-		// possible problem, the string must start from the length byte, so the length is in the first byte, and the
-		// string is in the next bytes, so the size is length + 2 bytes
-		return TypeSpec{Name: t, StringLen: addr.Bit, SizeBytes: addr.Bit, BitSize: addr.Bit}, nil
+		if addr.Bit < 1 || addr.Bit > 254 {
+			return TypeSpec{}, fmt.Errorf("invalid STRING length %d", addr.Bit)
+		}
+		return TypeSpec{Name: t, StringLen: addr.Bit, SizeBytes: addr.Bit + 2, BitSize: (addr.Bit + 2) * 8}, nil
 	}
 	if m := stringTypeRE.FindStringSubmatch(t); m != nil {
 		n, _ := strconv.Atoi(m[1])
