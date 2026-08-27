@@ -1,0 +1,9 @@
+tick 100ms
+
+if OSServiceControl == true then
+  MillSpeedCommand := 420.69
+end
+
+if OSServiceControl == false then
+  MillSpeedCommand := 69.42
+end

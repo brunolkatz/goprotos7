@@ -200,3 +200,88 @@ Or target explicitly:
 ```bash
 s7db heartbeat DB300.DBX0.0 --addr 192.168.0.10 -i 1s --heartbeat-timeout 5s --mode set-true
 ```
+
+---
+
+## 9) Example using the current `s7db.yml` (DB300 GatewayControl)
+
+Your current file already defines tags like:
+- `Heartbeat` (`DB300.DBX0.0`, role=heartbeat)
+- `OSServiceControl`
+- `SCADAWebserverEnable`
+- `WarningMessage` / `AlarmMessage` / `InfoMessage` / `PopupDescription`
+- `MillSpeedCommand` / `PumpSpeedCommand`
+
+Use it directly:
+
+```bash
+# validate current schema
+s7db -f s7db.yml check
+
+# inspect tags (role/heartbeat columns included)
+s7db -f s7db.yml list
+
+# build DB image from current YAML
+s7db -f s7db.yml pack -o /tmp/DB300.bin
+
+# inspect built image back as schema+values
+s7db -f s7db.yml unpack --from s7db.yml /tmp/DB300.bin -o /tmp/DB300-unpacked.yml
+s7db -f /tmp/DB300-unpacked.yml list -o json
+```
+
+Watch live values for this schema:
+
+```bash
+s7db -f s7db.yml watch --addr 192.168.0.10 --vars Heartbeat,MillSpeedCommand,PumpSpeedCommand
+```
+
+Run heartbeat based on the `Heartbeat` tag metadata in `s7db.yml`:
+
+```bash
+s7db -f s7db.yml heartbeat --addr 192.168.0.10 --reconnect
+```
+
+---
+
+## 10) Script example (`s7sim`) with the current `s7db.yml`
+
+Create a script file `gateway.sim`:
+
+```text
+tick 100ms
+
+// PLC convention: OS sets heartbeat true, PLC clears false.
+on Heartbeat == true do
+  Heartbeat := false
+end
+
+// If OS control is off, force commands to zero.
+if OSServiceControl == false then
+  MillSpeedCommand := 0.0
+  PumpSpeedCommand := 0.0
+end
+```
+
+Compile only (parse + typecheck):
+
+```bash
+s7db -f s7db.yml compile gateway.sim
+```
+
+Run offline for 2 seconds with trace:
+
+```bash
+s7db -f s7db.yml sim gateway.sim --duration 2s --trace
+```
+
+Run against PLC in pull-only mode (default when `--plc` is set):
+
+```bash
+s7db -f s7db.yml sim gateway.sim --plc --addr 192.168.0.10 --duration 5s --trace
+```
+
+Run with controlled writes (allowlist):
+
+```bash
+s7db -f s7db.yml sim gateway.sim --plc --write --allow-write MillSpeedCommand,PumpSpeedCommand --addr 192.168.0.10
+```

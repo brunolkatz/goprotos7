@@ -279,6 +279,63 @@ Notes:
 - PLC fault handling and safe-state actions remain PLC logic; `s7db` only refreshes the bit and reports communication health.
 - On shutdown, `s7db` does **not** force-write `false`; PLC owns the clear behavior.
 
+### Simulation language (s7sim)
+
+Compile script:
+
+```bash
+s7db compile machine.sim
+```
+
+Run offline (default, no PLC I/O):
+
+```bash
+s7db sim machine.sim --duration 10s --trace
+```
+
+Run with PLC pull-only (`--plc` defaults to read-only):
+
+```bash
+s7db sim machine.sim --plc --addr 192.168.0.10 --rack 0 --slot 1
+```
+
+Run with controlled write allowlist (dry-run):
+
+```bash
+s7db sim machine.sim --plc --write --allow-write OsServiceFault --dry-run --addr 192.168.0.10
+```
+
+Allow heartbeat writes explicitly:
+
+```bash
+s7db sim machine.sim --plc --write --allow-write OsServiceHeartbeat --take-heartbeat --addr 192.168.0.10
+```
+
+Example script:
+
+```text
+tick 100ms
+var fault_timer : TIME := T#0s
+on OsServiceHeartbeat == true do
+  OsServiceHeartbeat := false
+end
+if OsServiceHeartbeat == false then
+  fault_timer := fault_timer + tick
+else
+  fault_timer := T#0s
+end
+if fault_timer > T#5s then
+  OsServiceFault := true
+else
+  OsServiceFault := false
+end
+```
+
+Notes:
+- This is an external tick task, not PLC CPU logic.
+- `--plc --write` requires `--allow-write`.
+- Heartbeat tags are not pushed unless `--take-heartbeat`.
+
 ## Config file
 
 Path: `~/.config/s7db/config.yaml` (or `$S7DB_CONFIG`).x

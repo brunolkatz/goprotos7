@@ -1,0 +1,103 @@
+# $schema: ./s7db-yaml-schema/s7db.schema.yaml
+version: 1
+db: 300
+name: GatewayControl
+optimized: false
+endian: big
+size: auto
+tags:
+  - addr: DB300.DBX0.0
+    name: Heartbeat
+    type: BOOL
+    init: false
+    desc: Heartbeat OS Service moves to true PLC Moves to false
+    role: heartbeat
+    heartbeat:
+      interval: 1s
+      timeout: 5s
+      polarity: set-true
+  - addr: DB300.DBX0.1
+    name: OSServiceControl
+    type: BOOL
+    init: true
+    desc: Control over OS Service
+  - addr: DB300.DBX0.2
+    name: SCADAWebserverEnable
+    type: BOOL
+    init: false
+    desc: Enable the SCADA system to open the OS Service webserver.
+  - addr: DB300.DBX2.0
+    name: StartFeedingPumpPulse
+    type: BOOL
+    init: false
+    desc: Start feeding pump
+  - addr: DB300.DBX2.1
+    name: StopFeedingPumpPulse
+    type: BOOL
+    init: false
+    desc: Stop feeding pump
+  - addr: DB300.DBX2.2
+    name: StartMillPulse
+    type: BOOL
+    init: false
+    desc: Start mill
+  - addr: DB300.DBX2.3
+    name: StopMillPulse
+    type: BOOL
+    init: false
+    desc: Stop mill
+  - addr: DB300.DBX2.4
+    name: SetWarningPulse
+    type: BOOL
+    init: false
+    desc: Set Warning
+  - addr: DB300.DBX2.5
+    name: SetAlarmPulse
+    type: BOOL
+    init: false
+    desc: Set Alarm
+  - addr: DB300.DBX2.6
+    name: SetInfoPulse
+    type: BOOL
+    init: false
+    desc: Set Info
+  - addr: DB300.DBX4.0
+    name: PopupOKActivationPulse
+    type: BOOL
+    init: false
+    desc: OK Popup Activation
+  - addr: DB300.DBX4.1
+    name: PopupYesNoActivationPulse
+    type: BOOL
+    init: false
+    desc: Yes/No Popup Activation
+  - addr: DB300.S6.254
+    name: WarningMessage
+    type: STRING
+    init: "WarningMessage"
+    desc: Warning message
+  - addr: DB300.S518.254
+    name: AlarmMessage
+    type: STRING
+    init: "AlarmMessage"
+    desc: Alarm message
+  - addr: DB300.S1030.254
+    name: InfoMessage
+    type: STRING
+    init: "InfoMessage"
+    desc: Info message
+  - addr: DB300.S1542.254
+    name: PopupDescription
+    type: STRING
+    init: "PopupDescription"
+    desc: Popup description
+  - addr: DB300.DBD3078
+    name: MillSpeedCommand
+    type: REAL
+    init: 69.42
+    desc: Mill speed command (m/s)
+  - addr: DB300.DBD3082
+    name: PumpSpeedCommand
+    type: REAL
+    init: 42.69
+    desc: Pump speed command (rpm)

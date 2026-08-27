@@ -27,6 +27,8 @@ import (
 	"github.com/brunolkatz/goprotos7/s7db/internal/plc"
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
 	"github.com/brunolkatz/goprotos7/s7db/internal/server"
+	"github.com/brunolkatz/goprotos7/s7db/internal/sim"
+	"github.com/brunolkatz/goprotos7/s7db/internal/simlang"
 	"github.com/brunolkatz/goprotos7/s7db/internal/version"
 	"gopkg.in/yaml.v3"
 )
@@ -59,6 +61,8 @@ type CLI struct {
 	Watch     WatchCmd     `cmd:"" help:"Watch live PLC values (raw bytes + typed decode)."`
 	Heartbeat HeartbeatCmd `cmd:"" help:"Write a PLC heartbeat bit from OS service."`
 	Serve     ServeCmd     `cmd:"" help:"Serve SCADA HMI and WebSocket API."`
+	Compile   CompileCmd   `cmd:"" help:"Compile s7sim script (parse + typecheck)."`
+	Sim       SimCmd       `cmd:"" help:"Run s7sim script in offline image or PLC-assisted mode."`
 }
 
 type InitLikeFlags struct {
@@ -167,6 +171,33 @@ type ServeCmd struct {
 	Port      *int   `help:"PLC port (default 102)."`
 	Heartbeat bool   `help:"Run embedded heartbeat loop for role=heartbeat tag."`
 	NoOpen    bool   `help:"Do not print listen URL."`
+}
+
+type CompileCmd struct {
+	Path string `arg:"" required:"" name:"file.sim" help:"Script path (.sim)."`
+}
+
+type SimCmd struct {
+	Path       string `arg:"" required:"" name:"file.sim" help:"Script path (.sim)."`
+	Duration   string `default:"10s" help:"Run duration (0 = until interrupt)."`
+	Cycles     int    `default:"0" help:"Stop after N cycles (0 = unlimited)."`
+	Rate       string `help:"Override script tick duration."`
+	Once       bool   `help:"Run exactly one cycle."`
+	Trace      bool   `help:"Print changes each cycle."`
+	Output     string `short:"o" enum:"table,json" default:"table" help:"Trace output format."`
+	Watch      string `help:"Comma-separated names to trace."`
+	SeedJSON   string `help:"Initial values JSON file ({\"Tag\":value})."`
+	Offline    bool   `help:"Force offline mode."`
+	PLC        bool   `help:"Enable PLC I/O mode (default when omitted is offline)."`
+	Addr       string `name:"addr" aliases:"ip" help:"PLC host/IP."`
+	Rack       *int   `help:"PLC rack (default 0)."`
+	Slot       *int   `help:"PLC slot (default 1)."`
+	Port       *int   `help:"PLC port (default 102)."`
+	ReadOnly   bool   `help:"With --plc: pull only, do not push writes."`
+	Write      bool   `help:"With --plc: enable pushes (requires --allow-write)."`
+	AllowWrite string `help:"Comma-separated writable tag names whitelist."`
+	TakeHB     bool   `name:"take-heartbeat" help:"Allow writes to tags with role=heartbeat."`
+	Reconnect  bool   `help:"Reconnect on pull/push errors."`
 }
 
 type App struct {
@@ -755,6 +786,161 @@ func (c *ServeCmd) Run(app *App) error {
 		Out:       os.Stdout,
 		Err:       os.Stderr,
 	})
+}
+
+func (c *CompileCmd) Run(app *App) error {
+	s, err := schema.Load(app.CLI.File, app.CLI.DB)
+	if err != nil {
+		return err
+	}
+	srcBytes, err := os.ReadFile(c.Path)
+	if err != nil {
+		return err
+	}
+	prog, diags := simlang.Compile(c.Path, string(srcBytes), s)
+	if len(diags) > 0 {
+		for _, d := range diags {
+			fmt.Fprintln(os.Stderr, d.String())
+		}
+		return usagef("compile failed")
+	}
+	fmt.Fprintf(os.Stdout, "ok: %d statements\n", prog.Statements)
+	return nil
+}
+
+func (c *SimCmd) Run(app *App) error {
+	s, err := schema.Load(app.CLI.File, app.CLI.DB)
+	if err != nil {
+		return err
+	}
+	srcBytes, err := os.ReadFile(c.Path)
+	if err != nil {
+		return err
+	}
+	prog, diags := simlang.Compile(c.Path, string(srcBytes), s)
+	if len(diags) > 0 {
+		for _, d := range diags {
+			fmt.Fprintln(os.Stderr, d.String())
+		}
+		return usagef("compile failed")
+	}
+	if c.PLC && c.Write && strings.TrimSpace(c.AllowWrite) == "" {
+		return usagef("sim: --plc --write requires --allow-write")
+	}
+	if c.Once {
+		c.Cycles = 1
+	}
+	runDur, err := time.ParseDuration(c.Duration)
+	if err != nil {
+		return usagef("sim: invalid --duration %q", c.Duration)
+	}
+	tick := prog.Tick
+	if c.Rate != "" {
+		tick, err = time.ParseDuration(c.Rate)
+		if err != nil {
+			return usagef("sim: invalid --rate %q", c.Rate)
+		}
+	}
+	img := sim.NewImageFromSchema(s, prog)
+	if err := loadSeed(img, c.SeedJSON); err != nil {
+		return err
+	}
+	runner := sim.NewRunner(prog, img)
+	runner.Tick = tick
+
+	readNames := make([]string, 0, len(prog.UsedTags))
+	for n := range prog.UsedTags {
+		readNames = append(readNames, n)
+	}
+	watchSet := setFromCSV(c.Watch)
+	for n := range watchSet {
+		readNames = append(readNames, n)
+	}
+	allowWrite := setFromCSV(c.AllowWrite)
+
+	var sink sim.Sink = sim.MemorySink{}
+	var plcSink *sim.PLCSink
+	pushEnabled := false
+	if c.PLC {
+		addr := c.Addr
+		if addr == "" {
+			addr = app.Config.PLC.Addr
+		}
+		if addr == "" {
+			return usagef("sim: --addr is required with --plc")
+		}
+		rack := valueIntPtrDefault(0, c.Rack, app.Config.PLC.Rack)
+		slot := valueIntPtrDefault(1, c.Slot, app.Config.PLC.Slot)
+		port := valueIntPtrDefault(102, c.Port, app.Config.PLC.Port)
+		client := plc.New(addr, rack, slot, port, app.Timeout)
+		connectCtx, cancel := context.WithTimeout(context.Background(), app.Timeout)
+		err := client.Connect(connectCtx)
+		cancel()
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+		plcSink, err = sim.NewPLCSink(client, s, prog, img)
+		if err != nil {
+			return err
+		}
+		if app.CLI.DryRun {
+			sink = &sim.DryRunSink{Base: plcSink, Out: os.Stderr}
+		} else {
+			sink = plcSink
+		}
+		pushEnabled = c.Write
+	}
+
+	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	start := app.Now()
+	cycle := 0
+	for {
+		if sigCtx.Err() != nil {
+			break
+		}
+		if runDur > 0 && app.Now().Sub(start) >= runDur {
+			break
+		}
+		if c.Cycles > 0 && cycle >= c.Cycles {
+			break
+		}
+		if err := sink.Pull(sigCtx, readNames); err != nil {
+			if c.Reconnect && plcSink != nil {
+				_ = plcSink.Reconnect(sigCtx)
+				continue
+			}
+			return fmt.Errorf("sim cycle %d pull error: %w", cycle+1, err)
+		}
+		changes, err := runner.Step()
+		if err != nil {
+			return fmt.Errorf("sim cycle %d runtime error: %w", cycle+1, err)
+		}
+		pushes := filterPushes(changes, allowWrite, s, c.TakeHB, pushEnabled)
+		if pushEnabled && len(pushes) > 0 {
+			if err := sink.Push(sigCtx, pushes); err != nil {
+				if c.Reconnect && plcSink != nil {
+					_ = plcSink.Reconnect(sigCtx)
+					continue
+				}
+				return fmt.Errorf("sim cycle %d push error: %w", cycle+1, err)
+			}
+		}
+		if c.Trace {
+			printTrace(os.Stdout, c.Output, cycle+1, pushes, watchSet)
+		}
+		cycle++
+		select {
+		case <-sigCtx.Done():
+			break
+		case <-time.After(tick):
+		}
+	}
+	if !app.CLI.Quiet {
+		fmt.Fprintf(os.Stderr, "sim finished: cycles=%d tick=%s\n", cycle, tick)
+	}
+	return nil
 }
 
 func (c *WatchCmd) Run(app *App) error {
@@ -1352,4 +1538,82 @@ func heartbeatTimeout(t schema.Tag) string {
 		return ""
 	}
 	return t.Heartbeat.Timeout
+}
+
+func setFromCSV(in string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, p := range splitCSV(in) {
+		out[p] = struct{}{}
+	}
+	return out
+}
+
+func loadSeed(img *sim.Image, path string) error {
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+	for k, v := range payload {
+		if err := img.Set(k, v); err != nil {
+			return fmt.Errorf("seed %s: %w", k, err)
+		}
+	}
+	return nil
+}
+
+func filterPushes(changes []sim.Change, allow map[string]struct{}, s schema.Schema, takeHB bool, enable bool) []sim.Change {
+	if !enable {
+		return nil
+	}
+	roles := map[string]string{}
+	for _, t := range s.Tags {
+		if strings.TrimSpace(t.Name) == "" {
+			continue
+		}
+		roles[t.Name] = strings.ToLower(strings.TrimSpace(t.Role))
+	}
+	out := make([]sim.Change, 0, len(changes))
+	for _, c := range changes {
+		if _, ok := allow[c.Name]; !ok {
+			continue
+		}
+		if roles[c.Name] == "heartbeat" && !takeHB {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+func printTrace(w io.Writer, format string, cycle int, changes []sim.Change, watch map[string]struct{}) {
+	filtered := changes[:0]
+	for _, c := range changes {
+		if len(watch) == 0 {
+			filtered = append(filtered, c)
+			continue
+		}
+		if _, ok := watch[c.Name]; ok {
+			filtered = append(filtered, c)
+		}
+	}
+	if format == "json" {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"cycle":   cycle,
+			"changes": filtered,
+		})
+		return
+	}
+	if len(filtered) == 0 {
+		return
+	}
+	for _, c := range filtered {
+		fmt.Fprintf(w, "cycle=%d %s=%v\n", cycle, c.Name, c.Value)
+	}
 }
