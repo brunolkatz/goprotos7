@@ -2,10 +2,12 @@ package sim
 
 import (
 	"context"
+	"encoding/binary"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/brunolkatz/goprotos7/s7db/internal/decode"
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
 	"github.com/brunolkatz/goprotos7/s7db/internal/simlang"
 )
@@ -107,5 +109,49 @@ func TestSinkReadOnlyNoPush(t *testing.T) {
 	}
 	if spy.pushs != 0 {
 		t.Fatalf("expected no push calls")
+	}
+}
+
+func TestStringAssignmentTruncatesToDeclaredLength(t *testing.T) {
+	s := schema.Schema{
+		Version: 1, DB: 300, Endian: "big", Size: schema.SizeSpec{Auto: true},
+		Tags: []schema.Tag{
+			{Name: "StatusText", Addr: "DB300.DBB20", Type: "STRING[4]"},
+		},
+	}
+	_ = s.Normalize(&s.DB)
+	src := "tick 100ms\nStatusText := \"abcdef\"\n"
+	prog, ds := simlang.Compile("a.sim", src, s)
+	if len(ds) > 0 {
+		t.Fatalf("compile failed: %s", ds[0].String())
+	}
+	img := NewImageFromSchema(s, prog)
+	r := NewRunner(prog, img)
+	if _, err := r.Step(); err != nil {
+		t.Fatalf("step failed: %v", err)
+	}
+	v, _ := img.Get("StatusText")
+	if got := v.(string); got != "abcd" {
+		t.Fatalf("expected truncation to abcd, got %q", got)
+	}
+	if !img.ConsumeStringTruncated("StatusText") {
+		t.Fatalf("expected truncation marker")
+	}
+}
+
+func TestStringEncodeRawHeaderAndPayload(t *testing.T) {
+	spec := decode.TypeSpec{Name: "STRING", StringLen: 5, SizeBytes: 7}
+	payload, err := decode.EncodeRaw(spec, binary.BigEndian, "abc")
+	if err != nil {
+		t.Fatalf("encode failed: %v", err)
+	}
+	if len(payload) != 7 {
+		t.Fatalf("unexpected payload size: %d", len(payload))
+	}
+	if payload[0] != 5 || payload[1] != 3 {
+		t.Fatalf("unexpected string header: %v", payload[:2])
+	}
+	if string(payload[2:5]) != "abc" {
+		t.Fatalf("unexpected payload content: %q", string(payload[2:5]))
 	}
 }

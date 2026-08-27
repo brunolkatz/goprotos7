@@ -15,6 +15,20 @@ func parseDuration(raw string) (time.Duration, error) {
 }
 
 func compare(a, b any, op string) (bool, error) {
+	if as, ok := a.(string); ok {
+		bs, ok := b.(string)
+		if !ok {
+			return false, fmt.Errorf("cannot compare STRING with %T", b)
+		}
+		switch op {
+		case "==":
+			return as == bs, nil
+		case "!=":
+			return as != bs, nil
+		default:
+			return false, fmt.Errorf("string comparison %s not supported", op)
+		}
+	}
 	if ab, ok := a.(bool); ok {
 		bb, ok := b.(bool)
 		if !ok {

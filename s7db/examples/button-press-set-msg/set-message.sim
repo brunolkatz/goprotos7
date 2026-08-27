@@ -1,0 +1,9 @@
+tick 100ms
+
+if OSServiceControl == true then
+  AlarmMessage := "Meu alarme"
+end
+
+if OSServiceControl == false then
+  AlarmMessage := ""
+end

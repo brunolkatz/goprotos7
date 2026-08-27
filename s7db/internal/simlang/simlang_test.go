@@ -46,6 +46,7 @@ func testSchema() schema.Schema {
 			{Name: "ValveOpen", Addr: "DB300.DBX1.0", Type: "BOOL"},
 			{Name: "Level", Addr: "DB300.DBD16", Type: "REAL"},
 			{Name: "PumpEnable", Addr: "DB300.DBX1.1", Type: "BOOL"},
+			{Name: "StatusText", Addr: "DB300.DBB20", Type: "STRING[20]"},
 		},
 	}
 	_ = s.Normalize(&s.DB)
@@ -81,6 +82,39 @@ func TestTypeErrorBoolAssignReal(t *testing.T) {
 		t.Fatalf("expected type error")
 	}
 	if !strings.Contains(diags[0].String(), "cannot assign REAL to BOOL") {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestStringVarRequiresLength(t *testing.T) {
+	src := "tick 100ms\nvar Title : STRING := \"x\"\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected STRING length diagnostic")
+	}
+	if !strings.Contains(diags[0].String(), "STRING requires a max length") {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestStringAssignTypeError(t *testing.T) {
+	src := "tick 100ms\nvar Title : STRING[20]\nTitle := 10\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected string assign type error")
+	}
+	if !strings.Contains(diags[0].String(), "cannot assign INT to STRING[20]") {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestStringConcatenationNotSupported(t *testing.T) {
+	src := "tick 100ms\nvar Title : STRING[20] := \"a\"\nTitle := Title + \"x\"\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected concat type error")
+	}
+	if !strings.Contains(diags[0].String(), "string concatenation not supported") {
 		t.Fatalf("unexpected diag: %s", diags[0].String())
 	}
 }

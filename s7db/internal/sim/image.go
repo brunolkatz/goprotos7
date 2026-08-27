@@ -11,19 +11,26 @@ import (
 )
 
 type Image struct {
-	values map[string]any
-	types  map[string]simlang.ValueType
-	tags   map[string]schema.Tag
+	values          map[string]any
+	types           map[string]simlang.ValueType
+	stringMaxLen    map[string]int
+	stringTruncated map[string]bool
+	tags            map[string]schema.Tag
 }
 
 func NewImageFromSchema(s schema.Schema, prog *simlang.Program) *Image {
 	img := &Image{
-		values: map[string]any{},
-		types:  map[string]simlang.ValueType{},
-		tags:   map[string]schema.Tag{},
+		values:          map[string]any{},
+		types:           map[string]simlang.ValueType{},
+		stringMaxLen:    map[string]int{},
+		stringTruncated: map[string]bool{},
+		tags:            map[string]schema.Tag{},
 	}
 	for name, sym := range prog.Symbols {
 		img.types[name] = sym.Type
+		if sym.Type == simlang.TypeString && sym.StringLen > 0 {
+			img.stringMaxLen[name] = sym.StringLen
+		}
 	}
 	for _, t := range s.Tags {
 		name := strings.TrimSpace(t.Name)
@@ -32,7 +39,7 @@ func NewImageFromSchema(s schema.Schema, prog *simlang.Program) *Image {
 		}
 		img.tags[name] = t
 		if sym, ok := prog.Symbols[name]; ok && sym.IsTag {
-			img.values[name] = coerceInit(sym.Type, t.Init)
+			img.values[name] = coerceInit(sym, t.Init)
 		}
 	}
 	for name, typ := range img.types {
@@ -58,6 +65,14 @@ func (i *Image) Set(name string, v any) error {
 	if err != nil {
 		return err
 	}
+	if t == simlang.TypeString {
+		s, _ := c.(string)
+		if maxLen := i.stringMaxLen[name]; maxLen > 0 && len(s) > maxLen {
+			i.stringTruncated[name] = true
+			s = s[:maxLen]
+		}
+		c = s
+	}
 	i.values[name] = c
 	return nil
 }
@@ -80,6 +95,14 @@ func (i *Image) Snapshot() map[string]any {
 	return out
 }
 
+func (i *Image) ConsumeStringTruncated(name string) bool {
+	if !i.stringTruncated[name] {
+		return false
+	}
+	delete(i.stringTruncated, name)
+	return true
+}
+
 func zeroValue(t simlang.ValueType) any {
 	switch t {
 	case simlang.TypeBool:
@@ -97,10 +120,17 @@ func zeroValue(t simlang.ValueType) any {
 	}
 }
 
-func coerceInit(t simlang.ValueType, v any) any {
-	c, err := coerceValue(t, v)
+func coerceInit(sym simlang.Symbol, v any) any {
+	c, err := coerceValue(sym.Type, v)
 	if err != nil {
-		return zeroValue(t)
+		return zeroValue(sym.Type)
+	}
+	if sym.Type == simlang.TypeString && sym.StringLen > 0 {
+		s := fmt.Sprintf("%v", c)
+		if len(s) > sym.StringLen {
+			s = s[:sym.StringLen]
+		}
+		return s
 	}
 	return c
 }

@@ -12,9 +12,10 @@ var lex = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "Comment", Pattern: `//[^\n]*`},
 	{Name: "Whitespace", Pattern: `[ \t\r\n]+`},
 	{Name: "Duration", Pattern: `(?:T#)?[0-9]+(?:ns|us|µs|ms|s|m|h)`},
+	{Name: "String", Pattern: `"([^"\\]|\\.)*"`},
 	{Name: "Float", Pattern: `[0-9]+\.[0-9]+`},
 	{Name: "Int", Pattern: `[0-9]+`},
-	{Name: "Operator", Pattern: `:=|==|!=|>=|<=|[+\-*/><():]`},
+	{Name: "Operator", Pattern: `:=|==|!=|>=|<=|[+\-*/><():\[\]]`},
 	{Name: "Ident", Pattern: `[A-Za-z_][A-Za-z0-9_]*`},
 })
 

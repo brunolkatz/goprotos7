@@ -60,6 +60,37 @@ func TestSimWriteRequiresAllowWrite(t *testing.T) {
 	}
 }
 
+func TestSimWriteAllRequiresWriteAndPlc(t *testing.T) {
+	tmp := t.TempDir()
+	schemaPath := writeSchemaFixture(t, tmp)
+	simPath := writeSimFixture(t, tmp)
+	app := &App{
+		CLI: &CLI{File: schemaPath},
+		Now: time.Now, Timeout: time.Second,
+	}
+	cmd := &SimCmd{Path: simPath, WriteAll: true}
+	if err := cmd.Run(app); err == nil {
+		t.Fatalf("expected usage error")
+	}
+}
+
+func TestSimWriteAllXorAllowWrite(t *testing.T) {
+	tmp := t.TempDir()
+	schemaPath := writeSchemaFixture(t, tmp)
+	simPath := writeSimFixture(t, tmp)
+	app := &App{
+		CLI: &CLI{File: schemaPath},
+		Now: time.Now, Timeout: time.Second,
+	}
+	cmd := &SimCmd{
+		Path: simPath, PLC: true, Write: true,
+		WriteAll: true, AllowWrite: "OsServiceHeartbeat",
+	}
+	if err := cmd.Run(app); err == nil {
+		t.Fatalf("expected usage error")
+	}
+}
+
 func TestFilterPushesAllowWriteAndHeartbeatProtection(t *testing.T) {
 	s := schema.Schema{
 		Tags: []schema.Tag{
@@ -75,12 +106,40 @@ func TestFilterPushesAllowWriteAndHeartbeatProtection(t *testing.T) {
 		"OsServiceHeartbeat": {},
 		"OsServiceFault":     {},
 	}
-	out := filterPushes(changes, allow, s, false, true)
+	out, skipped := filterPushes(changes, allow, s, false, true, false)
+	if len(skipped) != 1 || skipped[0] != "OsServiceHeartbeat" {
+		t.Fatalf("unexpected skipped heartbeat list: %+v", skipped)
+	}
 	if len(out) != 1 || out[0].Name != "OsServiceFault" {
 		t.Fatalf("unexpected filtered push list: %+v", out)
 	}
-	out = filterPushes(changes, allow, s, true, true)
+	out, skipped = filterPushes(changes, allow, s, true, true, false)
+	if len(skipped) != 0 {
+		t.Fatalf("did not expect skipped heartbeat when take-heartbeat is set")
+	}
 	if len(out) != 2 {
 		t.Fatalf("expected both writes with --take-heartbeat, got %+v", out)
+	}
+}
+
+func TestFilterPushesWriteAllSkipsHeartbeatByDefault(t *testing.T) {
+	s := schema.Schema{
+		Tags: []schema.Tag{
+			{Name: "OsServiceHeartbeat", Role: "heartbeat"},
+			{Name: "OsServiceFault"},
+			{Name: "MillSpeed"},
+		},
+	}
+	changes := []sim.Change{
+		{Name: "OsServiceHeartbeat", Value: true},
+		{Name: "OsServiceFault", Value: true},
+		{Name: "MillSpeed", Value: 10.0},
+	}
+	out, skipped := filterPushes(changes, nil, s, false, true, true)
+	if len(out) != 2 {
+		t.Fatalf("expected non-heartbeat changes to pass with write-all, got %+v", out)
+	}
+	if len(skipped) != 1 || skipped[0] != "OsServiceHeartbeat" {
+		t.Fatalf("expected heartbeat skip warning target, got %+v", skipped)
 	}
 }

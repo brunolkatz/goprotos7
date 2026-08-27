@@ -305,6 +305,8 @@ func (r *Runner) evalPrimary(p *simlang.Primary) (any, error) {
 		return simlang.ParseNumber(*p.Float)
 	case p.Duration != nil:
 		return parseDuration(*p.Duration)
+	case p.StringLit != nil:
+		return simlang.ParseStringLiteral(*p.StringLit)
 	case p.Ident != nil:
 		v, ok := r.Img.Get(*p.Ident)
 		if !ok {

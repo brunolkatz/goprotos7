@@ -47,7 +47,11 @@ func NewPLCSink(client *plc.Client, sch schema.Schema, prog *simlang.Program, im
 		}
 		spec, err := decode.ResolveSchemaType(t.Type, a)
 		if err != nil {
-			return nil, err
+			if strings.EqualFold(strings.TrimSpace(t.Type), "STRING") {
+				spec = decode.TypeSpec{Name: "STRING", StringLen: 254, SizeBytes: 256}
+			} else {
+				return nil, err
+			}
 		}
 		byName[t.Name] = plcTag{
 			Name:  t.Name,
@@ -129,6 +133,18 @@ func (s *PLCSink) Push(ctx context.Context, changed []Change) error {
 		payload, err := decode.EncodeRaw(t.Spec, t.Order, value)
 		if err != nil {
 			return err
+		}
+		if t.Spec.Name == "STRING" && t.Spec.StringLen > 0 {
+			want := t.Spec.StringLen + 2
+			if len(payload) != want {
+				full := make([]byte, want)
+				copy(full, payload)
+				full[0] = byte(t.Spec.StringLen)
+				if len(payload) > 1 {
+					full[1] = payload[1]
+				}
+				payload = full
+			}
 		}
 		if err := s.client.WriteDB(t.Addr.DB, t.Addr.Byte, payload); err != nil {
 			return err

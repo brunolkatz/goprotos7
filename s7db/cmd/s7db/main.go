@@ -194,8 +194,9 @@ type SimCmd struct {
 	Slot       *int   `help:"PLC slot (default 1)."`
 	Port       *int   `help:"PLC port (default 102)."`
 	ReadOnly   bool   `help:"With --plc: pull only, do not push writes."`
-	Write      bool   `help:"With --plc: enable pushes (requires --allow-write)."`
+	Write      bool   `help:"With --plc: enable pushes (requires --allow-write or --write-all)."`
 	AllowWrite string `help:"Comma-separated writable tag names whitelist."`
+	WriteAll   bool   `help:"With --plc --write: allow every schema tag except heartbeat (unless --take-heartbeat)."`
 	TakeHB     bool   `name:"take-heartbeat" help:"Allow writes to tags with role=heartbeat."`
 	Reconnect  bool   `help:"Reconnect on pull/push errors."`
 }
@@ -804,6 +805,9 @@ func (c *CompileCmd) Run(app *App) error {
 		}
 		return usagef("compile failed")
 	}
+	for _, d := range prog.Warnings {
+		fmt.Fprintln(os.Stderr, d.String())
+	}
 	fmt.Fprintf(os.Stdout, "ok: %d statements\n", prog.Statements)
 	return nil
 }
@@ -824,8 +828,17 @@ func (c *SimCmd) Run(app *App) error {
 		}
 		return usagef("compile failed")
 	}
-	if c.PLC && c.Write && strings.TrimSpace(c.AllowWrite) == "" {
-		return usagef("sim: --plc --write requires --allow-write")
+	for _, d := range prog.Warnings {
+		fmt.Fprintln(os.Stderr, d.String())
+	}
+	if c.WriteAll && (!c.PLC || !c.Write) {
+		return usagef("sim: --write-all requires --plc --write")
+	}
+	if c.WriteAll && strings.TrimSpace(c.AllowWrite) != "" {
+		return usagef("sim: --write-all cannot be combined with --allow-write")
+	}
+	if c.PLC && c.Write && strings.TrimSpace(c.AllowWrite) == "" && !c.WriteAll {
+		return usagef("sim: --plc --write requires --allow-write or --write-all")
 	}
 	if c.Once {
 		c.Cycles = 1
@@ -917,7 +930,15 @@ func (c *SimCmd) Run(app *App) error {
 		if err != nil {
 			return fmt.Errorf("sim cycle %d runtime error: %w", cycle+1, err)
 		}
-		pushes := filterPushes(changes, allowWrite, s, c.TakeHB, pushEnabled)
+		pushes, skippedHB := filterPushes(changes, allowWrite, s, c.TakeHB, pushEnabled, c.WriteAll)
+		for _, name := range skippedHB {
+			fmt.Fprintf(os.Stderr, "warning: skipped heartbeat write to %s (use --take-heartbeat to allow)\n", name)
+		}
+		for _, ch := range changes {
+			if img.ConsumeStringTruncated(ch.Name) {
+				fmt.Fprintf(os.Stderr, "warning: truncated string write for %s to max length\n", ch.Name)
+			}
+		}
 		if pushEnabled && len(pushes) > 0 {
 			if err := sink.Push(sigCtx, pushes); err != nil {
 				if c.Reconnect && plcSink != nil {
@@ -1568,9 +1589,9 @@ func loadSeed(img *sim.Image, path string) error {
 	return nil
 }
 
-func filterPushes(changes []sim.Change, allow map[string]struct{}, s schema.Schema, takeHB bool, enable bool) []sim.Change {
+func filterPushes(changes []sim.Change, allow map[string]struct{}, s schema.Schema, takeHB bool, enable bool, writeAll bool) ([]sim.Change, []string) {
 	if !enable {
-		return nil
+		return nil, nil
 	}
 	roles := map[string]string{}
 	for _, t := range s.Tags {
@@ -1580,16 +1601,24 @@ func filterPushes(changes []sim.Change, allow map[string]struct{}, s schema.Sche
 		roles[t.Name] = strings.ToLower(strings.TrimSpace(t.Role))
 	}
 	out := make([]sim.Change, 0, len(changes))
+	skippedHB := make([]string, 0)
+	warnedHB := map[string]struct{}{}
 	for _, c := range changes {
-		if _, ok := allow[c.Name]; !ok {
-			continue
+		if !writeAll {
+			if _, ok := allow[c.Name]; !ok {
+				continue
+			}
 		}
 		if roles[c.Name] == "heartbeat" && !takeHB {
+			if _, seen := warnedHB[c.Name]; !seen {
+				warnedHB[c.Name] = struct{}{}
+				skippedHB = append(skippedHB, c.Name)
+			}
 			continue
 		}
 		out = append(out, c)
 	}
-	return out
+	return out, skippedHB
 }
 
 func printTrace(w io.Writer, format string, cycle int, changes []sim.Change, watch map[string]struct{}) {

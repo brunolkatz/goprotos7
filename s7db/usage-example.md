@@ -285,3 +285,9 @@ Run with controlled writes (allowlist):
 ```bash
 s7db -f s7db.yml sim gateway.sim --plc --write --allow-write MillSpeedCommand,PumpSpeedCommand --addr 192.168.0.10
 ```
+
+Run with `--write-all` (every assigned schema tag except heartbeat unless `--take-heartbeat`):
+
+```bash
+s7db -f s7db.yml sim gateway.sim --plc --write --write-all --addr 192.168.0.10 --dry-run
+```

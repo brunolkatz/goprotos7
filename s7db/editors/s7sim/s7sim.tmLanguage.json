@@ -1,0 +1,170 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "s7sim",
+  "scopeName": "source.s7sim",
+  "fileTypes": ["sim"],
+  "firstLineMatch": "^\\s*tick\\b",
+  "patterns": [
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#time"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#boolean"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#builtin"
+    },
+    {
+      "include": "#identifier"
+    }
+  ],
+  "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.s7sim",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "invalid.illegal.unterminated-string.s7sim",
+          "match": "\"(?:[^\"\\\\\\n]|\\\\[\"\\\\nt])*$"
+        },
+        {
+          "name": "string.quoted.double.s7sim",
+          "match": "\"(?:[^\"\\\\\\n]|\\\\[\"\\\\nt])*\""
+        },
+        {
+          "name": "constant.character.escape.s7sim",
+          "match": "\\\\[\"\\\\nt]"
+        },
+        {
+          "name": "invalid.illegal.escape.s7sim",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "time": {
+      "patterns": [
+        {
+          "name": "constant.numeric.time.s7sim",
+          "match": "\\b(T#)?([0-9]+)(ms|s|m|h)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.operator.time-prefix.s7sim"
+            },
+            "2": {
+              "name": "constant.numeric.integer.s7sim"
+            },
+            "3": {
+              "name": "constant.numeric.time.unit.s7sim"
+            }
+          }
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.s7sim",
+          "match": "\\b(BOOL|INT|DINT|UINT|WORD|DWORD|REAL|TIME)\\b"
+        },
+        {
+          "name": "storage.type.s7sim",
+          "match": "\\b(STRING)\\b\\s*(\\[)\\s*([0-9]+)\\s*(\\])",
+          "captures": {
+            "1": {
+              "name": "storage.type.s7sim"
+            },
+            "2": {
+              "name": "punctuation.definition.brackets.begin.s7sim"
+            },
+            "3": {
+              "name": "constant.numeric.integer.s7sim"
+            },
+            "4": {
+              "name": "punctuation.definition.brackets.end.s7sim"
+            }
+          }
+        },
+        {
+          "name": "storage.type.s7sim",
+          "match": "\\bSTRING\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.s7sim",
+          "match": "\\b(tick|var|if|then|else|end|on|do|and|or|rising|falling)\\b"
+        }
+      ]
+    },
+    "boolean": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.s7sim",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.s7sim",
+          "match": "\\b[0-9]+\\.[0-9]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.s7sim",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.s7sim",
+          "match": ":=|==|!=|>=|<=|>|<|\\+|-|\\*|/|\\(|\\)|\\[|\\]"
+        }
+      ]
+    },
+    "builtin": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.s7sim",
+          "match": "\\btick\\b(?!(\\s+[0-9]+\\s*(ms|s|m|h)\\b)|(\\s+T#[0-9]+\\s*(ms|s|m|h)\\b))"
+        }
+      ]
+    },
+    "identifier": {
+      "patterns": [
+        {
+          "name": "variable.other.s7sim",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

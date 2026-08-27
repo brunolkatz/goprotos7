@@ -15,10 +15,11 @@ type TickStmt struct {
 }
 
 type VarDecl struct {
-	Pos  lexer.Position `parser:""`
-	Name string         `"var" @Ident`
-	Type string         `":" @Ident`
-	Init *Expr          `( ":=" @@ )?`
+	Pos     lexer.Position `parser:""`
+	Name    string         `"var" @Ident`
+	Type    string         `":" @Ident`
+	TypeLen *string        `( "[" @Int "]" )?`
+	Init    *Expr          `( ":=" @@ )?`
 }
 
 type Stmt struct {
@@ -126,11 +127,12 @@ type UnaryExpr struct {
 }
 
 type Primary struct {
-	Pos      lexer.Position `parser:""`
-	BoolLit  *string        `  @( "true" | "false" )`
-	Duration *string        `| @Duration`
-	Float    *string        `| @Float`
-	Int      *string        `| @Int`
-	Ident    *string        `| @Ident`
-	SubExpr  *Expr          `| "(" @@ ")"`
+	Pos       lexer.Position `parser:""`
+	BoolLit   *string        `  @( "true" | "false" )`
+	Duration  *string        `| @Duration`
+	StringLit *string        `| @String`
+	Float     *string        `| @Float`
+	Int       *string        `| @Int`
+	Ident     *string        `| @Ident`
+	SubExpr   *Expr          `| "(" @@ ")"`
 }

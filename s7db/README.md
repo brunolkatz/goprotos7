@@ -305,6 +305,12 @@ Run with controlled write allowlist (dry-run):
 s7db sim machine.sim --plc --write --allow-write OsServiceFault --dry-run --addr 192.168.0.10
 ```
 
+Run with write-all (all assigned schema tags except heartbeat):
+
+```bash
+s7db sim machine.sim --plc --write --write-all --dry-run --addr 192.168.0.10
+```
+
 Allow heartbeat writes explicitly:
 
 ```bash
@@ -331,9 +337,27 @@ else
 end
 ```
 
+STRING example:
+
+```text
+tick 100ms
+var Msg : STRING[20] := "ok"
+if OsServiceFault then
+  Msg := "os fault"
+  StatusText := Msg
+end
+```
+
+S7 STRING wire format used on PLC push/pull:
+- byte 0 = max length
+- byte 1 = actual length
+- byte 2.. = payload bytes
+- push writes full `2+maxLen` bytes
+
 Notes:
 - This is an external tick task, not PLC CPU logic.
-- `--plc --write` requires `--allow-write`.
+- `--plc --write` requires either `--allow-write ...` or `--write-all`.
+- `--write-all` and `--allow-write` are mutually exclusive.
 - Heartbeat tags are not pushed unless `--take-heartbeat`.
 
 ## Config file

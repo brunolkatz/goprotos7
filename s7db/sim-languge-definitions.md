@@ -84,8 +84,7 @@ Supported variable/tag types for script typing:
 - `INT` / integer-family tags (`INT`, `DINT`, `UINT`, `WORD`, `DWORD`)
 - `REAL`
 - `TIME`
-
-`STRING` tags may be read, but **writes are not supported in v1**.
+- `STRING[n]` (n must be `1..254`)
 
 ---
 
@@ -96,6 +95,7 @@ Declare local variables with `var`:
 ```text
 var fault_timer : TIME := T#0s
 var retries : INT := 0
+var title : STRING[20] := "idle"
 ```
 
 Variables and schema tag names share one namespace (avoid duplicates).
@@ -166,6 +166,9 @@ end
 
 - `+`, `-`, `*`, `/`
 
+For `STRING`, only `==` and `!=` are supported in v1.
+`+` concatenation and ordering (`<`, `>`, etc.) are compile errors.
+
 ### Parentheses
 
 ```text
@@ -200,6 +203,7 @@ PLC mode (`--plc`):
 - Assignments must match target type
 - Numeric mix is allowed where sensible (`INT` with `REAL` becomes real math)
 - `TIME` math supports `+` / `-` with `TIME`
+- `STRING[n]` assignment accepts literals and other strings; values longer than `n` are truncated
 - Division by zero is runtime error (simulation stops)
 
 ---
@@ -223,13 +227,21 @@ cannot assign REAL to BOOL
 
 Fix: write a BOOL expression/constant (`true`/`false`) to BOOL targets.
 
-### STRING write in v1
+### Invalid STRING declaration
 
 ```text
-STRING writes not supported in v1
+type error: STRING requires a max length
+hint: use STRING[20] (1..254)
 ```
 
-Fix: remove assignment to STRING target or handle text outside script.
+Fix: declare `STRING[n]` explicitly.
+
+### STRING concatenation
+
+```text
+type error: string concatenation not supported
+hint: assign a full literal
+```
 
 ---
 
@@ -302,9 +314,14 @@ Run with controlled writes:
 s7db -f s7db.yml sim machine.sim --plc --write --allow-write MillSpeedCommand,PumpSpeedCommand --addr 192.168.0.10
 ```
 
+Run with write-all:
+
+```bash
+s7db -f s7db.yml sim machine.sim --plc --write --write-all --addr 192.168.0.10
+```
+
 Allow heartbeat writes explicitly:
 
 ```bash
 s7db -f s7db.yml sim machine.sim --plc --write --allow-write Heartbeat --take-heartbeat --addr 192.168.0.10
 ```
-
