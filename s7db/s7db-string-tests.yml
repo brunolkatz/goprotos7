@@ -1,0 +1,13 @@
+# $schema: ./s7db-yaml-schema/s7db.schema.yaml
+version: 1
+db: 300
+name: GatewayControl
+optimized: false
+endian: big
+size: auto
+tags:
+  - addr: DB300.S6.254
+    name: WarningMessage
+    type: STRING
+    init: "WarningMessage"
+    desc: Warning message

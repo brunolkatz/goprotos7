@@ -1,0 +1,73 @@
+# $schema: ./s7db-yaml-schema/s7db.schema.yaml
+version: 1
+db: 301
+name: GatewayFeedback
+optimized: false
+endian: big
+size: auto
+tags:
+  - addr: DB301.DBX0.0
+    name: PopupYes
+    type: BOOL
+    init: false
+    desc: Popup Yes
+  - addr: DB301.DBX0.1
+    name: PopupNo
+    type: BOOL
+    init: false
+    desc: Popup No
+  - addr: DB301.DBX0.2
+    name: PopupOK
+    type: BOOL
+    init: false
+    desc: Popup OK
+  - addr: DB301.DBW2
+    name: MachineMode
+    type: INT
+    init: 0
+    desc: Machine mode (BeadBox, Grinding, Cleaning)
+  - addr: DB301.DBW4
+    name: FeedingPumpState
+    type: INT
+    init: 0
+    desc: Feeding pump state (Idle, Running, Alarm)
+  - addr: DB301.DBW6
+    name: MillState
+    type: INT
+    init: 0
+    desc: Mill state (Idle, Running, Alarm)
+  - addr: DB301.DBW8
+    name: IrisLanguage
+    type: INT
+    init: 0
+    desc: IRIS Language
+  - addr: DB301.S100
+    name: UserType
+    type: WSTRING
+    init: ""
+    desc: user type (enable the settings)
+  - addr: DB301.DBD2148
+    name: CurrentPumpSpeed
+    type: REAL
+    init: 0.0
+    desc: Current Pump speed (rpm)
+  - addr: DB301.DBD2152
+    name: CurrentMillSpeed
+    type: REAL
+    init: 0.0
+    desc: Current Mill speed (m/s)
+  - addr: DB301.DBD2156
+    name: CurrentMillPower
+    type: REAL
+    init: 0.0
+    desc: Current Mill Power (kW)
+  - addr: DB301.DBD2160
+    name: CurrentOutletTemperature
+    type: REAL
+    init: 0.0
+    desc: Current Outlet Temperature (°C)
+  - addr: DB301.DBD2164
+    name: NetBeadTotalVolume
+    type: REAL
+    init: 0.0
+    desc: Net Bead total volume

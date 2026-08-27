@@ -1,0 +1,31 @@
+{
+  "name": "s7sim-textmate",
+  "displayName": "s7sim TextMate Grammar",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "s7sim",
+        "aliases": [
+          "s7sim"
+        ],
+        "extensions": [
+          ".sim"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "s7sim",
+        "scopeName": "source.s7sim",
+        "path": "./s7sim.tmLanguage.json"
+      }
+    ]
+  }
+}

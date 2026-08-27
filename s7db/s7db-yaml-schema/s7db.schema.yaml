@@ -1,0 +1,264 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://example.com/schemas/s7db.schema.yaml"
+title: "s7db Schema"
+description: "Schema for s7db.yml Siemens S7 DB definitions."
+type: object
+additionalProperties: false
+required:
+  - version
+  - db
+  - endian
+  - size
+  - tags
+properties:
+  version:
+    type: integer
+    minimum: 1
+    default: 1
+    description: "Schema version."
+  db:
+    type: integer
+    minimum: 0
+    description: "Data block number."
+  name:
+    type: string
+    description: "Symbolic DB name."
+  optimized:
+    type: boolean
+    default: false
+    description: "Optimized DB layout flag."
+  endian:
+    type: string
+    enum: [big, little]
+    default: big
+    description: "Endianness for multi-byte numeric values."
+  size:
+    description: "Final DB size in bytes or auto-computed."
+    oneOf:
+      - type: string
+        const: auto
+      - type: integer
+        minimum: 0
+  tags:
+    type: array
+    description: "Tag definitions."
+    items:
+      $ref: "#/$defs/tag"
+
+$defs:
+  tag:
+    type: object
+    additionalProperties: false
+    required:
+      - addr
+      - type
+    properties:
+      addr:
+        type: string
+        description: "Address in full form (DB10.DBW2) or short form (W2)."
+        pattern: "^(?:DB\\d+\\.DB(?:X\\d+\\.[0-7]|B\\d+|W\\d+|D\\d+)|(?:X\\d+\\.[0-7]|B\\d+|W\\d+|D\\d+))$"
+        examples:
+          - DB10.DBX0.0
+          - DB10.DBB1
+          - DB10.DBW2
+          - DB10.DBD4
+          - X0.0
+          - B1
+          - W2
+          - D4
+      name:
+        type: string
+        description: "Tag symbolic name."
+      type:
+        type: string
+        description: "Siemens data type."
+        oneOf:
+          - enum:
+              - BOOL
+              - BYTE
+              - CHAR
+              - SINT
+              - USINT
+              - INT
+              - UINT
+              - WORD
+              - DINT
+              - UDINT
+              - DWORD
+              - REAL
+              - TIME
+              - STRING
+          - pattern: "^STRING\\[(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4])\\]$"
+      role:
+        type: string
+        description: "Special semantic role for tag."
+        enum: ["", heartbeat]
+      heartbeat:
+        type: object
+        additionalProperties: false
+        description: "Heartbeat policy metadata (layout-neutral)."
+        properties:
+          interval:
+            type: string
+            default: 1s
+            pattern: "^[0-9]+(?:ns|us|µs|ms|s|m|h)$"
+          timeout:
+            type: string
+            default: 5s
+            pattern: "^[0-9]+(?:ns|us|µs|ms|s|m|h)$"
+          polarity:
+            type: string
+            enum: [set-true, toggle]
+            default: set-true
+      init:
+        description: "Initial value, constrained by the selected `type`."
+        oneOf:
+          - type: boolean
+          - type: integer
+          - type: number
+          - type: string
+      desc:
+        type: string
+        description: "Human-readable description."
+    allOf:
+      - if:
+          properties:
+            heartbeat: {}
+          required: [heartbeat]
+        then:
+          properties:
+            role:
+              const: heartbeat
+      - if:
+          properties:
+            role:
+              const: heartbeat
+          required: [role]
+        then:
+          properties:
+            type:
+              const: BOOL
+            heartbeat:
+              type: object
+              additionalProperties: false
+              properties:
+                interval:
+                  type: string
+                timeout:
+                  type: string
+                polarity:
+                  type: string
+                  enum: [set-true, toggle]
+      - if:
+          properties:
+            type:
+              const: BOOL
+          required: [type]
+        then:
+          properties:
+            init:
+              type: boolean
+      - if:
+          properties:
+            type:
+              enum: [BYTE, USINT]
+          required: [type]
+        then:
+          properties:
+            init:
+              type: integer
+              minimum: 0
+              maximum: 255
+      - if:
+          properties:
+            type:
+              const: CHAR
+          required: [type]
+        then:
+          properties:
+            init:
+              type: string
+              minLength: 1
+              maxLength: 1
+      - if:
+          properties:
+            type:
+              const: SINT
+          required: [type]
+        then:
+          properties:
+            init:
+              type: integer
+              minimum: -128
+              maximum: 127
+      - if:
+          properties:
+            type:
+              enum: [INT]
+          required: [type]
+        then:
+          properties:
+            init:
+              type: integer
+              minimum: -32768
+              maximum: 32767
+      - if:
+          properties:
+            type:
+              enum: [UINT, WORD]
+          required: [type]
+        then:
+          properties:
+            init:
+              type: integer
+              minimum: 0
+              maximum: 65535
+      - if:
+          properties:
+            type:
+              enum: [DINT]
+          required: [type]
+        then:
+          properties:
+            init:
+              type: integer
+              minimum: -2147483648
+              maximum: 2147483647
+      - if:
+          properties:
+            type:
+              enum: [UDINT, DWORD]
+          required: [type]
+        then:
+          properties:
+            init:
+              type: integer
+              minimum: 0
+              maximum: 4294967295
+      - if:
+          properties:
+            type:
+              const: REAL
+          required: [type]
+        then:
+          properties:
+            init:
+              type: number
+      - if:
+          properties:
+            type:
+              const: TIME
+          required: [type]
+        then:
+          properties:
+            init:
+              type: integer
+      - if:
+          properties:
+            type:
+              pattern: "^STRING\\[(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4])\\]$"
+          required: [type]
+        then:
+          properties:
+            init:
+              type: string
