@@ -46,18 +46,11 @@ Run:
 
 The service will start listening on port `102` by default, which is the standard port for S7 communication.
 
-## DbTools
+## s7db
 
-Used to create and maintain the database blocks used by goprotos7. Will create the bin file using the "db_variables" table from the SQLite database.
+`s7db` is the current CLI for managing S7 DB schemas, packing/unpacking DB binaries, watching PLC values, heartbeat handling, and running `s7sim` scripts.
 
-| Env                       | Default Value | Description                                                                            |
-|---------------------------|---------------|----------------------------------------------------------------------------------------|
-| `--qlite-path` or `-s`    | ``            | Store the default path for the SQLite database file. If empty, the `pwd` will be used. |
-| `--db-bin-path` or `-b`   | ``            | Store the database BIN files path                                                      |
-| `--flags.enable-webadmin` | `false`       | If `true` will enable the dbtools "frontend"                                           |
-| `--log-level.sqlite`      | `SILENCE`     | Define the SQLite log level                                                            |
-
-![dbtools_dashboard.png](./.docs/dbtools_dashboard.png)
+For more information, see: [./s7db/README.md](./s7db/README.md)
 
 ## Docs
 
