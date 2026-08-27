@@ -26,6 +26,7 @@ import (
 	"github.com/brunolkatz/goprotos7/s7db/internal/pack"
 	"github.com/brunolkatz/goprotos7/s7db/internal/plc"
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
+	"github.com/brunolkatz/goprotos7/s7db/internal/server"
 	"github.com/brunolkatz/goprotos7/s7db/internal/version"
 	"gopkg.in/yaml.v3"
 )
@@ -57,6 +58,7 @@ type CLI struct {
 	Info      InfoCmd      `cmd:"" help:"Print schema summary."`
 	Watch     WatchCmd     `cmd:"" help:"Watch live PLC values (raw bytes + typed decode)."`
 	Heartbeat HeartbeatCmd `cmd:"" help:"Write a PLC heartbeat bit from OS service."`
+	Serve     ServeCmd     `cmd:"" help:"Serve SCADA HMI and WebSocket API."`
 }
 
 type InitLikeFlags struct {
@@ -152,6 +154,19 @@ type HeartbeatCmd struct {
 	JSON             bool   `help:"Emit NDJSON events on stdout."`
 	Reconnect        bool   `help:"Auto reconnect with exponential backoff."`
 	Ref              string `arg:"" optional:"" name:"addr-or-name" help:"Heartbeat target address or tag name."`
+}
+
+type ServeCmd struct {
+	Listen    string `default:"127.0.0.1:8080" help:"Listen address host:port."`
+	Token     string `help:"Bearer token for write operations."`
+	ReadOnly  bool   `help:"Disable all write operations."`
+	Interval  string `short:"i" default:"200ms" help:"PLC polling interval for WS updates."`
+	Addr      string `name:"addr" aliases:"ip" help:"PLC host/IP."`
+	Rack      *int   `help:"PLC rack (default 0)."`
+	Slot      *int   `help:"PLC slot (default 1)."`
+	Port      *int   `help:"PLC port (default 102)."`
+	Heartbeat bool   `help:"Run embedded heartbeat loop for role=heartbeat tag."`
+	NoOpen    bool   `help:"Do not print listen URL."`
 }
 
 type App struct {
@@ -599,6 +614,7 @@ func (c *HeartbeatCmd) Run(app *App) error {
 	if err != nil {
 		return usagef("heartbeat: %v", err)
 	}
+
 	if !strings.EqualFold(target.Tag.Type, "BOOL") {
 		if app.CLI.Strict && !app.CLI.Force {
 			return usagef("heartbeat: tag %s must be BOOL", target.Address.Canonical())
@@ -689,6 +705,55 @@ func (c *HeartbeatCmd) Run(app *App) error {
 		Now:          app.Now,
 		Out:          os.Stdout,
 		Err:          os.Stderr,
+	})
+}
+
+func (c *ServeCmd) Run(app *App) error {
+	s, err := schema.Load(app.CLI.File, app.CLI.DB)
+	if err != nil {
+		return err
+	}
+	diags, err := schema.Validate(s, app.CLI.Strict)
+	if err != nil {
+		return usagef("serve: %s", err.Error())
+	}
+	for _, d := range diags {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", d.Level, d.Message)
+	}
+
+	interval, err := time.ParseDuration(c.Interval)
+	if err != nil {
+		return usagef("serve: invalid interval %q", c.Interval)
+	}
+	addr := c.Addr
+	if addr == "" {
+		addr = app.Config.PLC.Addr
+	}
+	if addr == "" {
+		return usagef("serve: --addr is required")
+	}
+	rack := valueIntPtrDefault(0, c.Rack, app.Config.PLC.Rack)
+	slot := valueIntPtrDefault(1, c.Slot, app.Config.PLC.Slot)
+	port := valueIntPtrDefault(102, c.Port, app.Config.PLC.Port)
+
+	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	return server.Run(sigCtx, s, server.Config{
+		Listen:    c.Listen,
+		Token:     c.Token,
+		ReadOnly:  c.ReadOnly,
+		Interval:  interval,
+		Addr:      addr,
+		Rack:      rack,
+		Slot:      slot,
+		Port:      port,
+		Heartbeat: c.Heartbeat,
+		NoOpen:    c.NoOpen,
+		Force:     app.CLI.Force,
+		Timeout:   app.Timeout,
+		Now:       app.Now,
+		Out:       os.Stdout,
+		Err:       os.Stderr,
 	})
 }
 

@@ -10,8 +10,12 @@ import (
 
 func TestDecodeBoolBits(t *testing.T) {
 	raw := []byte{0b10100101}
+	spec, err := decode.ResolveSchemaType("BOOL", address.Address{})
+	if err != nil {
+		t.Fatalf("resolve type failed: %v", err)
+	}
 	for bit := 0; bit < 8; bit++ {
-		got, _, err := decode.Decode("BOOL", binary.BigEndian, raw, bit)
+		got, err := decode.DecodeRaw(spec, binary.BigEndian, raw, bit)
 		if err != nil {
 			t.Fatalf("bit %d: %v", bit, err)
 		}
@@ -23,7 +27,11 @@ func TestDecodeBoolBits(t *testing.T) {
 }
 
 func TestDecodeByte(t *testing.T) {
-	got, _, err := decode.Decode("BYTE", binary.BigEndian, []byte{0xFA}, 0)
+	spec, err := decode.ResolveSchemaType("BYTE", address.Address{})
+	if err != nil {
+		t.Fatalf("resolve type failed: %v", err)
+	}
+	got, err := decode.DecodeRaw(spec, binary.BigEndian, []byte{0xFA}, 0)
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}
@@ -33,7 +41,11 @@ func TestDecodeByte(t *testing.T) {
 }
 
 func TestDecodeWordBigEndian(t *testing.T) {
-	got, _, err := decode.Decode("WORD", binary.BigEndian, []byte{0x12, 0x34}, 0)
+	spec, err := decode.ResolveSchemaType("WORD", address.Address{})
+	if err != nil {
+		t.Fatalf("resolve type failed: %v", err)
+	}
+	got, err := decode.DecodeRaw(spec, binary.BigEndian, []byte{0x12, 0x34}, 0)
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}
@@ -43,7 +55,11 @@ func TestDecodeWordBigEndian(t *testing.T) {
 }
 
 func TestDecodeDWord(t *testing.T) {
-	got, _, err := decode.Decode("DWORD", binary.BigEndian, []byte{0x41, 0x48, 0x00, 0x00}, 0)
+	spec, err := decode.ResolveSchemaType("DWORD", address.Address{})
+	if err != nil {
+		t.Fatalf("resolve type failed: %v", err)
+	}
+	got, err := decode.DecodeRaw(spec, binary.BigEndian, []byte{0x41, 0x48, 0x00, 0x00}, 0)
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}
@@ -53,7 +69,11 @@ func TestDecodeDWord(t *testing.T) {
 }
 
 func TestDecodeReal(t *testing.T) {
-	got, _, err := decode.Decode("REAL", binary.BigEndian, []byte{0x41, 0x48, 0x00, 0x00}, 0)
+	spec, err := decode.ResolveSchemaType("REAL", address.Address{})
+	if err != nil {
+		t.Fatalf("resolve type failed: %v", err)
+	}
+	got, err := decode.DecodeRaw(spec, binary.BigEndian, []byte{0x41, 0x48, 0x00, 0x00}, 0)
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}
@@ -63,7 +83,11 @@ func TestDecodeReal(t *testing.T) {
 }
 
 func TestDecodeString(t *testing.T) {
-	got, _, err := decode.Decode("STRING[8]", binary.BigEndian, []byte{8, 5, 'H', 'e', 'l', 'l', 'o', 0, 0, 0}, 0)
+	spec, err := decode.ResolveSchemaType("STRING[8]", address.Address{})
+	if err != nil {
+		t.Fatalf("resolve type failed: %v", err)
+	}
+	got, err := decode.DecodeRaw(spec, binary.BigEndian, []byte{8, 5, 'H', 'e', 'l', 'l', 'o', 0, 0, 0}, 0)
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}

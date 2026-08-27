@@ -76,6 +76,16 @@ func (c *Client) ReadDB(db, start, size int) ([]byte, error) {
 	return buf, nil
 }
 
+func (c *Client) WriteDB(db, start int, data []byte) error {
+	if c.client == nil {
+		return fmt.Errorf("not connected")
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	return c.client.AGWriteDB(db, start, len(data), data)
+}
+
 func (c *Client) Read(address string, size int) (any, error) {
 	if c.client == nil {
 		return nil, fmt.Errorf("not connected")

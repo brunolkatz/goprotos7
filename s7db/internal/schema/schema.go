@@ -55,12 +55,26 @@ type Tag struct {
 	Desc      string         `yaml:"desc,omitempty" json:"desc,omitempty"`
 	Role      string         `yaml:"role,omitempty" json:"role,omitempty"`
 	Heartbeat *HeartbeatSpec `yaml:"heartbeat,omitempty" json:"heartbeat,omitempty"`
+	UI        *TagUI         `yaml:"ui,omitempty" json:"ui,omitempty"`
 }
 
 type HeartbeatSpec struct {
 	Interval string `yaml:"interval,omitempty" json:"interval,omitempty"`
 	Timeout  string `yaml:"timeout,omitempty" json:"timeout,omitempty"`
 	Polarity string `yaml:"polarity,omitempty" json:"polarity,omitempty"`
+}
+
+type TagUI struct {
+	Widget   string   `yaml:"widget,omitempty" json:"widget,omitempty"`
+	Mode     string   `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Group    string   `yaml:"group,omitempty" json:"group,omitempty"`
+	Color    string   `yaml:"color,omitempty" json:"color,omitempty"`
+	Confirm  bool     `yaml:"confirm,omitempty" json:"confirm,omitempty"`
+	Readonly bool     `yaml:"readonly,omitempty" json:"readonly,omitempty"`
+	Min      *float64 `yaml:"min,omitempty" json:"min,omitempty"`
+	Max      *float64 `yaml:"max,omitempty" json:"max,omitempty"`
+	Step     *float64 `yaml:"step,omitempty" json:"step,omitempty"`
+	Unit     string   `yaml:"unit,omitempty" json:"unit,omitempty"`
 }
 
 type Diagnostic struct {
@@ -151,6 +165,13 @@ func (s *Schema) Normalize(defaultDB *int) error {
 		}
 		if s.Tags[i].Heartbeat != nil {
 			s.Tags[i].Heartbeat.Polarity = strings.ToLower(strings.TrimSpace(s.Tags[i].Heartbeat.Polarity))
+		}
+		if s.Tags[i].UI != nil {
+			s.Tags[i].UI.Widget = strings.ToLower(strings.TrimSpace(s.Tags[i].UI.Widget))
+			s.Tags[i].UI.Mode = strings.ToLower(strings.TrimSpace(s.Tags[i].UI.Mode))
+			s.Tags[i].UI.Group = strings.TrimSpace(s.Tags[i].UI.Group)
+			s.Tags[i].UI.Color = strings.ToLower(strings.TrimSpace(s.Tags[i].UI.Color))
+			s.Tags[i].UI.Unit = strings.TrimSpace(s.Tags[i].UI.Unit)
 		}
 	}
 	return nil
@@ -310,6 +331,14 @@ func Validate(s Schema, strict bool) ([]Diagnostic, error) {
 				return nil, fmt.Errorf("%s", msg)
 			}
 			diags = append(diags, Diagnostic{Level: "warning", Message: msg})
+		}
+		if t.UI != nil {
+			if t.UI.Min != nil && t.UI.Max != nil && *t.UI.Min > *t.UI.Max {
+				return nil, fmt.Errorf("tag %s ui.min (%v) must be <= ui.max (%v)", t.Addr, *t.UI.Min, *t.UI.Max)
+			}
+			if t.UI.Step != nil && *t.UI.Step <= 0 {
+				return nil, fmt.Errorf("tag %s ui.step (%v) must be > 0", t.Addr, *t.UI.Step)
+			}
 		}
 		if t.Role != "heartbeat" {
 			continue

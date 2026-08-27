@@ -1,0 +1,242 @@
+:root {
+  --bg: #1b1f24;
+  --panel: #242a31;
+  --stroke: #3a424c;
+  --text: #d6dce3;
+  --muted: #8b95a1;
+  --run: #3ddc97;
+  --stop: #5a6270;
+  --fault: #e24b4a;
+  --command: #f0a202;
+  --radius: 3px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--stroke);
+  background: #1e2329;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.lamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  height: 28px;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  color: #0b0d10;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.lamp.run {
+  background: var(--run);
+}
+
+.lamp.stop {
+  background: var(--stop);
+  color: var(--text);
+}
+
+.lamp.fault {
+  background: var(--fault);
+}
+
+.groups {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.group {
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  border-radius: var(--radius);
+}
+
+.group h2 {
+  margin: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--stroke);
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.07em;
+}
+
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  padding: 10px;
+}
+
+.tag-card {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding: 10px;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #20262d;
+}
+
+.tag-title {
+  margin: 0;
+  font-size: 14px;
+}
+
+.widget {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.push {
+  min-width: 96px;
+  min-height: 50px;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  background: #2a3139;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.push.on {
+  background: var(--command);
+  color: #101317;
+}
+
+.status-lamp {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 2px solid var(--stroke);
+  background: var(--stop);
+}
+
+.status-lamp.on {
+  background: var(--run);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--run), #000 40%);
+}
+
+.gauge {
+  width: 36px;
+  height: 120px;
+  border: 1px solid var(--stroke);
+  background: #161a1f;
+  position: relative;
+}
+
+.gauge-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--run);
+}
+
+input[type="number"],
+input[type="range"],
+input[type="text"] {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  background: #14181d;
+  color: var(--text);
+  padding: 6px 8px;
+}
+
+.knob-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.dial {
+  width: 76px;
+  height: 76px;
+}
+
+.dial circle {
+  fill: #151a1f;
+  stroke: var(--stroke);
+}
+
+.dial line {
+  stroke: var(--command);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.meta-lines {
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.addr-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.addr-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copy-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  background: #2a3139;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.copy-btn:hover {
+  background: var(--command);
+  color: #101317;
+}

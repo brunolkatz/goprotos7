@@ -159,7 +159,35 @@ s7db watch --addr 192.168.0.10 --reconnect --vars OsServiceHeartbeat
 
 ---
 
-## 7) (Optional) Heartbeat loop (OS service)
+## 7) Serve HMI + WebSocket API
+
+Run embedded SCADA HMI (default: `127.0.0.1:8080`):
+
+```bash
+s7db serve -f s7db.yml --addr 192.168.0.10 --rack 0 --slot 1 --interval 200ms
+```
+
+Run with embedded heartbeat loop from `role: heartbeat` tag:
+
+```bash
+s7db serve -f s7db.yml --addr 192.168.0.10 --heartbeat
+```
+
+Expose non-loopback in read-only mode:
+
+```bash
+s7db serve --listen 0.0.0.0:8080 --read-only --addr 192.168.0.10
+```
+
+Expose non-loopback with write token:
+
+```bash
+s7db serve --listen 0.0.0.0:8080 --token "change-me" --addr 192.168.0.10
+```
+
+---
+
+## 8) (Optional) Heartbeat loop (OS service)
 
 If your schema has a single `role: heartbeat` tag:
 
@@ -172,4 +200,3 @@ Or target explicitly:
 ```bash
 s7db heartbeat DB300.DBX0.0 --addr 192.168.0.10 -i 1s --heartbeat-timeout 5s --mode set-true
 ```
-

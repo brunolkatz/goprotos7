@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>s7db HMI</title>
+    <link rel="stylesheet" href="/hmi.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">S7DB HMI</div>
+      <div class="meta">
+        <span id="plc-host">PLC: -</span>
+        <span id="plc-state" class="lamp stop">DOWN</span>
+        <span id="hb-state" class="lamp stop">HB</span>
+        <span id="hb-age">last beat: -</span>
+      </div>
+    </header>
+    <main id="groups" class="groups"></main>
+    <template id="tag-card-template">
+      <section class="tag-card">
+        <h3 class="tag-title"></h3>
+        <div class="widget"></div>
+        <div class="meta-lines">
+          <div class="addr-line">
+            <button type="button" class="copy-btn" title="Copy register address">⧉</button>
+            <span class="addr-text mono"></span>
+          </div>
+          <div class="value-line"></div>
+          <div class="raw-line mono"></div>
+        </div>
+      </section>
+    </template>
+    <script src="/app.js"></script>
+  </body>
+</html>

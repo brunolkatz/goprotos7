@@ -83,3 +83,104 @@ func TestHeartbeatValidationStrictVsWarning(t *testing.T) {
 		t.Fatalf("expected warnings for non-bool and interval>=timeout, got %+v", diags)
 	}
 }
+
+func TestLoadLegacySchemaWithoutUI(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "legacy.yml")
+	content := []byte(`
+version: 1
+db: 300
+endian: big
+size: auto
+tags:
+  - addr: DB300.DBW2
+    name: Setpoint
+    type: INT
+`)
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("write test schema: %v", err)
+	}
+	s, err := Load(path, nil)
+	if err != nil {
+		t.Fatalf("load legacy schema: %v", err)
+	}
+	if len(s.Tags) != 1 {
+		t.Fatalf("expected one tag, got %d", len(s.Tags))
+	}
+	if s.Tags[0].UI != nil {
+		t.Fatalf("expected nil ui for legacy schema")
+	}
+}
+
+func TestLoadUIAndValidation(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "ui.yml")
+	content := []byte(`
+version: 1
+db: 300
+endian: big
+size: auto
+tags:
+  - addr: DB300.DBX0.0
+    name: Heartbeat
+    type: BOOL
+    role: heartbeat
+    heartbeat:
+      interval: 1s
+      timeout: 5s
+      polarity: set-true
+    ui:
+      widget: status
+      group: System
+  - addr: DB300.DBD4
+    name: Level
+    type: REAL
+    ui:
+      widget: gauge
+      min: 0
+      max: 100
+      step: 0.1
+`)
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("write test schema: %v", err)
+	}
+	s, err := Load(path, nil)
+	if err != nil {
+		t.Fatalf("load schema with ui: %v", err)
+	}
+	if s.Tags[0].UI == nil || s.Tags[1].UI == nil {
+		t.Fatalf("expected ui blocks to be loaded")
+	}
+	if _, err := Validate(s, true); err != nil {
+		t.Fatalf("validate schema with ui: %v", err)
+	}
+}
+
+func TestUIValidationStepAndRange(t *testing.T) {
+	min := 10.0
+	max := 2.0
+	step := -1.0
+	s := Schema{
+		Version: 1,
+		DB:      300,
+		Endian:  "big",
+		Size:    SizeSpec{Auto: true},
+		Tags: []Tag{
+			{
+				Addr: "DB300.DBW2",
+				Type: "INT",
+				UI: &TagUI{
+					Min:  &min,
+					Max:  &max,
+					Step: &step,
+				},
+			},
+		},
+	}
+	if err := s.Normalize(&s.DB); err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	if _, err := Validate(s, true); err == nil {
+		t.Fatalf("expected ui range validation error")
+	}
+}

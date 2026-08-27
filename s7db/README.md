@@ -205,6 +205,46 @@ JSON (`--json`) keeps `values` and adds typed per-variable records:
 }
 ```
 
+### serve (HMI)
+Serve an embedded industrial HMI and WebSocket/REST API.
+
+```bash
+s7db serve -f machine.yml --addr 192.168.0.10 --heartbeat
+# open http://127.0.0.1:8080
+```
+
+Key points:
+- Static UI is embedded in the binary (`internal/server/static`) with no npm/build step.
+- Existing `watch`, `heartbeat`, and `pack` commands remain unchanged in usage.
+- Default bind is loopback (`127.0.0.1:8080`).
+- For non-loopback writes, provide `--token` (or run `--read-only`, or `--force`).
+
+YAML UI examples:
+
+```yaml
+tags:
+  - addr: DB300.DBX0.0
+    name: OsServiceHeartbeat
+    type: BOOL
+    role: heartbeat
+    heartbeat: { interval: 1s, timeout: 5s, polarity: set-true }
+    ui: { widget: status, group: System }
+  - addr: DB300.DBX0.1
+    name: ValveOpen
+    type: BOOL
+    ui: { widget: button, mode: toggle, group: Actuators }
+  - addr: DB300.DBW2
+    name: Setpoint
+    type: INT
+    ui: { widget: knob, min: 0, max: 1000, step: 1, unit: rpm, group: Process }
+```
+
+WebSocket (`/ws`) operations:
+- client → server: `sub`, `set`, `ping`
+- server → client: `snap`, `upd`, `ack`, `hb`, `pong`
+
+Client reconnect is handled in `app.js` with exponential backoff (500ms..5s).
+
 ### heartbeat (OS Service)
 Write the heartbeat watchdog bit from OS to PLC.
 
