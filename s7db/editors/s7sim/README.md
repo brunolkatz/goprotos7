@@ -28,12 +28,12 @@ If `.sim` is mapped to another file type:
 
 In `examples/mill.sim`, you should see:
 
-- `tick`, `if`, `then`, `else`, `end`, `on`, `do` as keywords
+- `tick`, `pulse`, `if`, `then`, `else`, `end`, `on`, `do` as keywords
 - `T#100ms`, `T#5s` as time literals
 - `STRING[20]`, `BOOL`, `REAL`, `TIME` as types
 - `"os fault"` as a quoted string
 - `//` comments dimmed
-- `:=`, `==`, `>`, `+`, `(`, `)` as operators
+- `:=`, `==`, `>`, `;`, `+`, `(`, `)` as operators
 
 ## Notes
 

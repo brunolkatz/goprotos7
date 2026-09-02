@@ -317,35 +317,50 @@ Allow heartbeat writes explicitly:
 s7db sim machine.sim --plc --write --allow-write OsServiceHeartbeat --take-heartbeat --addr 192.168.0.10
 ```
 
+Pulse a BOOL tag momentarily:
+
+```text
+tick 100ms;
+var fault_timer : TIME := T#0s;
+on rising OSServiceControl do
+  pulse PopupOKActivationPulse;
+end;
+if SomeBit == true then
+  pulse PopupOKActivationPulse, 2;
+end;
+```
+
+`pulse NAME;` and `pulse NAME, N;` use `N` as a tick count, defaulting to `2`. The tag goes `TRUE` immediately on the fire tick, remains `TRUE` for `N` ticks total, and then returns `FALSE` automatically. While active, the pulse is non-retriggerable. Prefer `on rising` plus `pulse` for button-like logic. Heartbeat tags cannot be pulsed.
+
 Example script:
 
 ```text
-tick 100ms
-var fault_timer : TIME := T#0s
+tick 100ms;
+var fault_timer : TIME := T#0s;
 on OsServiceHeartbeat == true do
-  OsServiceHeartbeat := false
-end
+  OsServiceHeartbeat := false;
+end;
 if OsServiceHeartbeat == false then
-  fault_timer := fault_timer + tick
+  fault_timer := fault_timer + tick;
 else
-  fault_timer := T#0s
-end
+  fault_timer := T#0s;
+end;
 if fault_timer > T#5s then
-  OsServiceFault := true
+  OsServiceFault := true;
 else
-  OsServiceFault := false
-end
+  OsServiceFault := false;
+end;
 ```
 
 STRING example:
 
 ```text
-tick 100ms
-var Msg : STRING[20] := "ok"
+tick 100ms;
+var Msg : STRING[20] := "ok";
 if OsServiceFault then
-  Msg := "os fault"
-  StatusText := Msg
-end
+  Msg := "os fault";
+  StatusText := Msg;
+end;
 ```
 
 S7 STRING wire format used on PLC push/pull:
@@ -356,9 +371,30 @@ S7 STRING wire format used on PLC push/pull:
 
 Notes:
 - This is an external tick task, not PLC CPU logic.
+- Simple statements (`tick`, `var`, assignments, `pulse`) must end with `;`.
+- `if ... then`, `on ... do`, and `else` headers do not take `;`; `end;` is allowed.
 - `--plc --write` requires either `--allow-write ...` or `--write-all`.
 - `--write-all` and `--allow-write` are mutually exclusive.
 - Heartbeat tags are not pushed unless `--take-heartbeat`.
+
+### s7sim LSP
+
+Run the diagnostics language server for `.sim` files:
+
+```bash
+s7db lsp --stdio -f .s7db/s7db.yml
+```
+
+This is for editors such as VS Code or LSP4IJ. The server publishes compile diagnostics for the current buffer using the same `simlang` pipeline as `s7db compile`, with `positionEncoding: utf-16` and `textDocument/publishDiagnostics` output.
+
+Editor setup examples:
+
+```bash
+# VS Code or LSP4IJ
+s7db lsp --stdio -f ${workspace}/.s7db/s7db.yml
+```
+
+Add the command as a language server entry in the editor; `s7db` resolves diagnostics using the same schema path rules as the CLI and emits no stdout noise in stdio mode.
 
 ## Config file
 

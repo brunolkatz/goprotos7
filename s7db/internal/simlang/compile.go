@@ -1,6 +1,7 @@
 package simlang
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -29,6 +30,7 @@ type Symbol struct {
 	Type      ValueType
 	StringLen int
 	IsTag     bool
+	Role      string
 	IsBuiltin bool
 }
 
@@ -46,6 +48,10 @@ type Program struct {
 func Compile(file, src string, sch schema.Schema) (*Program, []Diag) {
 	ast, err := Parse(file, src)
 	if err != nil {
+		var pe *parseDiagError
+		if errors.As(err, &pe) {
+			return nil, []Diag{pe.Diag()}
+		}
 		return nil, []Diag{makeDiag(file, src, "parse error", err.Error(), "check token sequence and block endings", 1, 1)}
 	}
 	p := &Program{
@@ -70,6 +76,7 @@ func Compile(file, src string, sch schema.Schema) (*Program, []Diag) {
 		if !ok {
 			continue
 		}
+		sym.Role = strings.ToLower(strings.TrimSpace(t.Role))
 		p.Symbols[name] = sym
 		tagNames = append(tagNames, name)
 		if warn != "" {
@@ -168,9 +175,33 @@ func checkStmt(file, src string, p *Program, st *Stmt, names []string) []Diag {
 			ds = append(ds, checkStmt(file, src, p, s, names)...)
 		}
 		return ds
+	case st.Pulse != nil:
+		return checkPulse(file, src, p, st.Pulse, names)
 	default:
 		return nil
 	}
+}
+
+func checkPulse(file, src string, p *Program, pulse *PulseStmt, names []string) []Diag {
+	sym, ok := p.Symbols[pulse.Name]
+	if !ok {
+		return []Diag{makeDiag(file, src, "compile error", fmt.Sprintf("unknown name %q", pulse.Name), suggest(pulse.Name, names), pulse.Pos.Line, pulse.Pos.Column+len("pulse "))}
+	}
+	if sym.Role == "heartbeat" {
+		return []Diag{makeDiag(file, src, "type error", "cannot pulse heartbeat tag", fmt.Sprintf("%s is role:heartbeat", pulse.Name), pulse.Pos.Line, pulse.Pos.Column+len("pulse "))}
+	}
+	if sym.Type != TypeBool {
+		return []Diag{makeDiag(file, src, "type error", "pulse requires BOOL", fmt.Sprintf("%s is %s; pulse is a momentary BOOL", pulse.Name, renderType(sym.Type, sym.StringLen)), pulse.Pos.Line, pulse.Pos.Column+len("pulse "))}
+	}
+	if pulse.Width != nil {
+		if *pulse.Width < 1 {
+			return []Diag{makeDiag(file, src, "parse error", "pulse width must be an integer ≥ 1", "use pulse X, 2;", pulse.Pos.Line, pulse.Pos.Column+len("pulse ")+len(pulse.Name)+1)}
+		}
+	}
+	if sym.IsTag {
+		p.UsedTags[sym.Name] = struct{}{}
+	}
+	return nil
 }
 
 func checkAssign(file, src string, p *Program, as *AssignStmt, names []string) []Diag {

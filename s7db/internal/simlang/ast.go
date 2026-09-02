@@ -11,7 +11,7 @@ type AST struct {
 
 type TickStmt struct {
 	Pos      lexer.Position `parser:""`
-	Duration string         `"tick" @Duration`
+	Duration string         `"tick" @Duration ";"`
 }
 
 type VarDecl struct {
@@ -19,7 +19,7 @@ type VarDecl struct {
 	Name    string         `"var" @Ident`
 	Type    string         `":" @Ident`
 	TypeLen *string        `( "[" @Int "]" )?`
-	Init    *Expr          `( ":=" @@ )?`
+	Init    *Expr          `( ":=" @@ )? ";"`
 }
 
 type Stmt struct {
@@ -27,25 +27,32 @@ type Stmt struct {
 	Assign *AssignStmt    `  @@`
 	If     *IfStmt        `| @@`
 	On     *OnStmt        `| @@`
+	Pulse  *PulseStmt     `| @@`
 }
 
 type AssignStmt struct {
 	Pos  lexer.Position `parser:""`
 	Name string         `@Ident`
-	Expr *Expr          `":=" @@`
+	Expr *Expr          `":=" @@ ";"`
+}
+
+type PulseStmt struct {
+	Pos   lexer.Position `parser:""`
+	Name  string         `"pulse" @Ident`
+	Width *int           `( "," @Int )? ";"`
 }
 
 type IfStmt struct {
 	Pos  lexer.Position `parser:""`
 	Cond *Expr          `"if" @@ "then"`
 	Then []*Stmt        `@@*`
-	Else []*Stmt        `( "else" @@* )? "end"`
+	Else []*Stmt        `( "else" @@* )? "end" ";"?`
 }
 
 type OnStmt struct {
 	Pos  lexer.Position `parser:""`
 	Cond *OnCond        `"on" @@ "do"`
-	Body []*Stmt        `@@* "end"`
+	Body []*Stmt        `@@* "end" ";"?`
 }
 
 type OnCond struct {

@@ -13,7 +13,7 @@ import (
 func writeSimFixture(t *testing.T, dir string) string {
 	t.Helper()
 	path := filepath.Join(dir, "f.sim")
-	if err := os.WriteFile(path, []byte("tick 100ms\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("tick 100ms;\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return path

@@ -248,17 +248,17 @@ s7db -f s7db.yml heartbeat --addr 192.168.0.10 --reconnect
 Create a script file `gateway.sim`:
 
 ```text
-tick 100ms
+tick 100ms;
 
 // PLC convention: OS sets heartbeat true, PLC clears false.
 on Heartbeat == true do
-  Heartbeat := false
-end
+  Heartbeat := false;
+end;
 
 // If OS control is off, force commands to zero.
 if OSServiceControl == false then
-  MillSpeedCommand := 0.0
-  PumpSpeedCommand := 0.0
+  MillSpeedCommand := 0.0;
+  PumpSpeedCommand := 0.0;
 end
 ```
 

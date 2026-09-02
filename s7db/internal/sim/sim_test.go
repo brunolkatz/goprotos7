@@ -25,7 +25,7 @@ func schemaForSim() schema.Schema {
 }
 
 func TestOfflineHeartbeatClears(t *testing.T) {
-	src := "tick 100ms\non OsServiceHeartbeat == true do\nOsServiceHeartbeat := false\nend\n"
+	src := "tick 100ms;\non OsServiceHeartbeat == true do\nOsServiceHeartbeat := false;\nend;\n"
 	prog, ds := simlang.Compile("a.sim", src, schemaForSim())
 	if len(ds) > 0 {
 		t.Fatalf("compile failed: %s", ds[0].String())
@@ -43,17 +43,17 @@ func TestOfflineHeartbeatClears(t *testing.T) {
 }
 
 func TestOfflineFaultAfterTimeout(t *testing.T) {
-	src := `tick 100ms
-var fault_timer : TIME := T#0s
+	src := `tick 100ms;
+var fault_timer : TIME := T#0s;
 if OsServiceHeartbeat == false then
-  fault_timer := fault_timer + tick
+  fault_timer := fault_timer + tick;
 else
-  fault_timer := T#0s
+  fault_timer := T#0s;
 end
 if fault_timer > T#5s then
-  OsServiceFault := true
+  OsServiceFault := true;
 else
-  OsServiceFault := false
+  OsServiceFault := false;
 end`
 	prog, ds := simlang.Compile("a.sim", src, schemaForSim())
 	if len(ds) > 0 {
@@ -74,7 +74,7 @@ end`
 }
 
 func TestDivByZeroRuntime(t *testing.T) {
-	src := "tick 100ms\nvar x : REAL := 1.0\nx := x / 0\n"
+	src := "tick 100ms;\nvar x : REAL := 1.0;\nx := x / 0;\n"
 	prog, ds := simlang.Compile("a.sim", src, schemaForSim())
 	if len(ds) > 0 {
 		t.Fatalf("compile failed: %s", ds[0].String())
@@ -112,6 +112,34 @@ func TestSinkReadOnlyNoPush(t *testing.T) {
 	}
 }
 
+func TestPulseActsForTwoTicksThenClears(t *testing.T) {
+	s := schema.Schema{
+		Version: 1, DB: 300, Endian: "big", Size: schema.SizeSpec{Auto: true},
+		Tags: []schema.Tag{
+			{Name: "Trigger", Addr: "DB300.DBX1.0", Type: "BOOL"},
+			{Name: "PopupOKActivationPulse", Addr: "DB300.DBX1.1", Type: "BOOL"},
+		},
+	}
+	_ = s.Normalize(&s.DB)
+	src := "tick 100ms;\non rising Trigger do\n  pulse PopupOKActivationPulse;\nend;\n"
+	prog, ds := simlang.Compile("pulse.sim", src, s)
+	if len(ds) > 0 {
+		t.Fatalf("compile failed: %s", ds[0].String())
+	}
+	img := NewImageFromSchema(s, prog)
+	_ = img.Set("Trigger", true)
+	r := NewRunner(prog, img)
+	for i := 0; i < 3; i++ {
+		if _, err := r.Step(); err != nil {
+			t.Fatalf("step %d failed: %v", i+1, err)
+		}
+	}
+	v, _ := img.Get("PopupOKActivationPulse")
+	if b, _ := v.(bool); b {
+		t.Fatalf("expected pulse to clear after two ticks")
+	}
+}
+
 func TestStringAssignmentTruncatesToDeclaredLength(t *testing.T) {
 	s := schema.Schema{
 		Version: 1, DB: 300, Endian: "big", Size: schema.SizeSpec{Auto: true},
@@ -120,7 +148,7 @@ func TestStringAssignmentTruncatesToDeclaredLength(t *testing.T) {
 		},
 	}
 	_ = s.Normalize(&s.DB)
-	src := "tick 100ms\nStatusText := \"abcdef\"\n"
+	src := "tick 100ms;\nStatusText := \"abcdef\";\n"
 	prog, ds := simlang.Compile("a.sim", src, s)
 	if len(ds) > 0 {
 		t.Fatalf("compile failed: %s", ds[0].String())

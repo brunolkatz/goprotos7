@@ -16,19 +16,21 @@ type Change struct {
 }
 
 type Runner struct {
-	Prog      *simlang.Program
-	Img       *Image
-	Tick      time.Duration
-	Cycle     int
-	lastBools map[string]bool
+	Prog       *simlang.Program
+	Img        *Image
+	Tick       time.Duration
+	Cycle      int
+	lastBools  map[string]bool
+	pulseState map[string]int
 }
 
 func NewRunner(prog *simlang.Program, img *Image) *Runner {
 	return &Runner{
-		Prog:      prog,
-		Img:       img,
-		Tick:      prog.Tick,
-		lastBools: map[string]bool{},
+		Prog:       prog,
+		Img:        img,
+		Tick:       prog.Tick,
+		lastBools:  map[string]bool{},
+		pulseState: map[string]int{},
 	}
 }
 
@@ -42,6 +44,18 @@ func (r *Runner) Step() ([]Change, error) {
 			return nil, err
 		}
 		changes = append(changes, cs...)
+	}
+	for name, remaining := range r.pulseState {
+		remaining--
+		if remaining <= 0 {
+			delete(r.pulseState, name)
+			if err := r.Img.Set(name, false); err != nil {
+				return nil, fmt.Errorf("runtime pulse clear %s: %w", name, err)
+			}
+			changes = append(changes, Change{Name: name, Value: false, Type: simlang.TypeBool})
+			continue
+		}
+		r.pulseState[name] = remaining
 	}
 	for name, typ := range r.Prog.Symbols {
 		if typ.Type != simlang.TypeBool {
@@ -111,9 +125,26 @@ func (r *Runner) execStmt(st *simlang.Stmt) ([]Change, error) {
 			out = append(out, cs...)
 		}
 		return out, nil
+	case st.Pulse != nil:
+		return r.execPulse(st.Pulse)
 	default:
 		return nil, nil
 	}
+}
+
+func (r *Runner) execPulse(p *simlang.PulseStmt) ([]Change, error) {
+	if _, ok := r.pulseState[p.Name]; ok {
+		return nil, nil
+	}
+	width := 2
+	if p.Width != nil {
+		width = *p.Width
+	}
+	if err := r.Img.Set(p.Name, true); err != nil {
+		return nil, fmt.Errorf("runtime pulse %s: %w", p.Name, err)
+	}
+	r.pulseState[p.Name] = width
+	return []Change{{Name: p.Name, Value: true, Type: simlang.TypeBool}}, nil
 }
 
 func (r *Runner) evalOn(st *simlang.OnStmt) (bool, error) {

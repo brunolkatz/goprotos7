@@ -7,30 +7,30 @@ import (
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
 )
 
-const millScript = `tick 100ms
-var fault_timer : TIME := T#0s
+const millScript = `tick 100ms;
+var fault_timer : TIME := T#0s;
 on OsServiceHeartbeat == true do
-  OsServiceHeartbeat := false
-end
+  OsServiceHeartbeat := false;
+end;
 if OsServiceHeartbeat == false then
-  fault_timer := fault_timer + tick
+  fault_timer := fault_timer + tick;
 else
-  fault_timer := T#0s
-end
+  fault_timer := T#0s;
+end;
 if fault_timer > T#5s then
-  OsServiceFault := true
+  OsServiceFault := true;
 else
-  OsServiceFault := false
-end
+  OsServiceFault := false;
+end;
 if OsServiceFault then
-  BeadWearCalib := false
-  MillSpeed := CleaningSpeed
+  BeadWearCalib := false;
+  MillSpeed := CleaningSpeed;
 else
-  MillSpeed := ProdSpeed
-end
+  MillSpeed := ProdSpeed;
+end;
 if ValveOpen and Level > 90.0 then
-  PumpEnable := false
-end
+  PumpEnable := false;
+end;
 `
 
 func testSchema() schema.Schema {
@@ -64,7 +64,7 @@ func TestParseAndCompileMill(t *testing.T) {
 }
 
 func TestUnknownNameSuggestion(t *testing.T) {
-	src := "tick 100ms\non OsServiceHeartbat == true do\nend\n"
+	src := "tick 100ms;\non OsServiceHeartbat == true do\nend;\n"
 	_, diags := Compile("x.sim", src, testSchema())
 	if len(diags) == 0 {
 		t.Fatalf("expected unknown name diagnostic")
@@ -75,8 +75,52 @@ func TestUnknownNameSuggestion(t *testing.T) {
 	}
 }
 
+func TestPulseBoolAndDefaultWidth(t *testing.T) {
+	src := "tick 100ms;\npulse OsServiceFault;\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) > 0 {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestPulseWithExplicitWidth(t *testing.T) {
+	src := "tick 100ms;\npulse OsServiceFault, 2;\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) > 0 {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestPulseOnHeartbeatTagIsRejected(t *testing.T) {
+	s := testSchema()
+	for i := range s.Tags {
+		if s.Tags[i].Name == "OsServiceHeartbeat" {
+			s.Tags[i].Role = "heartbeat"
+		}
+	}
+	src := "tick 100ms;\npulse OsServiceHeartbeat;\n"
+	_, diags := Compile("x.sim", src, s)
+	if len(diags) == 0 {
+		t.Fatalf("expected heartbeat pulse diag")
+	}
+	if !strings.Contains(diags[0].String(), "cannot pulse heartbeat tag") {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestPulseMissingSemicolon(t *testing.T) {
+	src := "tick 100ms;\npulse OsServiceFault\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected pulse semicolon diag")
+	}
+	if !strings.Contains(diags[0].String(), `expected ";" after pulse`) {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
 func TestTypeErrorBoolAssignReal(t *testing.T) {
-	src := "tick 100ms\nOsServiceFault := Level\n"
+	src := "tick 100ms;\nOsServiceFault := Level;\n"
 	_, diags := Compile("x.sim", src, testSchema())
 	if len(diags) == 0 {
 		t.Fatalf("expected type error")
@@ -87,7 +131,7 @@ func TestTypeErrorBoolAssignReal(t *testing.T) {
 }
 
 func TestStringVarRequiresLength(t *testing.T) {
-	src := "tick 100ms\nvar Title : STRING := \"x\"\n"
+	src := "tick 100ms;\nvar Title : STRING := \"x\";\n"
 	_, diags := Compile("x.sim", src, testSchema())
 	if len(diags) == 0 {
 		t.Fatalf("expected STRING length diagnostic")
@@ -98,7 +142,7 @@ func TestStringVarRequiresLength(t *testing.T) {
 }
 
 func TestStringAssignTypeError(t *testing.T) {
-	src := "tick 100ms\nvar Title : STRING[20]\nTitle := 10\n"
+	src := "tick 100ms;\nvar Title : STRING[20];\nTitle := 10;\n"
 	_, diags := Compile("x.sim", src, testSchema())
 	if len(diags) == 0 {
 		t.Fatalf("expected string assign type error")
@@ -109,12 +153,98 @@ func TestStringAssignTypeError(t *testing.T) {
 }
 
 func TestStringConcatenationNotSupported(t *testing.T) {
-	src := "tick 100ms\nvar Title : STRING[20] := \"a\"\nTitle := Title + \"x\"\n"
+	src := "tick 100ms;\nvar Title : STRING[20] := \"a\";\nTitle := Title + \"x\";\n"
 	_, diags := Compile("x.sim", src, testSchema())
 	if len(diags) == 0 {
 		t.Fatalf("expected concat type error")
 	}
 	if !strings.Contains(diags[0].String(), "string concatenation not supported") {
 		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestUnterminatedStringPointsToStringLine(t *testing.T) {
+	src := `tick 100ms;
+if OSServiceControl == true then
+AlarmMessage := "Meu alarme
+end
+if OSServiceControl == false then
+AlarmMessage := "";
+end`
+	_, diags := Compile(".s7db/sim_scripts/os-service.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected parse diagnostic")
+	}
+	d := diags[0]
+	if d.Line != 3 {
+		t.Fatalf("expected line 3, got %d (%s)", d.Line, d.String())
+	}
+	if d.Col <= 1 {
+		t.Fatalf("expected string column, got %d", d.Col)
+	}
+	if !strings.Contains(d.Snippet, `AlarmMessage := "Meu alarme`) {
+		t.Fatalf("unexpected snippet: %q", d.Snippet)
+	}
+	if strings.Contains(d.String(), "tick 100ms") && strings.Contains(d.String(), "^\n") {
+		t.Fatalf("caret should not be on tick line: %s", d.String())
+	}
+}
+
+func TestClosedStringWithEmptyStringCompiles(t *testing.T) {
+	src := `tick 100ms;
+if OSServiceControl == true then
+AlarmMessage := "Meu alarme";
+end
+if OSServiceControl == false then
+AlarmMessage := "";
+end`
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		return
+	}
+	if strings.Contains(diags[0].String(), "unknown name") {
+		// parse succeeded and reached type phase; this test only validates lex/parse behavior.
+		return
+	}
+	t.Fatalf("unexpected parse/type diagnostic: %s", diags[0].String())
+}
+
+func TestMissingSemicolonAfterTick(t *testing.T) {
+	src := "tick 100ms\nOsServiceFault := false;\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected parse diagnostic")
+	}
+	if diags[0].Line != 1 {
+		t.Fatalf("expected line 1, got %d", diags[0].Line)
+	}
+	if !strings.Contains(diags[0].Msg, `expected ";" after tick`) {
+		t.Fatalf("unexpected message: %s", diags[0].String())
+	}
+}
+
+func TestUnexpectedSemicolonInIfHeader(t *testing.T) {
+	src := "tick 100ms;\nif OSServiceControl == true; then\nAlarmMessage := \"ok\";\nend\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected parse diagnostic")
+	}
+	if diags[0].Line != 2 {
+		t.Fatalf("expected line 2, got %d", diags[0].Line)
+	}
+	if !strings.Contains(diags[0].Msg, `unexpected ";"`) {
+		t.Fatalf("unexpected message: %s", diags[0].String())
+	}
+}
+
+func TestNoDuplicatedFilePathInParseDiag(t *testing.T) {
+	src := "tick 100ms;\nif OSServiceControl == true then\nAlarmMessage := \"x\";\nend;\n"
+	_, diags := Compile("test.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected diagnostic for unknown name")
+	}
+	msg := diags[0].String()
+	if strings.Contains(msg, "test.sim:1:1: parse error: test.sim:") {
+		t.Fatalf("duplicated path in diagnostic: %s", msg)
 	}
 }

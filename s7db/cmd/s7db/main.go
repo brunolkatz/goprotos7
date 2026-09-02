@@ -22,6 +22,7 @@ import (
 	"github.com/brunolkatz/goprotos7/s7db/internal/decode"
 	heartbeatpkg "github.com/brunolkatz/goprotos7/s7db/internal/heartbeat"
 	"github.com/brunolkatz/goprotos7/s7db/internal/layout"
+	"github.com/brunolkatz/goprotos7/s7db/internal/lsp"
 	"github.com/brunolkatz/goprotos7/s7db/internal/output"
 	"github.com/brunolkatz/goprotos7/s7db/internal/pack"
 	"github.com/brunolkatz/goprotos7/s7db/internal/plc"
@@ -63,6 +64,7 @@ type CLI struct {
 	Serve     ServeCmd     `cmd:"" help:"Serve SCADA HMI and WebSocket API."`
 	Compile   CompileCmd   `cmd:"" help:"Compile s7sim script (parse + typecheck)."`
 	Sim       SimCmd       `cmd:"" help:"Run s7sim script in offline image or PLC-assisted mode."`
+	LSP       LSPCmd       `cmd:"" help:"Run the s7sim language server for .sim files."`
 }
 
 type InitLikeFlags struct {
@@ -199,6 +201,15 @@ type SimCmd struct {
 	WriteAll   bool   `help:"With --plc --write: allow every schema tag except heartbeat (unless --take-heartbeat)."`
 	TakeHB     bool   `name:"take-heartbeat" help:"Allow writes to tags with role=heartbeat."`
 	Reconnect  bool   `help:"Reconnect on pull/push errors."`
+}
+
+type LSPCmd struct {
+	Stdio    bool   `help:"Use stdio JSON-RPC transport (default)."`
+	TCP      string `help:"Listen on a TCP address, e.g. 127.0.0.1:7373. Exclusive with --stdio."`
+	NoSchema bool   `help:"Do not load YAML; undeclared names are compile errors."`
+	Log      string `help:"Trace log path; never writes logs to stdout in stdio mode."`
+	LogLevel string `enum:"error,warn,info,debug" default:"error" help:"Log verbosity for LSP trace output."`
+	Debounce string `default:"150ms" help:"Debounce delay before recompiling on didChange."`
 }
 
 type App struct {
@@ -810,6 +821,42 @@ func (c *CompileCmd) Run(app *App) error {
 	}
 	fmt.Fprintf(os.Stdout, "ok: %d statements\n", prog.Statements)
 	return nil
+}
+
+func (c *LSPCmd) Run(app *App) error {
+	if c.Stdio && c.TCP != "" {
+		return usagef("lsp: --stdio and --tcp are mutually exclusive")
+	}
+	if c.TCP == "" && !c.Stdio {
+		c.Stdio = true
+	}
+	if c.TCP != "" && c.Stdio {
+		return usagef("lsp: --stdio and --tcp are mutually exclusive")
+	}
+	cfg := lsp.Config{
+		SchemaPath: app.CLI.File,
+		NoSchema:   c.NoSchema,
+		Debounce:   150 * time.Millisecond,
+	}
+	if strings.TrimSpace(c.Debounce) != "" {
+		d, err := time.ParseDuration(c.Debounce)
+		if err != nil {
+			return usagef("lsp: invalid --debounce %q", c.Debounce)
+		}
+		cfg.Debounce = d
+	}
+	if strings.TrimSpace(c.Log) != "" {
+		cfg.LogPath = c.Log
+	}
+	cfg.LogLevel = strings.ToLower(strings.TrimSpace(c.LogLevel))
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "error"
+	}
+	server := lsp.New(cfg)
+	if c.TCP != "" {
+		return server.ServeTCP(c.TCP)
+	}
+	return server.ServeStdio()
 }
 
 func (c *SimCmd) Run(app *App) error {

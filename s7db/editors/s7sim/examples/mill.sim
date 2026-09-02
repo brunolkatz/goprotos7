@@ -1,33 +1,33 @@
-tick 100ms
-var fault_timer : TIME := T#0s
-var Msg : STRING[20] := "ok"
+tick 100ms;
+var fault_timer : TIME := T#0s;
+var Msg : STRING[20] := "ok";
 
 on OsServiceHeartbeat == true do
-  OsServiceHeartbeat := false
-end
+  OsServiceHeartbeat := false;
+end;
 
 // Comment :D
 if OsServiceHeartbeat == false then
-  fault_timer := fault_timer + tick
+  fault_timer := fault_timer + tick;
 else
-  fault_timer := T#0s
-end
+  fault_timer := T#0s;
+end;
 
 if fault_timer > T#5s then
-  OsServiceFault := true
-  Msg := "os fault"
+  OsServiceFault := true;
+  Msg := "os fault";
 else
-  OsServiceFault := false
-  Msg := "running"
-end
+  OsServiceFault := false;
+  Msg := "running";
+end;
 
 if OsServiceFault then
-  BeadWearCalib := false
-  MillSpeed := CleaningSpeed
+  BeadWearCalib := false;
+  MillSpeed := CleaningSpeed;
 else
-  MillSpeed := ProdSpeed
-end
+  MillSpeed := ProdSpeed;
+end;
 
 if ValveOpen and Level > 90.0 then
-  PumpEnable := false
-end
+  PumpEnable := false;
+end;

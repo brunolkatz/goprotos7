@@ -1,9 +1,9 @@
-tick 100ms
+tick 100ms;
 
 if OSServiceControl == true then
-  AlarmMessage := "Meu alarme"
+  AlarmMessage := "Meu alarme";
 end
 
 if OSServiceControl == false then
-  AlarmMessage := ""
+  AlarmMessage := "";
 end

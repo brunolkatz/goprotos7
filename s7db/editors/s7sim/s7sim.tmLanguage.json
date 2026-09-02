@@ -118,7 +118,7 @@
       "patterns": [
         {
           "name": "keyword.control.s7sim",
-          "match": "\\b(tick|var|if|then|else|end|on|do|and|or|rising|falling)\\b"
+          "match": "\\b(tick|var|pulse|if|then|else|end|on|do|and|or|rising|falling)\\b"
         }
       ]
     },
@@ -146,7 +146,7 @@
       "patterns": [
         {
           "name": "keyword.operator.s7sim",
-          "match": ":=|==|!=|>=|<=|>|<|\\+|-|\\*|/|\\(|\\)|\\[|\\]"
+          "match": ":=|==|!=|>=|<=|>|<|;|\\+|-|\\*|/|\\(|\\)|\\[|\\]"
         }
       ]
     },
