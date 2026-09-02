@@ -11,6 +11,42 @@ import (
 )
 
 var stringTypeRE = regexp.MustCompile(`^STRING\[(\d+)\]$`)
+var checkAddressRE = regexp.MustCompile(`^(?:DB(\d+)\.)?((?:DB)?[A-Z]+)(\d+)(?:\.(\d+))?$`)
+
+func parseAddressForCheck(raw string, defaultDB int) (address.Address, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return address.Address{}, false
+	}
+	if a, err := address.Parse(trimmed, &defaultDB); err == nil {
+		return a, true
+	}
+	trimmed = strings.ToUpper(trimmed)
+	m := checkAddressRE.FindStringSubmatch(trimmed)
+	if m == nil {
+		return address.Address{}, false
+	}
+	db := defaultDB
+	if m[1] != "" {
+		db64, err := strconv.Atoi(m[1])
+		if err == nil {
+			db = db64
+		}
+	}
+	bytePart, err := strconv.Atoi(m[3])
+	if err != nil {
+		return address.Address{}, false
+	}
+	area := strings.ToUpper(m[2])
+	addr := address.Address{DB: db, Area: area, Byte: bytePart}
+	if m[4] != "" {
+		bit, err := strconv.Atoi(m[4])
+		if err == nil {
+			addr.Bit = bit
+		}
+	}
+	return addr, true
+}
 
 type TypeSpec struct {
 	Name      string
@@ -34,6 +70,17 @@ type PlacedTag struct {
 type Diagnostic struct {
 	Level   string
 	Message string
+}
+
+type OutOfRange struct {
+	Addr    string `json:"addr"`
+	Name    string `json:"name,omitempty"`
+	Type    string `json:"type"`
+	Cause   string `json:"cause"`
+	Offset  int    `json:"offset,omitempty"`
+	Size    int    `json:"size,omitempty"`
+	DBSize  int    `json:"db_size,omitempty"`
+	Bit     int    `json:"bit,omitempty"`
 }
 
 type Result struct {
@@ -132,6 +179,116 @@ func Build(s schema.Schema, strict bool) (Result, error) {
 		out.FinalSize = s.Size.Bytes
 	}
 	return out, nil
+}
+
+func AddressOutOfRange(s schema.Schema) []OutOfRange {
+	dbSize := 0
+	if !s.Size.Auto {
+		dbSize = s.Size.Bytes
+	}
+	computed := 0
+	for _, t := range s.Tags {
+		addr, ok := parseAddressForCheck(t.Addr, s.DB)
+		if !ok {
+			continue
+		}
+		if s.DB != 0 && addr.DB != s.DB {
+			continue
+		}
+		spec, err := ParseType(t)
+		if err != nil {
+			continue
+		}
+		end := addr.StartBit() + spec.BitSize
+		if end > computed {
+			computed = end
+		}
+	}
+	if s.Size.Auto && computed > 0 {
+		dbSize = (computed + 7) / 8
+	}
+
+	var out []OutOfRange
+	for _, t := range s.Tags {
+		addr, ok := parseAddressForCheck(t.Addr, s.DB)
+		if !ok {
+			out = append(out, OutOfRange{
+				Addr:  t.Addr,
+				Name:  t.Name,
+				Type:  strings.ToUpper(strings.TrimSpace(t.Type)),
+				Cause: fmt.Sprintf("cannot parse %q", t.Addr),
+			})
+			continue
+		}
+		if s.DB != 0 && addr.DB != s.DB {
+			out = append(out, OutOfRange{
+				Addr:  fmt.Sprintf("DB%d.%s%d", addr.DB, addr.Area, addr.Byte),
+				Name:  t.Name,
+				Type:  strings.ToUpper(strings.TrimSpace(t.Type)),
+				Cause: fmt.Sprintf("address DB%d but schema db is %d", addr.DB, s.DB),
+			})
+			continue
+		}
+		if (addr.Area == "DBX" || addr.Area == "X") && (addr.Bit < 0 || addr.Bit > 7) {
+			out = append(out, OutOfRange{
+				Addr:  addr.Canonical(),
+				Name:  t.Name,
+				Type:  strings.ToUpper(strings.TrimSpace(t.Type)),
+				Cause: fmt.Sprintf("bit %d is not 0..7", addr.Bit),
+				Bit:   addr.Bit,
+			})
+			continue
+		}
+		spec, err := ParseType(t)
+		if err != nil {
+			continue
+		}
+		if (addr.Area == "DBX" || addr.Area == "X") && !strings.EqualFold(spec.Name, "BOOL") {
+			out = append(out, OutOfRange{
+				Addr:  addr.Canonical(),
+				Name:  t.Name,
+				Type:  strings.ToUpper(strings.TrimSpace(t.Type)),
+				Cause: fmt.Sprintf("type %s requires DBX/X bit address", strings.ToUpper(strings.TrimSpace(t.Type))),
+			})
+			continue
+		}
+		if (addr.Area == "DBW" || addr.Area == "W") && strings.EqualFold(spec.Name, "BOOL") {
+			out = append(out, OutOfRange{
+				Addr:  addr.Canonical(),
+				Name:  t.Name,
+				Type:  strings.ToUpper(strings.TrimSpace(t.Type)),
+				Cause: "BOOL is not valid on DBW/W address",
+			})
+			continue
+		}
+		typeSize := spec.SizeBytes
+		if s.Size.Auto {
+			if addr.Byte+typeSize > dbSize {
+				out = append(out, OutOfRange{
+					Addr:   addr.Canonical(),
+					Name:   t.Name,
+					Type:   strings.ToUpper(strings.TrimSpace(t.Type)),
+					Cause:  fmt.Sprintf("offset %d+%d exceeds DB size %d", addr.Byte, typeSize, dbSize),
+					Offset: addr.Byte,
+					Size:   typeSize,
+					DBSize: dbSize,
+				})
+			}
+			continue
+		}
+		if addr.Byte+typeSize > s.Size.Bytes {
+			out = append(out, OutOfRange{
+				Addr:   addr.Canonical(),
+				Name:   t.Name,
+				Type:   strings.ToUpper(strings.TrimSpace(t.Type)),
+				Cause:  fmt.Sprintf("offset %d+%d exceeds DB size %d", addr.Byte, typeSize, s.Size.Bytes),
+				Offset: addr.Byte,
+				Size:   typeSize,
+				DBSize: s.Size.Bytes,
+			})
+		}
+	}
+	return out
 }
 
 func expectedArea(area string, ts TypeSpec) (string, bool) {

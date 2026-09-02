@@ -123,7 +123,9 @@ type UnpackCmd struct {
 	Output string `short:"o" default:"-" help:"Output schema path or - for stdout."`
 }
 
-type CheckCmd struct{}
+type CheckCmd struct {
+	Output string `short:"o" enum:"table,json" default:"table" help:"Output format for check results."`
+}
 
 type InfoCmd struct{}
 
@@ -588,6 +590,29 @@ func (c *UnpackCmd) Run(app *App) error {
 }
 
 func (c *CheckCmd) Run(app *App) error {
+	raw, err := schema.LoadRaw(app.CLI.File, app.CLI.DB)
+	if err != nil {
+		return err
+	}
+	outOfRange := layout.AddressOutOfRange(raw)
+	if len(outOfRange) > 0 {
+		if c.Output == "json" {
+			payload := map[string]any{"out_of_range": outOfRange}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(payload); err != nil {
+				return err
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "\ns7db: check: address out of range (%d)\n\n", len(outOfRange))
+			fmt.Fprintf(os.Stderr, "%-18s %-12s %-12s %s\n", "ADDR", "NAME", "TYPE", "CAUSE")
+			for _, d := range outOfRange {
+				fmt.Fprintf(os.Stderr, "%-18s %-12s %-12s %s\n", d.Addr, d.Name, d.Type, d.Cause)
+			}
+		}
+		return usagef("check failed")
+	}
+
 	s, err := schema.Load(app.CLI.File, app.CLI.DB)
 	if err != nil {
 		return err
@@ -600,11 +625,28 @@ func (c *CheckCmd) Run(app *App) error {
 	if err != nil {
 		return usagef("%s", err.Error())
 	}
-	for _, d := range res.Diagnostics {
-		fmt.Fprintf(os.Stderr, "%s: %s\n", d.Level, d.Message)
-	}
-	for _, d := range diags {
-		fmt.Fprintf(os.Stderr, "%s: %s\n", d.Level, d.Message)
+	if c.Output == "json" {
+		if len(res.Diagnostics) > 0 || len(diags) > 0 {
+			payload := map[string]any{}
+			if len(res.Diagnostics) > 0 {
+				payload["layout_warnings"] = res.Diagnostics
+			}
+			if len(diags) > 0 {
+				payload["schema_warnings"] = diags
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(payload); err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, d := range res.Diagnostics {
+			fmt.Fprintf(os.Stderr, "%s: %s\n", d.Level, d.Message)
+		}
+		for _, d := range diags {
+			fmt.Fprintf(os.Stderr, "%s: %s\n", d.Level, d.Message)
+		}
 	}
 	if app.CLI.Strict && (len(res.Diagnostics) > 0 || len(diags) > 0) {
 		return usagef("strict check failed")

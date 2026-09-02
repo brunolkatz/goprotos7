@@ -129,6 +129,33 @@ func Load(path string, defaultDB *int) (Schema, error) {
 	return s, nil
 }
 
+func LoadRaw(path string, defaultDB *int) (Schema, error) {
+	data, err := readAll(path)
+	if err != nil {
+		return Schema{}, err
+	}
+	var s Schema
+	if err := yaml.Unmarshal(data, &s); err != nil {
+		return Schema{}, err
+	}
+	if s.Version == 0 {
+		s.Version = 1
+	}
+	if s.Endian == "" {
+		s.Endian = "big"
+	}
+	if strings.TrimSpace(s.Endian) == "" {
+		s.Endian = "big"
+	}
+	if s.Size == (SizeSpec{}) {
+		s.Size = SizeSpec{Auto: true}
+	}
+	if s.DB == 0 && defaultDB != nil {
+		s.DB = *defaultDB
+	}
+	return s, nil
+}
+
 func (s *Schema) Normalize(defaultDB *int) error {
 	s.Endian = strings.ToLower(strings.TrimSpace(s.Endian))
 	if s.Endian == "" {

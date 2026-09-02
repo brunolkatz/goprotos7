@@ -130,3 +130,47 @@ func TestStringTypeLayoutFromAddress(t *testing.T) {
 		t.Fatalf("unexpected payload: %q", string(got[12:14]))
 	}
 }
+
+func TestAddressOutOfRange(t *testing.T) {
+	tests := []struct {
+		name string
+		s    schema.Schema
+		want int
+		cause string
+	}{
+		{
+			name: "bit invalid",
+			s: schema.Schema{DB: 10, Size: schema.SizeSpec{Bytes: 128}, Tags: []schema.Tag{{Addr: "DB10.DBX0.8", Name: "ValveOpen", Type: "BOOL"}}},
+			want: 1,
+			cause: "bit 8 is not 0..7",
+		},
+		{
+			name: "offset overflow",
+			s: schema.Schema{DB: 10, Size: schema.SizeSpec{Bytes: 128}, Tags: []schema.Tag{{Addr: "DB10.DBW200", Name: "Setpoint", Type: "INT"}}},
+			want: 1,
+			cause: "offset 200+2 exceeds DB size 128",
+		},
+		{
+			name: "db mismatch",
+			s: schema.Schema{DB: 10, Size: schema.SizeSpec{Bytes: 128}, Tags: []schema.Tag{{Addr: "DB300.DBD0", Name: "Level", Type: "REAL"}}},
+			want: 1,
+			cause: "address DB300 but schema db is 10",
+		},
+		{
+			name: "valid",
+			s: schema.Schema{DB: 10, Size: schema.SizeSpec{Bytes: 128}, Tags: []schema.Tag{{Addr: "DB10.DBW0", Name: "Setpoint", Type: "INT"}}},
+			want: 0,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := layout.AddressOutOfRange(tc.s)
+			if len(got) != tc.want {
+				t.Fatalf("unexpected findings: got %d want %d", len(got), tc.want)
+			}
+			if tc.want == 1 && got[0].Cause != tc.cause {
+				t.Fatalf("unexpected cause: got %q want %q", got[0].Cause, tc.cause)
+			}
+		})
+	}
+}
