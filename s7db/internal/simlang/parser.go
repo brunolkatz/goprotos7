@@ -26,7 +26,7 @@ var parser = participle.MustBuild[AST](
 	participle.Lexer(lex),
 	participle.Elide("Whitespace", "Comment"),
 	participle.UseLookahead(2),
-	participle.CaseInsensitive("true", "false", "if", "then", "else", "end", "on", "do", "var", "tick", "pulse", "and", "or", "rising", "falling"),
+	participle.CaseInsensitive("true", "false", "if", "then", "else", "end", "on", "do", "var", "tick", "pulse", "once", "and", "or", "rising", "falling"),
 )
 
 type parseDiagError struct {
@@ -42,9 +42,15 @@ func (e *parseDiagError) Diag() Diag {
 }
 
 var invalidInputRE = regexp.MustCompile(`invalid input text "([^"]*)"`)
+var oncePulsePrefixRE = regexp.MustCompile(`^once[ \t]+pulse\b`)
+var pulseOncePrefixRE = regexp.MustCompile(`^pulse[ \t]+once\b`)
+var oncePrefixRE = regexp.MustCompile(`^once(?:[ \t;]|$)`)
 
 func Parse(file, src string) (*AST, error) {
 	if d, ok := detectUnterminatedString(file, src); ok {
+		return nil, &parseDiagError{diag: d}
+	}
+	if d, ok := detectOnceMisuse(file, src); ok {
 		return nil, &parseDiagError{diag: d}
 	}
 	if d, ok := detectSemicolonMisuse(file, src); ok {
@@ -146,6 +152,28 @@ func detectUnterminatedString(file, src string) (Diag, bool) {
 	return Diag{}, false
 }
 
+func detectOnceMisuse(file, src string) (Diag, bool) {
+	lines := strings.Split(src, "\n")
+	for i, line := range lines {
+		code := stripLineComment(line)
+		trimmed := strings.TrimSpace(code)
+		if trimmed == "" {
+			continue
+		}
+		lower := strings.ToLower(trimmed)
+		if oncePrefixRE.MatchString(lower) && !oncePulsePrefixRE.MatchString(lower) {
+			col := colFromTrimmed(line, trimmed, 1)
+			return makeDiag(file, src, "parse error", `"once" can only prefix pulse`, "write  once pulse Tag, 2;", i+1, col), true
+		}
+		if pulseOncePrefixRE.MatchString(lower) {
+			oncePos := strings.Index(lower, "once")
+			col := colFromTrimmed(line, trimmed, oncePos+1)
+			return makeDiag(file, src, "parse error", `"once" can only prefix pulse`, "write  once pulse Tag, 2;", i+1, col), true
+		}
+	}
+	return Diag{}, false
+}
+
 func detectSemicolonMisuse(file, src string) (Diag, bool) {
 	lines := strings.Split(src, "\n")
 	for i, line := range lines {
@@ -188,7 +216,7 @@ func detectSemicolonMisuse(file, src string) (Diag, bool) {
 			}
 			continue
 		}
-		needSemicolon := strings.HasPrefix(lower, "tick ") || strings.HasPrefix(lower, "var ") || strings.HasPrefix(lower, "pulse ") || strings.Contains(lower, ":=")
+		needSemicolon := strings.HasPrefix(lower, "tick ") || strings.HasPrefix(lower, "var ") || strings.HasPrefix(lower, "pulse ") || strings.HasPrefix(lower, "once pulse ") || strings.Contains(lower, ":=")
 		if !needSemicolon {
 			continue
 		}
@@ -204,7 +232,7 @@ func detectSemicolonMisuse(file, src string) (Diag, bool) {
 				msg = `expected ";" after tick`
 			case strings.HasPrefix(lower, "var "):
 				msg = `expected ";" after var declaration`
-			case strings.HasPrefix(lower, "pulse "):
+			case strings.HasPrefix(lower, "pulse "), strings.HasPrefix(lower, "once pulse "):
 				msg = `expected ";" after pulse`
 			}
 			return makeDiag(file, src, "parse error", msg, `statements end with ";"`, i+1, max(1, col)), true
@@ -270,6 +298,8 @@ func semicolonExpectationMessage(src string, line, col int) string {
 		return `expected ";" after tick`
 	case strings.HasPrefix(strings.ToLower(text), "var "):
 		return `expected ";" after var declaration`
+	case strings.HasPrefix(strings.ToLower(text), "pulse "), strings.HasPrefix(strings.ToLower(text), "once pulse "):
+		return `expected ";" after pulse`
 	default:
 		return `expected ";"`
 	}

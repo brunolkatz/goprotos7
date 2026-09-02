@@ -38,6 +38,7 @@ type AssignStmt struct {
 
 type PulseStmt struct {
 	Pos   lexer.Position `parser:""`
+	Once  *string        `( @("once") )?`
 	Name  string         `"pulse" @Ident`
 	Width *int           `( "," @Int )? ";"`
 }

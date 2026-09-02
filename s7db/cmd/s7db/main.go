@@ -206,6 +206,7 @@ type SimCmd struct {
 type LSPCmd struct {
 	Stdio    bool   `help:"Use stdio JSON-RPC transport (default)."`
 	TCP      string `help:"Listen on a TCP address, e.g. 127.0.0.1:7373. Exclusive with --stdio."`
+	Check    string `help:"Compile one .sim file and print diagnostics without starting LSP." placeholder:"PATH.sim"`
 	NoSchema bool   `help:"Do not load YAML; undeclared names are compile errors."`
 	Log      string `help:"Trace log path; never writes logs to stdout in stdio mode."`
 	LogLevel string `enum:"error,warn,info,debug" default:"error" help:"Log verbosity for LSP trace output."`
@@ -824,10 +825,14 @@ func (c *CompileCmd) Run(app *App) error {
 }
 
 func (c *LSPCmd) Run(app *App) error {
+	checkPath := strings.TrimSpace(c.Check)
+	if checkPath != "" && (c.Stdio || c.TCP != "") {
+		return usagef("lsp: --check is mutually exclusive with --stdio and --tcp")
+	}
 	if c.Stdio && c.TCP != "" {
 		return usagef("lsp: --stdio and --tcp are mutually exclusive")
 	}
-	if c.TCP == "" && !c.Stdio {
+	if checkPath == "" && c.TCP == "" && !c.Stdio {
 		c.Stdio = true
 	}
 	if c.TCP != "" && c.Stdio {
@@ -853,10 +858,53 @@ func (c *LSPCmd) Run(app *App) error {
 		cfg.LogLevel = "error"
 	}
 	server := lsp.New(cfg)
+	if checkPath != "" {
+		return runLSPCheck(server, checkPath)
+	}
 	if c.TCP != "" {
 		return server.ServeTCP(c.TCP)
 	}
 	return server.ServeStdio()
+}
+
+func runLSPCheck(server *lsp.Server, path string) error {
+	diags, err := server.CheckFile(path)
+	if err != nil {
+		return usagef("lsp: check failed: %v", err)
+	}
+	if len(diags) == 0 {
+		fmt.Fprintln(os.Stdout, "ok: no diagnostics")
+		return nil
+	}
+	for i, d := range diags {
+		msg, hint := splitLSPMessageHint(d.Message)
+		line := d.Range.Start.Line + 1
+		col := d.Range.Start.Character + 1
+		fmt.Fprintf(os.Stderr, "%s:%d:%d: error: %s\n", path, line, col, msg)
+		fmt.Fprintf(
+			os.Stderr,
+			"  range: L%d:%d-L%d:%d (0-based)\n",
+			d.Range.Start.Line,
+			d.Range.Start.Character,
+			d.Range.End.Line,
+			d.Range.End.Character,
+		)
+		if hint != "" {
+			fmt.Fprintf(os.Stderr, "  hint: %s\n", hint)
+		}
+		if i < len(diags)-1 {
+			fmt.Fprintln(os.Stderr)
+		}
+	}
+	return usagef("lsp: check found diagnostics")
+}
+
+func splitLSPMessageHint(msg string) (string, string) {
+	i := strings.Index(msg, "; ")
+	if i < 0 {
+		return msg, ""
+	}
+	return msg[:i], msg[i+2:]
 }
 
 func (c *SimCmd) Run(app *App) error {
@@ -996,7 +1044,7 @@ func (c *SimCmd) Run(app *App) error {
 			}
 		}
 		if c.Trace {
-			printTrace(os.Stdout, c.Output, cycle+1, pushes, watchSet)
+			printTrace(os.Stdout, c.Output, cycle+1, changes, watchSet)
 		}
 		cycle++
 		select {
@@ -1651,6 +1699,9 @@ func filterPushes(changes []sim.Change, allow map[string]struct{}, s schema.Sche
 	skippedHB := make([]string, 0)
 	warnedHB := map[string]struct{}{}
 	for _, c := range changes {
+		if c.Event != "" {
+			continue
+		}
 		if !writeAll {
 			if _, ok := allow[c.Name]; !ok {
 				continue
@@ -1671,6 +1722,10 @@ func filterPushes(changes []sim.Change, allow map[string]struct{}, s schema.Sche
 func printTrace(w io.Writer, format string, cycle int, changes []sim.Change, watch map[string]struct{}) {
 	filtered := changes[:0]
 	for _, c := range changes {
+		if c.Event != "" {
+			filtered = append(filtered, c)
+			continue
+		}
 		if len(watch) == 0 {
 			filtered = append(filtered, c)
 			continue
@@ -1690,6 +1745,10 @@ func printTrace(w io.Writer, format string, cycle int, changes []sim.Change, wat
 		return
 	}
 	for _, c := range filtered {
+		if c.Event != "" {
+			fmt.Fprintln(w, c.Event)
+			continue
+		}
 		fmt.Fprintf(w, "cycle=%d %s=%v\n", cycle, c.Name, c.Value)
 	}
 }

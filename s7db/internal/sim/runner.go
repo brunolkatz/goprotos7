@@ -13,24 +13,38 @@ type Change struct {
 	Name  string
 	Value any
 	Type  simlang.ValueType
+	Event string
 }
 
 type Runner struct {
-	Prog       *simlang.Program
-	Img        *Image
-	Tick       time.Duration
-	Cycle      int
-	lastBools  map[string]bool
-	pulseState map[string]int
+	Prog      *simlang.Program
+	Img       *Image
+	Tick      time.Duration
+	Cycle     int
+	lastBools map[string]bool
+	pulses    map[string]*pulseSiteState
+	tagOwner  map[string]string
+}
+
+type pulseSiteState struct {
+	siteKey   string
+	tag       string
+	once      bool
+	armed     bool
+	remaining int
+	active    bool
+	executed  bool
+	fired     bool
 }
 
 func NewRunner(prog *simlang.Program, img *Image) *Runner {
 	return &Runner{
-		Prog:       prog,
-		Img:        img,
-		Tick:       prog.Tick,
-		lastBools:  map[string]bool{},
-		pulseState: map[string]int{},
+		Prog:      prog,
+		Img:       img,
+		Tick:      prog.Tick,
+		lastBools: map[string]bool{},
+		pulses:    map[string]*pulseSiteState{},
+		tagOwner:  map[string]string{},
 	}
 }
 
@@ -38,6 +52,21 @@ func (r *Runner) Step() ([]Change, error) {
 	r.Cycle++
 	_ = r.Img.Set("tick", r.Tick)
 	changes := make([]Change, 0)
+	for _, ps := range r.pulses {
+		ps.executed = false
+		ps.fired = false
+		if !ps.active {
+			continue
+		}
+		ps.remaining--
+		if ps.remaining <= 0 {
+			if err := r.endPulse(ps); err != nil {
+				return nil, err
+			}
+			changes = append(changes, Change{Name: ps.tag, Value: false, Type: simlang.TypeBool})
+			changes = append(changes, Change{Name: ps.tag, Type: simlang.TypeBool, Event: fmt.Sprintf("pulse %s end", ps.tag)})
+		}
+	}
 	for _, st := range r.Prog.AST.Stmts {
 		cs, err := r.execStmt(st)
 		if err != nil {
@@ -45,17 +74,20 @@ func (r *Runner) Step() ([]Change, error) {
 		}
 		changes = append(changes, cs...)
 	}
-	for name, remaining := range r.pulseState {
-		remaining--
-		if remaining <= 0 {
-			delete(r.pulseState, name)
-			if err := r.Img.Set(name, false); err != nil {
-				return nil, fmt.Errorf("runtime pulse clear %s: %w", name, err)
+	for _, ps := range r.pulses {
+		if ps.active && !ps.executed {
+			if err := r.endPulse(ps); err != nil {
+				return nil, err
 			}
-			changes = append(changes, Change{Name: name, Value: false, Type: simlang.TypeBool})
-			continue
+			changes = append(changes, Change{Name: ps.tag, Value: false, Type: simlang.TypeBool})
+			changes = append(changes, Change{Name: ps.tag, Type: simlang.TypeBool, Event: fmt.Sprintf("pulse %s cancel (statement skipped)", ps.tag)})
 		}
-		r.pulseState[name] = remaining
+		if ps.active && ps.executed && !ps.fired {
+			changes = append(changes, Change{Name: ps.tag, Type: simlang.TypeBool, Event: fmt.Sprintf("pulse %s hold n=%d", ps.tag, ps.remaining)})
+		}
+		if ps.once && !ps.executed {
+			ps.armed = true
+		}
 	}
 	for name, typ := range r.Prog.Symbols {
 		if typ.Type != simlang.TypeBool {
@@ -70,13 +102,23 @@ func (r *Runner) Step() ([]Change, error) {
 
 func mergeChanges(in []Change) []Change {
 	m := map[string]Change{}
+	order := make([]string, 0, len(in))
+	events := make([]Change, 0)
 	for _, c := range in {
+		if c.Event != "" {
+			events = append(events, c)
+			continue
+		}
+		if _, ok := m[c.Name]; !ok {
+			order = append(order, c.Name)
+		}
 		m[c.Name] = c
 	}
-	out := make([]Change, 0, len(m))
-	for _, c := range m {
-		out = append(out, c)
+	out := make([]Change, 0, len(order)+len(events))
+	for _, name := range order {
+		out = append(out, m[name])
 	}
+	out = append(out, events...)
 	return out
 }
 
@@ -133,18 +175,60 @@ func (r *Runner) execStmt(st *simlang.Stmt) ([]Change, error) {
 }
 
 func (r *Runner) execPulse(p *simlang.PulseStmt) ([]Change, error) {
-	if _, ok := r.pulseState[p.Name]; ok {
-		return nil, nil
+	siteKey := pulseSiteKey(r.Prog.File, p)
+	ps, ok := r.pulses[siteKey]
+	if !ok {
+		ps = &pulseSiteState{
+			siteKey: siteKey,
+			tag:     p.Name,
+			once:    p.Once != nil,
+			armed:   true,
+		}
+		r.pulses[siteKey] = ps
 	}
+	ps.executed = true
+
 	width := 2
 	if p.Width != nil {
 		width = *p.Width
 	}
+	if ps.once {
+		if !ps.armed {
+			return []Change{{Name: p.Name, Type: simlang.TypeBool, Event: fmt.Sprintf("once pulse %s skipped", p.Name)}}, nil
+		}
+		ps.armed = false
+	}
+	if ps.active {
+		return nil, nil
+	}
+	if owner, busy := r.tagOwner[p.Name]; busy && owner != siteKey {
+		return nil, nil
+	}
 	if err := r.Img.Set(p.Name, true); err != nil {
 		return nil, fmt.Errorf("runtime pulse %s: %w", p.Name, err)
 	}
-	r.pulseState[p.Name] = width
-	return []Change{{Name: p.Name, Value: true, Type: simlang.TypeBool}}, nil
+	ps.active = true
+	ps.remaining = width
+	ps.fired = true
+	r.tagOwner[p.Name] = siteKey
+	return []Change{
+		{Name: p.Name, Value: true, Type: simlang.TypeBool},
+		{Name: p.Name, Type: simlang.TypeBool, Event: fmt.Sprintf("pulse %s fire n=%d site=%s", p.Name, width, siteKey)},
+	}, nil
+}
+
+func (r *Runner) endPulse(ps *pulseSiteState) error {
+	delete(r.tagOwner, ps.tag)
+	ps.active = false
+	ps.remaining = 0
+	if err := r.Img.Set(ps.tag, false); err != nil {
+		return fmt.Errorf("runtime pulse clear %s: %w", ps.tag, err)
+	}
+	return nil
+}
+
+func pulseSiteKey(file string, p *simlang.PulseStmt) string {
+	return fmt.Sprintf("%s:%d:%d:%d", file, p.Pos.Offset, p.Pos.Line, p.Pos.Column)
 }
 
 func (r *Runner) evalOn(st *simlang.OnStmt) (bool, error) {

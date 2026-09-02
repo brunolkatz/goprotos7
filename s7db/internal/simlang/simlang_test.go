@@ -91,6 +91,14 @@ func TestPulseWithExplicitWidth(t *testing.T) {
 	}
 }
 
+func TestOncePulseParsesAndCompiles(t *testing.T) {
+	src := "tick 100ms;\nonce pulse OsServiceFault;\nonce pulse OsServiceFault, 2;\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) > 0 {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
 func TestPulseOnHeartbeatTagIsRejected(t *testing.T) {
 	s := testSchema()
 	for i := range s.Tags {
@@ -108,6 +116,34 @@ func TestPulseOnHeartbeatTagIsRejected(t *testing.T) {
 	}
 }
 
+func TestOncePulseOnHeartbeatTagIsRejected(t *testing.T) {
+	s := testSchema()
+	for i := range s.Tags {
+		if s.Tags[i].Name == "OsServiceHeartbeat" {
+			s.Tags[i].Role = "heartbeat"
+		}
+	}
+	src := "tick 100ms;\nonce pulse OsServiceHeartbeat;\n"
+	_, diags := Compile("x.sim", src, s)
+	if len(diags) == 0 {
+		t.Fatalf("expected heartbeat pulse diag")
+	}
+	if !strings.Contains(diags[0].String(), "cannot pulse heartbeat tag") {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestOncePulseRequiresBool(t *testing.T) {
+	src := "tick 100ms;\nonce pulse StatusText, 2;\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected bool type error")
+	}
+	if !strings.Contains(diags[0].String(), "pulse requires BOOL") {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
 func TestPulseMissingSemicolon(t *testing.T) {
 	src := "tick 100ms;\npulse OsServiceFault\n"
 	_, diags := Compile("x.sim", src, testSchema())
@@ -116,6 +152,31 @@ func TestPulseMissingSemicolon(t *testing.T) {
 	}
 	if !strings.Contains(diags[0].String(), `expected ";" after pulse`) {
 		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestOncePulseMissingSemicolon(t *testing.T) {
+	src := "tick 100ms;\nonce pulse OsServiceFault, 2\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected pulse semicolon diag")
+	}
+	if !strings.Contains(diags[0].String(), `expected ";" after pulse`) {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+}
+
+func TestOnceOnlyPrefixesPulse(t *testing.T) {
+	src := "tick 100ms;\nonce AlarmMessage := \"x\";\n"
+	_, diags := Compile("x.sim", src, testSchema())
+	if len(diags) == 0 {
+		t.Fatalf("expected parse error")
+	}
+	if !strings.Contains(diags[0].String(), `"once" can only prefix pulse`) {
+		t.Fatalf("unexpected diag: %s", diags[0].String())
+	}
+	if diags[0].Line != 2 {
+		t.Fatalf("expected line 2, got %d", diags[0].Line)
 	}
 }
 
@@ -203,7 +264,6 @@ end`
 		return
 	}
 	if strings.Contains(diags[0].String(), "unknown name") {
-		// parse succeeded and reached type phase; this test only validates lex/parse behavior.
 		return
 	}
 	t.Fatalf("unexpected parse/type diagnostic: %s", diags[0].String())

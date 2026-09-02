@@ -143,3 +143,28 @@ func TestFilterPushesWriteAllSkipsHeartbeatByDefault(t *testing.T) {
 		t.Fatalf("expected heartbeat skip warning target, got %+v", skipped)
 	}
 }
+
+func TestFilterPushesSkipsTraceEvents(t *testing.T) {
+	s := schema.Schema{
+		Tags: []schema.Tag{
+			{Name: "PopupOKActivationPulse"},
+		},
+	}
+	changes := []sim.Change{
+		{Name: "PopupOKActivationPulse", Value: true},
+		{Name: "PopupOKActivationPulse", Event: "pulse PopupOKActivationPulse fire n=2 site=x"},
+	}
+	allow := map[string]struct{}{
+		"PopupOKActivationPulse": {},
+	}
+	out, skipped := filterPushes(changes, allow, s, false, true, false)
+	if len(skipped) != 0 {
+		t.Fatalf("did not expect skipped heartbeat entries: %+v", skipped)
+	}
+	if len(out) != 1 {
+		t.Fatalf("expected only the value change to be pushed, got %+v", out)
+	}
+	if out[0].Event != "" {
+		t.Fatalf("expected event-only change to be filtered out: %+v", out[0])
+	}
+}

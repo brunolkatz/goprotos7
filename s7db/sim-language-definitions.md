@@ -23,7 +23,7 @@ A script has:
 
 1. one `tick` declaration (required, first statement)
 2. optional `var` declarations
-3. executable statements (`if`, `on`, assignments, `pulse`)
+3. executable statements (`if`, `on`, assignments, `pulse`, `once pulse`)
 
 Important rule: simple statements end with `;`:
 
@@ -31,6 +31,7 @@ Important rule: simple statements end with `;`:
 - `var foo : BOOL := true;`
 - `Foo := false;`
 - `pulse Foo;`
+- `once pulse Foo, 2;`
 
 Compound headers do not take `;` before `then`/`do`/`else`; `end;` is optional.
 
@@ -51,6 +52,7 @@ end;
 
 - `tick`
 - `var`
+- `once`
 - `pulse`
 - `if`, `then`, `else`, `end`
 - `on`, `do`
@@ -142,6 +144,21 @@ pulse PopupOKActivationPulse, 2;
 - The pulse is non-retriggerable while already active
 - Heartbeat tags cannot be pulsed
 
+### Once pulse
+
+`once pulse` is a statement-latched pulse.
+
+```text
+once pulse PopupOKActivationPulse;
+once pulse PopupOKActivationPulse, 2;
+```
+
+- `once pulse` only applies to pulse statements (not assignments)
+- Default width is still `2` ticks
+- It fires once while the statement keeps executing, then stays quiet
+- It re-arms when the statement is skipped in a cycle
+- Site identity is per statement location, so two `once pulse Lamp` lines latch independently
+
 Example:
 
 ```text
@@ -219,9 +236,10 @@ end
 - One cycle per `tick`
 - Script runs top-to-bottom every cycle
 - `s7db sim` can stop by `--duration`, `--cycles`, or Ctrl+C
-- Simple statements must end with `;` (`tick`, `var`, assignments, `pulse`)
+- Simple statements must end with `;` (`tick`, `var`, assignments, `pulse`, `once pulse`)
 - `if ... then`, `on ... do`, `else` headers do not take `;` (`end;` is allowed)
 - `pulse` is processed after the main statement list in the current cycle and decrements on the next tick(s)
+- `once pulse` disarms after execution and re-arms after any cycle where that statement was skipped
 
 Offline mode:
 
@@ -239,6 +257,7 @@ The compiler reports errors with a file, line, column, snippet, and caret. Examp
 - unterminated strings
 - unknown names and type mismatches
 - `pulse` width must be an integer literal `>= 1`
+- `"once" can only prefix pulse`
 - heartbeat tags cannot be pulsed
 
 Compiler output is designed to point at the actual token that caused the error, not at the start of the file.
@@ -275,12 +294,23 @@ if SomeBit == true then
 end;
 ```
 
+```text
+tick 100ms;
+if OSServiceControl == true then
+  AlarmMessage := "Meu alarme";
+  once pulse PopupOKActivationPulse, 2;
+end;
+if OSServiceControl == false then
+  AlarmMessage := "";
+end;
+```
+
 ---
 
 ## 12) Notes for editors
 
 - TextMate highlighting is available in `editors/s7sim/`
 - `s7db lsp --stdio -f ${workspace}/.s7db/s7db.yml` can publish compile diagnostics in the editor
-- The grammar highlights comments, strings, keywords, numeric/time literals, `STRING[n]`, semicolons, and `pulse`
+- The grammar highlights comments, strings, keywords, numeric/time literals, `STRING[n]`, semicolons, `pulse`, and `once`
 
 This file is a practical reference for writing scripts that compile cleanly with `s7db compile`.

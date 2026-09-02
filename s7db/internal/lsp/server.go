@@ -302,6 +302,14 @@ func (s *Server) publishDiagnostics(w io.Writer, uri string, diags []Diagnostic)
 	return sendMessage(w, msg)
 }
 
+func (s *Server) CheckFile(path string) ([]Diagnostic, error) {
+	srcBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return s.compileText(path, string(srcBytes)), nil
+}
+
 func (s *Server) compileText(file, src string) []Diagnostic {
 	if src == "" {
 		return nil

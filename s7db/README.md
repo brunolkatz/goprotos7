@@ -328,9 +328,17 @@ end;
 if SomeBit == true then
   pulse PopupOKActivationPulse, 2;
 end;
+if OSServiceControl == true then
+  AlarmMessage := "Meu alarme";
+  once pulse PopupOKActivationPulse, 2;
+end;
 ```
 
-`pulse NAME;` and `pulse NAME, N;` use `N` as a tick count, defaulting to `2`. The tag goes `TRUE` immediately on the fire tick, remains `TRUE` for `N` ticks total, and then returns `FALSE` automatically. While active, the pulse is non-retriggerable. Prefer `on rising` plus `pulse` for button-like logic. Heartbeat tags cannot be pulsed.
+`pulse NAME;` and `pulse NAME, N;` use `N` as a tick count, defaulting to `2`. The tag goes `TRUE` immediately on the fire tick, remains `TRUE` for `N` evaluations of `Step()` including the fire step, and then returns `FALSE`. If execution leaves the `if`/`on` body that contains the pulse statement, the pulse is canceled and forced `FALSE` in that same cycle. While active, the pulse is non-retriggerable.
+
+`once pulse NAME;` and `once pulse NAME, N;` add a statement latch: the statement fires only on the first execution after an idle cycle, then stays quiet while that same statement keeps executing. It re-arms only after that statement is skipped (for example, condition becomes false), and can fire again on the next active pass.
+
+Use `on rising ... do pulse ... end` for edge-triggered one-shots, and `once pulse` for local pushbutton-style behavior inside a level `if`. Heartbeat tags cannot be pulsed.
 
 Example script:
 
@@ -371,7 +379,7 @@ S7 STRING wire format used on PLC push/pull:
 
 Notes:
 - This is an external tick task, not PLC CPU logic.
-- Simple statements (`tick`, `var`, assignments, `pulse`) must end with `;`.
+- Simple statements (`tick`, `var`, assignments, `pulse`, `once pulse`) must end with `;`.
 - `if ... then`, `on ... do`, and `else` headers do not take `;`; `end;` is allowed.
 - `--plc --write` requires either `--allow-write ...` or `--write-all`.
 - `--write-all` and `--allow-write` are mutually exclusive.

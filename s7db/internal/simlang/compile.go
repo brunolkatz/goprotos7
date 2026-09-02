@@ -183,25 +183,46 @@ func checkStmt(file, src string, p *Program, st *Stmt, names []string) []Diag {
 }
 
 func checkPulse(file, src string, p *Program, pulse *PulseStmt, names []string) []Diag {
+	nameCol := pulseNameColumn(pulse)
 	sym, ok := p.Symbols[pulse.Name]
 	if !ok {
-		return []Diag{makeDiag(file, src, "compile error", fmt.Sprintf("unknown name %q", pulse.Name), suggest(pulse.Name, names), pulse.Pos.Line, pulse.Pos.Column+len("pulse "))}
+		return []Diag{makeDiag(file, src, "compile error", fmt.Sprintf("unknown name %q", pulse.Name), suggest(pulse.Name, names), pulse.Pos.Line, nameCol)}
 	}
 	if sym.Role == "heartbeat" {
-		return []Diag{makeDiag(file, src, "type error", "cannot pulse heartbeat tag", fmt.Sprintf("%s is role:heartbeat", pulse.Name), pulse.Pos.Line, pulse.Pos.Column+len("pulse "))}
+		return []Diag{makeDiag(file, src, "type error", "cannot pulse heartbeat tag", fmt.Sprintf("%s is role:heartbeat", pulse.Name), pulse.Pos.Line, nameCol)}
 	}
 	if sym.Type != TypeBool {
-		return []Diag{makeDiag(file, src, "type error", "pulse requires BOOL", fmt.Sprintf("%s is %s; pulse is a momentary BOOL", pulse.Name, renderType(sym.Type, sym.StringLen)), pulse.Pos.Line, pulse.Pos.Column+len("pulse "))}
+		return []Diag{makeDiag(file, src, "type error", "pulse requires BOOL", fmt.Sprintf("%s is %s; pulse is a momentary BOOL", pulse.Name, renderType(sym.Type, sym.StringLen)), pulse.Pos.Line, nameCol)}
 	}
 	if pulse.Width != nil {
 		if *pulse.Width < 1 {
-			return []Diag{makeDiag(file, src, "parse error", "pulse width must be an integer ≥ 1", "use pulse X, 2;", pulse.Pos.Line, pulse.Pos.Column+len("pulse ")+len(pulse.Name)+1)}
+			hint := "use pulse X, 2;"
+			if pulse.Once != nil {
+				hint = "use once pulse X, 2;"
+			}
+			return []Diag{makeDiag(file, src, "parse error", "pulse width must be an integer ≥ 1", hint, pulse.Pos.Line, pulseWidthColumn(pulse))}
 		}
 	}
 	if sym.IsTag {
 		p.UsedTags[sym.Name] = struct{}{}
 	}
 	return nil
+}
+
+func pulseNameColumn(p *PulseStmt) int {
+	prefix := "pulse "
+	if p.Once != nil {
+		prefix = "once pulse "
+	}
+	return p.Pos.Column + len(prefix)
+}
+
+func pulseWidthColumn(p *PulseStmt) int {
+	prefix := "pulse "
+	if p.Once != nil {
+		prefix = "once pulse "
+	}
+	return p.Pos.Column + len(prefix) + len(p.Name) + 1
 }
 
 func checkAssign(file, src string, p *Program, as *AssignStmt, names []string) []Diag {
