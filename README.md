@@ -25,12 +25,23 @@
 
 ---
 
-## Usage
+## Installation
 
-Build:
+Install latest binaries with Go:
+
+```bash
+# Server
+go install github.com/brunolkatz/goprotos7/cmd/goprotos7@latest
+
+# s7db CLI
+go install github.com/brunolkatz/goprotos7/s7db/cmd/s7db@latest
+```
+
+Build locally:
 
 ```bash
 go build -o goprotos7 ./cmd/goprotos7
+go build -o s7db ./s7db/cmd/s7db
 ```
 
 Run:
@@ -41,7 +52,7 @@ Run:
 | `--port` or `-p`       | `102`         | The port to listen on. If empty, the default port `102` will be used. |
 
 ```bash
-./goprotos7 --qlite-path ./db.sqlite --db-bin-path ./db
+goprotos7 --bin-folder ./db
 ```
 
 The service will start listening on port `102` by default, which is the standard port for S7 communication.
