@@ -192,6 +192,7 @@ input[type="text"] {
 .dial {
   width: 76px;
   height: 76px;
+  display: none;
 }
 
 .dial circle {
