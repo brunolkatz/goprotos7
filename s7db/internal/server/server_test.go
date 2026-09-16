@@ -123,6 +123,19 @@ func TestBitRMWPreservesSiblingBits(t *testing.T) {
 	}
 }
 
+func TestHeartbeatSetFalsePreservesSiblingBits(t *testing.T) {
+	srv, mock := newTestServer(t)
+	mock.dbs[1] = []byte{0x07, 0x00, 0x00, 0x00}
+	client := &lockedHeartbeatClient{server: srv}
+	if err := client.WriteBool(context.Background(), 1, 0, 0, false); err != nil {
+		t.Fatalf("WriteBool false failed: %v", err)
+	}
+	got, _ := mock.ReadDB(1, 0, 1)
+	if got[0] != 0x06 {
+		t.Fatalf("expected sibling bits untouched while clearing bit0, got %#x", got[0])
+	}
+}
+
 func TestHeartbeatTagWriteRejected(t *testing.T) {
 	srv, _ := newTestServer(t)
 	tag, ok := srv.findTag("HB")

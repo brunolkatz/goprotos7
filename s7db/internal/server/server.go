@@ -643,6 +643,22 @@ func (s *Server) applyWrite(ctx context.Context, tag *resolvedTag, value any, ra
 	return after, decoded, "", nil
 }
 
+func setDBByteBit(raw []byte, bit int, value bool) error {
+	if len(raw) == 0 {
+		return fmt.Errorf("empty DB byte")
+	}
+	if bit < 0 || bit > 7 {
+		return fmt.Errorf("invalid bit offset %d", bit)
+	}
+	mask := byte(1 << bit)
+	if value {
+		raw[0] |= mask
+	} else {
+		raw[0] &^= mask
+	}
+	return nil
+}
+
 func (s *Server) writeTagPayload(ctx context.Context, tag *resolvedTag, payload []byte) ([]byte, []byte, error) {
 	select {
 	case <-ctx.Done():
@@ -657,11 +673,11 @@ func (s *Server) writeTagPayload(ctx context.Context, tag *resolvedTag, payload 
 			return nil, nil, err
 		}
 		before := append([]byte(nil), current...)
-		mask := byte(1 << tag.Addr.Bit)
-		if len(payload) > 0 && payload[0] != 0 {
-			current[0] |= mask
-		} else {
-			current[0] &^= mask
+		if len(payload) == 0 {
+			payload = []byte{0}
+		}
+		if err := setDBByteBit(current, tag.Addr.Bit, len(payload) > 0 && payload[0] != 0); err != nil {
+			return nil, nil, err
 		}
 		if err := s.client.WriteDB(tag.Addr.DB, tag.Addr.Byte, current); err != nil {
 			return nil, nil, err
@@ -707,62 +723,66 @@ func (h *heartbeatController) Start(parent context.Context) error {
 	if h.state.Running {
 		return nil
 	}
-	target := h.server.findHeartbeatTag()
-	if target == nil {
+	targets := h.server.findHeartbeatTag()
+	if targets == nil {
 		return fmt.Errorf("no heartbeat tag found in schema")
 	}
 	interval := time.Second
 	timeout := 5 * time.Second
-	mode := "set-true"
-	if target.Heartbeat != nil {
-		if strings.TrimSpace(target.Heartbeat.Interval) != "" {
-			v, err := time.ParseDuration(target.Heartbeat.Interval)
-			if err != nil {
-				return fmt.Errorf("invalid heartbeat interval: %w", err)
-			}
-			interval = v
-		}
-		if strings.TrimSpace(target.Heartbeat.Timeout) != "" {
-			v, err := time.ParseDuration(target.Heartbeat.Timeout)
-			if err != nil {
-				return fmt.Errorf("invalid heartbeat timeout: %w", err)
-			}
-			timeout = v
-		}
-		if strings.TrimSpace(target.Heartbeat.Polarity) != "" {
-			mode = strings.TrimSpace(target.Heartbeat.Polarity)
-		}
-	}
 	ctx, cancel := context.WithCancel(parent)
 	h.cancel = cancel
 	h.state.Running = true
 	h.state.Fault = false
 	h.state.Error = ""
 	client := &lockedHeartbeatClient{server: h.server, onBeat: h.markBeat}
-	go func() {
-		err := heartbeat.Run(ctx, client, heartbeat.Config{
-			Verbose:      h.server.cfg.Verbose,
-			Address:      target.Addr,
-			Name:         target.Key,
-			Interval:     interval,
-			Timeout:      timeout,
-			Mode:         mode,
-			Reconnect:    true,
-			NoReadback:   true,
-			RequireClear: false,
-			Quiet:        true,
-			Now:          h.server.cfg.Now,
-			Out:          io.Discard,
-			Err:          h.server.cfg.Err,
-		})
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		h.state.Running = false
-		if err != nil && !errors.Is(err, context.Canceled) {
-			h.state.Fault = true
-			h.state.Error = err.Error()
+	if len(targets) > 0 {
+		mode := "set-true"
+		for _, target := range targets {
+			if strings.TrimSpace(target.Heartbeat.Interval) != "" {
+				v, err := time.ParseDuration(target.Heartbeat.Interval)
+				if err != nil {
+					return fmt.Errorf("invalid heartbeat interval: %w", err)
+				}
+				interval = v
+			}
+			if strings.TrimSpace(target.Heartbeat.Timeout) != "" {
+				v, err := time.ParseDuration(target.Heartbeat.Timeout)
+				if err != nil {
+					return fmt.Errorf("invalid heartbeat timeout: %w", err)
+				}
+				timeout = v
+			}
+			if strings.TrimSpace(target.Heartbeat.Polarity) != "" {
+				mode = strings.TrimSpace(target.Heartbeat.Polarity)
+			}
+
+			go func() {
+				err := heartbeat.Run(ctx, client, heartbeat.Config{ // on serve command
+					Verbose:      h.server.cfg.Verbose,
+					Address:      target.Addr,
+					Name:         target.Key,
+					Interval:     interval,
+					Timeout:      timeout,
+					Mode:         mode,
+					Reconnect:    true,
+					NoReadback:   true,
+					RequireClear: false,
+					Quiet:        true,
+					Now:          h.server.cfg.Now,
+					Out:          io.Discard,
+					Err:          h.server.cfg.Err,
+				})
+				h.mu.Lock()
+				defer h.mu.Unlock()
+				h.state.Running = false
+				if err != nil && !errors.Is(err, context.Canceled) {
+					h.state.Fault = true
+					h.state.Error = err.Error()
+				}
+			}()
 		}
-	}()
+	}
+
 	return nil
 }
 
@@ -788,13 +808,14 @@ func (h *heartbeatController) Status() heartbeatState {
 	return h.state
 }
 
-func (s *Server) findHeartbeatTag() *resolvedTag {
+func (s *Server) findHeartbeatTag() []*resolvedTag {
+	var ret []*resolvedTag
 	for i := range s.tags {
 		if strings.EqualFold(strings.TrimSpace(s.tags[i].Role), "heartbeat") {
-			return s.tags[i]
+			ret = append(ret, s.tags[i])
 		}
 	}
-	return nil
+	return ret
 }
 
 type lockedHeartbeatClient struct {
@@ -841,11 +862,8 @@ func (c *lockedHeartbeatClient) WriteBool(ctx context.Context, db, by, bit int, 
 	if err != nil {
 		return err
 	}
-	mask := byte(1 << bit)
-	if value {
-		buf[0] |= mask
-	} else {
-		buf[0] &^= mask
+	if err := setDBByteBit(buf, bit, value); err != nil {
+		return err
 	}
 	if err := c.server.client.WriteDB(db, by, buf); err != nil {
 		return err

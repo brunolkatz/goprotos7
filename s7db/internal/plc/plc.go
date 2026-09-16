@@ -114,14 +114,27 @@ func (c *Client) ReadBool(ctx context.Context, db, by, bit int) (bool, error) {
 	return buf[0]&(1<<bit) != 0, nil
 }
 
+func setByteBit(raw []byte, bit int, value bool) error {
+	if len(raw) != 1 {
+		return fmt.Errorf("byte write requires exactly 1 byte, got %d", len(raw))
+	}
+	if bit < 0 || bit > 7 {
+		return fmt.Errorf("invalid bit offset %d", bit)
+	}
+	mask := byte(1 << bit)
+	if value {
+		raw[0] |= mask
+	} else {
+		raw[0] &^= mask
+	}
+	return nil
+}
+
 func (c *Client) WriteBool(ctx context.Context, db, by, bit int, value bool) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-	}
-	if bit < 0 || bit > 7 {
-		return fmt.Errorf("invalid bit offset %d", bit)
 	}
 	current := []byte{0}
 	if c.client == nil {
@@ -130,11 +143,8 @@ func (c *Client) WriteBool(ctx context.Context, db, by, bit int, value bool) err
 	if err := c.client.AGReadDB(db, by, 1, current); err != nil {
 		return err
 	}
-	mask := byte(1 << bit)
-	if value {
-		current[0] |= mask
-	} else {
-		current[0] &^= mask
+	if err := setByteBit(current, bit, value); err != nil {
+		return err
 	}
 	return c.client.AGWriteDB(db, by, 1, current)
 }
