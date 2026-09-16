@@ -31,6 +31,7 @@ type Config struct {
 	Reconnect    bool
 	Strict       bool
 	Quiet        bool
+	Verbose      bool
 	JSON         bool
 	DryRun       bool
 
@@ -114,6 +115,8 @@ func Run(ctx context.Context, client Client, cfg Config) error {
 			if cfg.Mode == "toggle" {
 				lastToggle = !lastToggle
 				wrote = lastToggle
+			} else if cfg.Mode == "set-false" {
+				wrote = false
 			} else {
 				wrote = true
 			}
@@ -134,7 +137,15 @@ func Run(ctx context.Context, client Client, cfg Config) error {
 						haveLastToggle = true
 					}
 				}
-			default:
+			case "set-false":
+				var cur bool
+				cur, opErr = client.ReadBool(ctx, cfg.Address.DB, cfg.Address.Byte, cfg.Address.Bit)
+				if opErr == nil {
+					if cur {
+						opErr = client.WriteBool(ctx, cfg.Address.DB, cfg.Address.Byte, cfg.Address.Bit, false)
+					}
+				}
+			default: // set-true
 				wrote = true
 				opErr = client.WriteBool(ctx, cfg.Address.DB, cfg.Address.Byte, cfg.Address.Bit, true)
 			}
@@ -160,7 +171,7 @@ func Run(ctx context.Context, client Client, cfg Config) error {
 			readback = v
 		}
 		status := "ok"
-		if cfg.RequireClear && cfg.Mode == "set-true" && !cfg.DryRun {
+		if cfg.RequireClear && (cfg.Mode == "set-true" || cfg.Mode == "set-false") && !cfg.DryRun {
 			if err := cfg.Sleep(ctx, cfg.ClearWithin); err != nil {
 				return nil
 			}

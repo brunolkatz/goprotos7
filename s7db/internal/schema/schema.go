@@ -397,7 +397,7 @@ func Validate(s Schema, strict bool) ([]Diagnostic, error) {
 			diags = append(diags, Diagnostic{Level: "warning", Message: msg})
 		}
 		switch hb.Polarity {
-		case "", "set-true", "toggle":
+		case "", "set-true", "toggle", "set-false":
 		default:
 			msg := fmt.Sprintf("tag %s invalid heartbeat polarity %q", t.Addr, hb.Polarity)
 			if strict {

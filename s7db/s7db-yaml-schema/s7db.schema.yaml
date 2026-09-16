@@ -108,7 +108,7 @@ $defs:
             pattern: "^[0-9]+(?:ns|us|µs|ms|s|m|h)$"
           polarity:
             type: string
-            enum: [set-true, toggle]
+            enum: [set-true, set-false, toggle]
             default: set-true
       init:
         description: "Initial value, constrained by the selected `type`."

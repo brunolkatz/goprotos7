@@ -15,7 +15,7 @@ tags:
     heartbeat:
       interval: 1s
       timeout: 5s
-      polarity: set-true
+      polarity: set-false
   - addr: DB300.DBX0.1
     name: OSServiceControl
     type: BOOL

@@ -786,6 +786,7 @@ func (c *HeartbeatCmd) Run(app *App) error {
 		Reconnect:    c.Reconnect,
 		Strict:       app.CLI.Strict,
 		Quiet:        app.CLI.Quiet,
+		Verbose:      app.CLI.Verbose,
 		JSON:         c.JSON,
 		DryRun:       app.CLI.DryRun,
 		Now:          app.Now,
@@ -825,6 +826,7 @@ func (c *ServeCmd) Run(app *App) error {
 	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	return server.Run(sigCtx, s, server.Config{
+		Verbose:   app.CLI.Verbose,
 		Listen:    c.Listen,
 		Token:     c.Token,
 		ReadOnly:  c.ReadOnly,

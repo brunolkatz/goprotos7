@@ -50,6 +50,7 @@ type Config struct {
 	Out       io.Writer
 	Err       io.Writer
 	Client    PLCClient
+	Verbose   bool
 }
 
 type resolvedTag struct {
@@ -740,6 +741,7 @@ func (h *heartbeatController) Start(parent context.Context) error {
 	client := &lockedHeartbeatClient{server: h.server, onBeat: h.markBeat}
 	go func() {
 		err := heartbeat.Run(ctx, client, heartbeat.Config{
+			Verbose:      h.server.cfg.Verbose,
 			Address:      target.Addr,
 			Name:         target.Key,
 			Interval:     interval,
