@@ -36,7 +36,7 @@ func (c *Connection) eventS7FuncWriteVar(msg *Message, conn net.Conn) {
 		}
 
 		transport := TransportSizeByte
-		if item.TransportSize == 0x01 {
+		if item.TransportSize == 0x03 {
 			transport = TransportSizeBit
 		}
 		err := c.setDBValue(item.DBNumber, transport, item.ByteOffset, item.BitOffset, dataItem.Data)

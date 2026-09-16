@@ -96,3 +96,24 @@ func TestEventS7FuncWriteVarWritesDBBinFile(t *testing.T) {
 		t.Fatalf("unexpected WriteVar ACK trailer: % x", ack)
 	}
 }
+
+func TestSetDBValueBitPreservesSiblingBits(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "DB300.bin")
+	if err := os.WriteFile(dbPath, []byte{0x07}, 0o644); err != nil {
+		t.Fatalf("error creating test DB file: %v", err)
+	}
+
+	c := &Connection{options: &Options{BinFilesFolder: tmpDir}}
+	if err := c.setDBValue(300, TransportSizeBit, 0, 0, []byte{0x00}); err != nil {
+		t.Fatalf("setDBValue bit false failed: %v", err)
+	}
+
+	got, err := os.ReadFile(dbPath)
+	if err != nil {
+		t.Fatalf("error reading DB file: %v", err)
+	}
+	if got[0] != 0x06 {
+		t.Fatalf("expected sibling bits preserved, got %#x", got[0])
+	}
+}
