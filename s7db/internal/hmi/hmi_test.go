@@ -30,11 +30,21 @@ func TestResolveUI_ExplicitWidgetPreserved(t *testing.T) {
 			Step:   &step,
 		},
 	}
+
 	ui := ResolveUI(tag)
 	if ui.Widget != "number" {
 		t.Fatalf("expected explicit widget to remain number, got %q", ui.Widget)
 	}
+
 	if ui.Step == nil || *ui.Step != 0.25 {
 		t.Fatalf("expected explicit step to remain 0.25, got %#v", ui.Step)
+	}
+}
+
+func TestResolveUIWStringUsesText(t *testing.T) {
+	for _, name := range []string{"WSTRING", "WSTRING[20]"} {
+		if ui := ResolveUI(schema.Tag{Type: name}); ui.Widget != "text" {
+			t.Errorf("%s widget = %q, want text", name, ui.Widget)
+		}
 	}
 }

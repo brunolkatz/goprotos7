@@ -1,6 +1,7 @@
 tick 100ms;
 var fault_timer : TIME := T#0s;
 var Msg : STRING[20] := "ok";
+var WideMsg : WSTRING[20] := W"ready";
 
 on OsServiceHeartbeat == true do
   OsServiceHeartbeat := false;
@@ -16,9 +17,11 @@ end;
 if fault_timer > T#5s then
   OsServiceFault := true;
   Msg := "os fault";
+  WideMsg := W"mill stopped";
 else
   OsServiceFault := false;
   Msg := "running";
+  WideMsg := W"mill running";
 end;
 
 if OsServiceFault then

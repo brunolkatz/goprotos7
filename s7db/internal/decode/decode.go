@@ -13,6 +13,7 @@ import (
 )
 
 var stringTypeRE = regexp.MustCompile(`^STRING\[(\d+)\]$`)
+var wstringTypeRE = regexp.MustCompile(`^WSTRING\[(\d+)\]$`)
 
 type TypeSpec struct {
 	Name      string
@@ -45,6 +46,8 @@ func InferAddressType(addr address.Address) (TypeSpec, error) {
 		return TypeSpec{Name: "WORD", SizeBytes: 2}, nil
 	case "D", "DBD":
 		return TypeSpec{Name: "DWORD", SizeBytes: 4}, nil
+	case "WSTRING":
+		return ResolveSchemaType("WSTRING", addr)
 	default:
 		return TypeSpec{}, fmt.Errorf("cannot infer type from address %s", addr.Canonical())
 	}
@@ -87,6 +90,9 @@ func Decode(data any) (any, string, error) {
 }
 
 func DecodeRaw(spec TypeSpec, endian binary.ByteOrder, data []byte, bit int) (any, error) {
+	if spec.Name == "WSTRING" {
+		return decodeWString(spec, data)
+	}
 	if spec.Name == "BOOL" {
 		if len(data) < 1 {
 			return nil, fmt.Errorf("short buffer for BOOL")
@@ -140,6 +146,8 @@ func DecodeRaw(spec TypeSpec, endian binary.ByteOrder, data []byte, bit int) (an
 
 func EncodeRaw(spec TypeSpec, endian binary.ByteOrder, value any) ([]byte, error) {
 	switch spec.Name {
+	case "WSTRING":
+		return encodeWString(spec, value)
 	case "BYTE", "USINT", "CHAR":
 		v, err := asUint(value)
 		if err != nil {
@@ -246,6 +254,21 @@ func parseTypeSpec(typ string, addr *address.Address) (TypeSpec, error) {
 			return TypeSpec{}, fmt.Errorf("STRING requires length in address suffix (1..16382)")
 		}
 		return TypeSpec{Name: "STRING", StringLen: addr.Bit, SizeBytes: addr.Bit + 2}, nil
+	case "WSTRING":
+		if addr == nil || !strings.EqualFold(strings.TrimSpace(addr.Area), "WSTRING") {
+			return TypeSpec{}, fmt.Errorf("WSTRING requires a WSTRING address with capacity suffix (1..16382)")
+		}
+		return wstringTypeSpec(addr.Bit)
+	}
+	if m := wstringTypeRE.FindStringSubmatch(t); m != nil {
+		n, err := strconv.Atoi(m[1])
+		if err != nil {
+			return TypeSpec{}, fmt.Errorf("invalid WSTRING length %q", m[1])
+		}
+		if addr != nil && strings.EqualFold(strings.TrimSpace(addr.Area), "WSTRING") && n != addr.Bit {
+			return TypeSpec{}, fmt.Errorf("WSTRING type capacity %d does not match address capacity %d", n, addr.Bit)
+		}
+		return wstringTypeSpec(n)
 	}
 	if m := stringTypeRE.FindStringSubmatch(t); m != nil {
 		n, _ := strconv.Atoi(m[1])

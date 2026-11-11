@@ -37,7 +37,9 @@ tags:
     desc: Tank level in liters
 ```
 
-Supported types: `BOOL`, `BYTE`, `CHAR`, `SINT`, `USINT`, `INT`, `UINT`, `WORD`, `DINT`, `UDINT`, `DWORD`, `REAL`, `TIME`, `STRING[n]`.
+Supported types: `BOOL`, `BYTE`, `CHAR`, `SINT`, `USINT`, `INT`, `UINT`, `WORD`, `DINT`, `UDINT`, `DWORD`, `REAL`, `TIME`, `STRING[n]`, `WSTRING[n]`.
+
+`STRING[n]` stores up to 254 single-byte characters; `WSTRING[n]` stores up to 16382 UTF-16 BMP characters. A `WSTRING` tag uses an address that includes its capacity, such as `DB1.WSTRING0.10` or `WSTRING0.10` when the DB is supplied with `--db`. You can instead declare an explicit `WSTRING[n]` capacity at a byte address such as `DB1.DBB0`. Initial values for either type are YAML strings.
 
 Supported address forms:
 - full: `DB10.DBX0.0`, `DB10.DBB1`, `DB10.DBW2`, `DB10.DBD4`
@@ -370,6 +372,46 @@ if OsServiceFault then
   StatusText := Msg;
 end;
 ```
+
+WSTRING example:
+
+```text
+tick 100ms;
+var WideMsg : WSTRING[40] := W"ready";
+if OSServiceControl then
+  WideMsg := W"mill stopped";
+end;
+```
+
+The schema-backed example in `examples/wstring/` assigns directly to a WSTRING tag:
+
+```yaml
+tags:
+  - addr: DB1.WSTRING0.10
+    name: StatusText
+    type: WSTRING
+```
+
+```text
+tick 100ms;
+StatusText := W"mill ready";
+```
+
+From the `s7db` directory, compile and run it offline:
+
+```bash
+s7db -f examples/wstring/schema.yml compile examples/wstring/status.sim
+s7db -f examples/wstring/schema.yml sim examples/wstring/status.sim --cycles 1 --trace
+```
+
+In s7sim, wide string literals use the `W"content"` form and can be assigned to `WSTRING[n]` variables or WSTRING tags.
+
+WSTRING wire format used on PLC push/pull:
+- bytes 0..1 = maximum character count (big-endian; must match the schema capacity)
+- bytes 2..3 = actual character count (big-endian; must not exceed the maximum)
+- byte 4 onward = UTF-16BE payload, padded to the declared capacity
+
+WSTRING capacity counts 16-bit BMP characters. Surrogate code points (including characters outside the BMP) are not supported; unused payload padding is ignored when decoding.
 
 S7 STRING wire format used on PLC push/pull:
 - byte 0 = max length

@@ -1,0 +1,12 @@
+# $schema: ../../s7db-yaml-schema/s7db.schema.yaml
+version: 1
+db: 1
+name: WideStatus
+optimized: false
+endian: big
+size: auto
+tags:
+  - addr: DB1.WSTRING0.10
+    name: StatusText
+    type: WSTRING
+    init: "ready"

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -186,6 +187,46 @@ func TestPutTagHandlerWritesMockPLC(t *testing.T) {
 	}
 	if ok, _ := payload["ok"].(bool); !ok {
 		t.Fatalf("expected ok=true response")
+	}
+}
+
+func TestWStringServeWriteAndPoll(t *testing.T) {
+	mock := newMockPLC()
+	s := schema.Schema{DB: 1, Endian: "little", Tags: []schema.Tag{
+		{Addr: "DB1.WSTRING10.4", Name: "Wide", Type: "WSTRING"},
+	}}
+	srv, err := newServer(Config{}, s, mock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag, ok := srv.findTag("Wide")
+	if !ok || tag.UI.Widget != "text" {
+		t.Fatalf("missing WSTRING or wrong widget: %+v", tag)
+	}
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/tags/Wide", strings.NewReader(`{"value":"Aé"}`))
+	rr := httptest.NewRecorder()
+	srv.handleTagByName(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("write status %d: %s", rr.Code, rr.Body.String())
+	}
+	raw, err := mock.ReadDB(1, 10, 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []byte{0, 4, 0, 2, 0, 'A', 0, 0xe9, 0, 0, 0, 0}; !bytes.Equal(raw, want) {
+		t.Fatalf("WSTRING bytes % x, want % x", raw, want)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["value"] != "Aé" {
+		t.Fatalf("write response = %v", result)
+	}
+	srv.pollOnce(context.Background())
+	snapshot := srv.snapshotTags(nil)
+	if len(snapshot) != 1 || snapshot[0]["value"] != "Aé" {
+		t.Fatalf("unexpected polled WSTRING: %v", snapshot)
 	}
 }
 

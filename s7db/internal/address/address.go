@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	fullAddressRE  = regexp.MustCompile(`^DB(\d+)\.(S|STRING|DB[SXBWDbwxd])(\d+)(?:\.(\d+))?$`)
-	shortAddressRE = regexp.MustCompile(`^(S|STRING|[SXBWDbwxd])(\d+)(?:\.(\d+))?$`)
+	fullAddressRE  = regexp.MustCompile(`^DB(\d+)\.(WSTRING|S|STRING|DB[SXBWDbwxd])(\d+)(?:\.(\d+))?$`)
+	shortAddressRE = regexp.MustCompile(`^(WSTRING|S|STRING|[SXBWDbwxd])(\d+)(?:\.(\d+))?$`)
 )
 
 type Address struct {
@@ -23,21 +23,21 @@ func (a Address) Canonical() string {
 	if a.Area == "X" || a.Area == "DBX" {
 		return fmt.Sprintf("DB%d.DBX%d.%d", a.DB, a.Byte, a.Bit)
 	}
-	if a.Area == "S" || a.Area == "STRING" || a.Area == "DBS" {
+	if a.Area == "S" || a.Area == "STRING" || a.Area == "DBS" || a.Area == "WSTRING" {
 		return fmt.Sprintf("DB%d.%s%d.%d", a.DB, a.Area, a.Byte, a.Bit)
 	}
 	return fmt.Sprintf("DB%d.%s%d", a.DB, a.Area, a.Byte)
 }
 
 func (a Address) CanonicalShort() string {
-	if a.Area == "X" {
-		return fmt.Sprintf("X%d.%d", a.Byte, a.Bit)
+	if a.Area == "X" || a.Area == "WSTRING" {
+		return fmt.Sprintf("%s%d.%d", a.Area, a.Byte, a.Bit)
 	}
 	return fmt.Sprintf("%s%d", a.Area, a.Byte)
 }
 
 func (a Address) StartBit() int {
-	if a.Area == "S" || a.Area == "STRING" || a.Area == "DBS" {
+	if a.Area == "S" || a.Area == "STRING" || a.Area == "DBS" || a.Area == "WSTRING" {
 		return a.Byte * 8
 	}
 	return a.Byte*8 + a.Bit
@@ -75,6 +75,14 @@ func fromParts(dbRaw, areaRaw, byteRaw, bitRaw string, short bool) (Address, err
 	}
 	area := strings.ToUpper(areaRaw)
 	addr := Address{DB: db, Area: area, Byte: b}
+	if area == "WSTRING" {
+		length, err := strconv.Atoi(bitRaw)
+		if err != nil || length < 1 || length > 16382 {
+			return Address{}, fmt.Errorf("invalid WSTRING capacity %q (must be 1..16382)", bitRaw)
+		}
+		addr.Bit = length
+		return addr, nil
+	}
 	if area == "STRING" || area == "S" || area == "DBS" {
 		bit, err := strconv.Atoi(bitRaw)
 		if err != nil || bit < 0 || bit > 254 {

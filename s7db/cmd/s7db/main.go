@@ -1200,6 +1200,7 @@ type watchVar struct {
 	Size      int
 	Bit       int
 	ByteOrder binary.ByteOrder
+	Spec      decode.TypeSpec
 }
 
 type heartbeatTarget struct {
@@ -1302,6 +1303,7 @@ func resolveWatchVars(s schema.Schema, vars []string, defaultDB *int, fallbackEn
 				Size:      ts.SizeBytes,
 				Bit:       addrValue.Bit,
 				ByteOrder: schemaOrder,
+				Spec:      ts,
 			})
 			continue
 		}
@@ -1322,6 +1324,7 @@ func resolveWatchVars(s schema.Schema, vars []string, defaultDB *int, fallbackEn
 			Size:      ts.SizeBytes,
 			Bit:       addrValue.Bit,
 			ByteOrder: fallbackOrder,
+			Spec:      ts,
 		})
 	}
 	if len(out) == 0 {
@@ -1350,7 +1353,12 @@ type watchSample struct {
 	DecodeErr string `json:"error,omitempty"`
 }
 
-func (c *WatchCmd) printSample(ctx context.Context, app *App, client *plc.Client, vars []watchVar, prev map[string]watchDiffState) error {
+type watchClient interface {
+	ReadDB(db, start, size int) ([]byte, error)
+	Read(address string, size int) (any, error)
+}
+
+func (c *WatchCmd) printSample(ctx context.Context, app *App, client watchClient, vars []watchVar, prev map[string]watchDiffState) error {
 	ts := app.Now().UTC().Format(time.RFC3339Nano)
 	values := map[string]any{}
 	samples := make([]watchSample, 0, len(vars))
@@ -1361,12 +1369,17 @@ func (c *WatchCmd) printSample(ctx context.Context, app *App, client *plc.Client
 		}
 		rawDisplay, rawHex := rawHex(raw)
 
-		decodedValue, err := client.Read(v.Address.Canonical(), 255)
-		if err != nil {
-			return err
+		var val any
+		var decErr error
+		if v.Spec.Name == "WSTRING" {
+			val, decErr = decode.DecodeRaw(v.Spec, v.ByteOrder, raw, v.Bit)
+		} else {
+			decodedValue, err := client.Read(v.Address.Canonical(), 255)
+			if err != nil {
+				return err
+			}
+			val, _, decErr = decode.Decode(decodedValue)
 		}
-
-		val, _, decErr := decode.Decode(decodedValue)
 		state := watchDiffState{Decoded: decErr == nil, Value: val, RawHex: rawHex}
 		if c.Diff {
 			if old, ok := prev[v.Key]; ok && !changedWatchValue(old, state) {

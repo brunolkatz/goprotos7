@@ -8,19 +8,22 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/brunolkatz/goprotos7/s7db/internal/address"
+	"github.com/brunolkatz/goprotos7/s7db/internal/decode"
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
 )
 
 type ValueType string
 
 const (
-	TypeBool   ValueType = "BOOL"
-	TypeInt    ValueType = "INT"
-	TypeReal   ValueType = "REAL"
-	TypeTime   ValueType = "TIME"
-	TypeString ValueType = "STRING"
+	TypeBool    ValueType = "BOOL"
+	TypeInt     ValueType = "INT"
+	TypeReal    ValueType = "REAL"
+	TypeTime    ValueType = "TIME"
+	TypeString  ValueType = "STRING"
+	TypeWString ValueType = "WSTRING"
 )
 
 var stringTypeRE = regexp.MustCompile(`^STRING\[(\d+)\]$`)
@@ -71,7 +74,21 @@ func Compile(file, src string, sch schema.Schema) (*Program, []Diag) {
 		if name == "" {
 			continue
 		}
-		a, _ := address.Parse(t.Addr, &db)
+		a, addrErr := address.Parse(t.Addr, &db)
+		if isWStringSchemaType(t.Type) {
+			if addrErr != nil {
+				diags = append(diags, makeDiag(file, src, "compile error", fmt.Sprintf("schema tag %s: %v", name, addrErr), "", 1, 1))
+				continue
+			}
+			spec, err := decode.ResolveSchemaType(t.Type, a)
+			if err == nil {
+				_, err = decode.EncodeRaw(spec, nil, t.Init)
+			}
+			if err != nil {
+				diags = append(diags, makeDiag(file, src, "compile error", fmt.Sprintf("schema tag %s: %v", name, err), "", 1, 1))
+				continue
+			}
+		}
 		sym, ok, warn := typeFromSchema(name, t.Type, a)
 		if !ok {
 			continue
@@ -297,11 +314,11 @@ func inferCompare(file, src string, p *Program, ex *CompareExpr, names []string)
 			return "", 0, d
 		}
 		if r.Op == "==" || r.Op == "!=" {
-			if !(l == t || (isNumeric(l) && isNumeric(t)) || (l == TypeString && t == TypeString)) {
+			if !(l == t || (isNumeric(l) && isNumeric(t))) {
 				return "", 0, []Diag{makeDiag(file, src, "type error", fmt.Sprintf("cannot compare %s and %s", renderType(l, ln), renderType(t, tn)), "", r.Pos.Line, r.Pos.Column)}
 			}
 		} else {
-			if l == TypeString || t == TypeString {
+			if isStringType(l) || isStringType(t) {
 				return "", 0, []Diag{makeDiag(file, src, "type error", "string ordering comparison is not supported", "use == or !=", r.Pos.Line, r.Pos.Column)}
 			}
 			if !((isNumeric(l) && isNumeric(t)) || (l == TypeTime && t == TypeTime)) {
@@ -324,7 +341,7 @@ func inferAdd(file, src string, p *Program, ex *AddExpr, names []string) (ValueT
 		if len(d) > 0 {
 			return "", 0, d
 		}
-		if l == TypeString || t == TypeString {
+		if isStringType(l) || isStringType(t) {
 			return "", 0, []Diag{makeDiag(file, src, "type error", "string concatenation not supported", "assign a full literal", r.Pos.Line, r.Pos.Column)}
 		}
 		if isNumeric(l) && isNumeric(t) {
@@ -356,7 +373,7 @@ func inferMul(file, src string, p *Program, ex *MulExpr, names []string) (ValueT
 		if len(d) > 0 {
 			return "", 0, d
 		}
-		if l == TypeString || t == TypeString {
+		if isStringType(l) || isStringType(t) {
 			return "", 0, []Diag{makeDiag(file, src, "type error", "string arithmetic not supported", "", r.Pos.Line, r.Pos.Column)}
 		}
 		if !(isNumeric(l) && isNumeric(t)) {
@@ -398,6 +415,16 @@ func inferPrimary(file, src string, p *Program, ex *Primary, names []string) (Va
 			return "", 0, []Diag{makeDiag(file, src, "type error", err.Error(), "", ex.Pos.Line, ex.Pos.Column)}
 		}
 		return TypeString, len(s), nil
+	case ex.WStringLit != nil:
+		s, err := ParseWStringLiteral(*ex.WStringLit)
+		if err != nil {
+			return "", 0, []Diag{makeDiag(file, src, "type error", err.Error(), "", ex.Pos.Line, ex.Pos.Column)}
+		}
+		n, err := WStringLength(s)
+		if err != nil {
+			return "", 0, []Diag{makeDiag(file, src, "type error", err.Error(), "", ex.Pos.Line, ex.Pos.Column)}
+		}
+		return TypeWString, n, nil
 	case ex.Float != nil:
 		return TypeReal, 0, nil
 	case ex.Int != nil:
@@ -424,6 +451,35 @@ func ParseStringLiteral(raw string) (string, error) {
 		return "", fmt.Errorf("invalid string literal %q", raw)
 	}
 	return s, nil
+}
+
+func ParseWStringLiteral(raw string) (string, error) {
+	if len(raw) < 2 || !strings.EqualFold(raw[:1], "w") {
+		return "", fmt.Errorf("invalid WSTRING literal %q", raw)
+	}
+	s, err := strconv.Unquote(raw[1:])
+	if err != nil {
+		return "", fmt.Errorf("invalid WSTRING literal %q", raw)
+	}
+	if _, err := WStringLength(s); err != nil {
+		return "", err
+	}
+	return s, nil
+}
+
+// WStringLength validates the simulator's BMP-only WSTRING encoding and returns its character count.
+func WStringLength(s string) (int, error) {
+	if !utf8.ValidString(s) {
+		return 0, fmt.Errorf("WSTRING value is not valid UTF-8")
+	}
+	n := 0
+	for _, r := range s {
+		if r > 0xffff {
+			return 0, fmt.Errorf("WSTRING character U+%X is outside the BMP", r)
+		}
+		n++
+	}
+	return n, nil
 }
 
 func parseDuration(raw string) (time.Duration, error) {
@@ -453,8 +509,17 @@ func typeFromDecl(v *VarDecl) (Symbol, bool, Diag) {
 			return Symbol{}, false, makeDiag("", "", "type error", fmt.Sprintf("invalid STRING length %d", n), "use STRING[1..254]", v.Pos.Line, v.Pos.Column)
 		}
 		return Symbol{Type: TypeString, StringLen: n}, true, Diag{}
+	case "WSTRING":
+		if v.TypeLen == nil {
+			return Symbol{}, false, makeDiag("", "", "type error", "WSTRING requires a max length", "use WSTRING[20] (1..16382)", v.Pos.Line, v.Pos.Column+len("var ")+len(v.Name)+len(" : "))
+		}
+		n, _ := strconv.Atoi(*v.TypeLen)
+		if n < 1 || n > 16382 {
+			return Symbol{}, false, makeDiag("", "", "type error", fmt.Sprintf("invalid WSTRING length %d", n), "use WSTRING[1..16382]", v.Pos.Line, v.Pos.Column)
+		}
+		return Symbol{Type: TypeWString, StringLen: n}, true, Diag{}
 	default:
-		return Symbol{}, false, makeDiag("", "", "type error", fmt.Sprintf("unknown var type %q", v.Type), "supported: BOOL INT DINT UINT WORD DWORD REAL TIME STRING[n]", v.Pos.Line, v.Pos.Column)
+		return Symbol{}, false, makeDiag("", "", "type error", fmt.Sprintf("unknown var type %q", v.Type), "supported: BOOL INT DINT UINT WORD DWORD REAL TIME STRING[n] WSTRING[n]", v.Pos.Line, v.Pos.Column)
 	}
 }
 
@@ -477,7 +542,14 @@ func typeFromSchema(name, raw string, addrValue address.Address) (Symbol, bool, 
 		}
 		return Symbol{Name: name, Type: TypeString, StringLen: n, IsTag: true}, true, ""
 	}
-	if strings.HasPrefix(t, "STRING") || t == "WSTRING" {
+	if isWStringSchemaType(t) {
+		spec, err := decode.ResolveSchemaType(t, addrValue)
+		if err != nil {
+			return Symbol{}, false, ""
+		}
+		return Symbol{Name: name, Type: TypeWString, StringLen: spec.StringLen, IsTag: true}, true, ""
+	}
+	if strings.HasPrefix(t, "STRING") {
 		n := addrValue.Bit
 		if n < 1 || n > 254 {
 			n = 254
@@ -494,8 +566,11 @@ func isNumeric(t ValueType) bool {
 
 func assignable(dst Symbol, srcType ValueType, srcStringLen int) bool {
 	if dst.Type == srcType {
-		if dst.Type != TypeString {
+		if dst.Type != TypeString && dst.Type != TypeWString {
 			return true
+		}
+		if dst.Type == TypeWString {
+			return dst.StringLen > 0 && srcStringLen >= 0 && srcStringLen <= dst.StringLen
 		}
 		return dst.StringLen > 0 && srcStringLen >= 0
 	}
@@ -503,10 +578,19 @@ func assignable(dst Symbol, srcType ValueType, srcStringLen int) bool {
 }
 
 func renderType(t ValueType, n int) string {
-	if t == TypeString && n > 0 {
-		return fmt.Sprintf("STRING[%d]", n)
+	if (t == TypeString || t == TypeWString) && n > 0 {
+		return fmt.Sprintf("%s[%d]", t, n)
 	}
 	return string(t)
+}
+
+func isStringType(t ValueType) bool {
+	return t == TypeString || t == TypeWString
+}
+
+func isWStringSchemaType(t string) bool {
+	t = strings.ToUpper(strings.TrimSpace(t))
+	return t == "WSTRING" || strings.HasPrefix(t, "WSTRING[")
 }
 
 func deref(s *string) string {

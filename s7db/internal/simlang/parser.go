@@ -15,6 +15,7 @@ var lex = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "Comment", Pattern: `//[^\n]*`},
 	{Name: "Whitespace", Pattern: `[ \t\r\n]+`},
 	{Name: "Duration", Pattern: `(?:T#)?[0-9]+(?:ns|us|µs|ms|s|m|h)`},
+	{Name: "WString", Pattern: `(?i:W)"([^"\\]|\\.)*"`},
 	{Name: "String", Pattern: `"([^"\\]|\\.)*"`},
 	{Name: "Float", Pattern: `[0-9]+\.[0-9]+`},
 	{Name: "Int", Pattern: `[0-9]+`},

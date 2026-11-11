@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/brunolkatz/goprotos7/s7db/internal/address"
+	"github.com/brunolkatz/goprotos7/s7db/internal/decode"
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
 )
 
@@ -73,14 +74,14 @@ type Diagnostic struct {
 }
 
 type OutOfRange struct {
-	Addr    string `json:"addr"`
-	Name    string `json:"name,omitempty"`
-	Type    string `json:"type"`
-	Cause   string `json:"cause"`
-	Offset  int    `json:"offset,omitempty"`
-	Size    int    `json:"size,omitempty"`
-	DBSize  int    `json:"db_size,omitempty"`
-	Bit     int    `json:"bit,omitempty"`
+	Addr   string `json:"addr"`
+	Name   string `json:"name,omitempty"`
+	Type   string `json:"type"`
+	Cause  string `json:"cause"`
+	Offset int    `json:"offset,omitempty"`
+	Size   int    `json:"size,omitempty"`
+	DBSize int    `json:"db_size,omitempty"`
+	Bit    int    `json:"bit,omitempty"`
 }
 
 type Result struct {
@@ -111,6 +112,17 @@ func ParseType(tag schema.Tag) (TypeSpec, error) {
 			return TypeSpec{}, fmt.Errorf("invalid STRING length %d", addr.Bit)
 		}
 		return TypeSpec{Name: t, StringLen: addr.Bit, SizeBytes: addr.Bit + 2, BitSize: (addr.Bit + 2) * 8}, nil
+	}
+	if t == "WSTRING" || strings.HasPrefix(t, "WSTRING[") {
+		addr, err := address.Parse(tag.Addr, nil)
+		if err != nil {
+			return TypeSpec{}, fmt.Errorf("invalid WSTRING address %q: %w", tag.Addr, err)
+		}
+		spec, err := decode.ResolveSchemaType(t, addr)
+		if err != nil {
+			return TypeSpec{}, err
+		}
+		return TypeSpec{Name: t, StringLen: spec.StringLen, SizeBytes: spec.SizeBytes, BitSize: spec.SizeBytes * 8}, nil
 	}
 	if m := stringTypeRE.FindStringSubmatch(t); m != nil {
 		n, _ := strconv.Atoi(m[1])
@@ -334,6 +346,16 @@ func expectedArea(area string, ts TypeSpec) (string, bool) {
 			return "", true
 		default:
 			return "S or STRING", false
+		}
+	case "WSTRING":
+		return "WSTRING", area == "WSTRING"
+	}
+	if strings.HasPrefix(ts.Name, "WSTRING[") {
+		switch area {
+		case "DBB", "DBW", "DBD", "WSTRING":
+			return "", true
+		default:
+			return "DBB, DBW, DBD, or WSTRING", false
 		}
 	}
 	if strings.HasPrefix(ts.Name, "STRING[") {

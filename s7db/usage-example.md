@@ -291,3 +291,29 @@ Run with `--write-all` (every assigned schema tag except heartbeat unless `--tak
 ```bash
 s7db -f s7db.yml sim gateway.sim --plc --write --write-all --addr 192.168.0.10 --dry-run
 ```
+
+### WSTRING schema and simulation example
+
+Define a wide-string tag with a capacity of 10 characters. For the bare `WSTRING` type, the address supplies that capacity:
+
+```yaml
+tags:
+  - addr: DB1.WSTRING0.10
+    name: StatusText
+    type: WSTRING
+    init: "ready"
+```
+
+In an s7sim script, declare wide-string variables with `WSTRING[n]` and write wide-string literals with the `W"content"` prefix:
+
+```text
+tick 100ms;
+var WideMsg : WSTRING[10] := W"ready";
+
+if OSServiceControl == false then
+  WideMsg := W"stopped";
+  StatusText := WideMsg;
+end;
+```
+
+`WSTRING[n]` supports capacities from 1 through 16382 UTF-16 BMP characters. Address forms include `DB1.WSTRING0.10` and `WSTRING0.10` (use `--db 1` for the short form). An explicit `WSTRING[n]` type may also use a regular byte address such as `DB1.DBB0`.
