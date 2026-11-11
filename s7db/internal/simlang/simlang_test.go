@@ -224,6 +224,106 @@ func TestStringConcatenationNotSupported(t *testing.T) {
 	}
 }
 
+func TestWStringDeclarationsAndLiteralCompile(t *testing.T) {
+	src := `tick 100ms;
+var Title : WSTRING[3] := W"Aé中";
+Title := W"Ω";
+`
+	prog, diags := Compile("wide.sim", src, testSchema())
+	if len(diags) > 0 {
+		t.Fatalf("unexpected diagnostic: %s", diags[0].String())
+	}
+	sym := prog.Symbols["Title"]
+	if sym.Type != TypeWString || sym.StringLen != 3 {
+		t.Fatalf("unexpected WSTRING symbol: %+v", sym)
+	}
+}
+
+func TestWStringSchemaTagUsesDeclaredCapacity(t *testing.T) {
+	s := schema.Schema{
+		DB: 300,
+		Tags: []schema.Tag{
+			{Name: "WideStatus", Addr: "DB300.DBB20", Type: "WSTRING[4]"},
+		},
+	}
+	prog, diags := Compile("wide.sim", "tick 100ms;\nWideStatus := W\"é中\";\n", s)
+	if len(diags) > 0 {
+		t.Fatalf("unexpected diagnostic: %s", diags[0].String())
+	}
+	sym := prog.Symbols["WideStatus"]
+	if sym.Type != TypeWString || sym.StringLen != 4 || !sym.IsTag {
+		t.Fatalf("unexpected schema symbol: %+v", sym)
+	}
+}
+
+func TestBareWStringSchemaTagUsesAddressCapacity(t *testing.T) {
+	for _, addr := range []string{"DB300.WSTRING0.4", "WSTRING0.4"} {
+		t.Run(addr, func(t *testing.T) {
+			s := schema.Schema{
+				DB: 300,
+				Tags: []schema.Tag{
+					{Name: "WideStatus", Addr: addr, Type: "WSTRING"},
+				},
+			}
+			prog, diags := Compile("wide.sim", "tick 100ms;\nWideStatus := W\"é\";\n", s)
+			if len(diags) > 0 {
+				t.Fatalf("unexpected diagnostic: %s", diags[0].String())
+			}
+			sym := prog.Symbols["WideStatus"]
+			if sym.Type != TypeWString || sym.StringLen != 4 || !sym.IsTag {
+				t.Fatalf("unexpected schema symbol: %+v", sym)
+			}
+		})
+	}
+}
+
+func TestWStringCapacityAndTypeChecking(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "over capacity",
+			src:  "tick 100ms;\nvar Title : WSTRING[1];\nTitle := W\"é中\";\n",
+			want: "cannot assign WSTRING[2] to WSTRING[1]",
+		},
+		{
+			name: "narrow literal to wide destination",
+			src:  "tick 100ms;\nvar Title : WSTRING[4];\nTitle := \"plain\";\n",
+			want: "cannot assign STRING[5] to WSTRING[4]",
+		},
+		{
+			name: "wide literal to narrow destination",
+			src:  "tick 100ms;\nvar Title : STRING[4];\nTitle := W\"wide\";\n",
+			want: "cannot assign WSTRING[4] to STRING[4]",
+		},
+		{
+			name: "non BMP literal",
+			src:  "tick 100ms;\nvar Title : WSTRING[4];\nTitle := W\"😀\";\n",
+			want: "outside the BMP",
+		},
+		{
+			name: "missing capacity",
+			src:  "tick 100ms;\nvar Title : WSTRING;\n",
+			want: "WSTRING requires a max length",
+		},
+		{
+			name: "capacity too large",
+			src:  "tick 100ms;\nvar Title : WSTRING[16383];\n",
+			want: "invalid WSTRING length 16383",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, diags := Compile("wide.sim", tt.src, testSchema())
+			if len(diags) == 0 || !strings.Contains(diags[0].String(), tt.want) {
+				t.Fatalf("expected diagnostic containing %q, got %+v", tt.want, diags)
+			}
+		})
+	}
+}
+
 func TestUnterminatedStringPointsToStringLine(t *testing.T) {
 	src := `tick 100ms;
 if OSServiceControl == true then

@@ -135,12 +135,13 @@ type UnaryExpr struct {
 }
 
 type Primary struct {
-	Pos       lexer.Position `parser:""`
-	BoolLit   *string        `  @( "true" | "false" )`
-	Duration  *string        `| @Duration`
-	StringLit *string        `| @String`
-	Float     *string        `| @Float`
-	Int       *string        `| @Int`
-	Ident     *string        `| @Ident`
-	SubExpr   *Expr          `| "(" @@ ")"`
+	Pos        lexer.Position `parser:""`
+	BoolLit    *string        `  @( "true" | "false" )`
+	Duration   *string        `| @Duration`
+	WStringLit *string        `| @WString`
+	StringLit  *string        `| @String`
+	Float      *string        `| @Float`
+	Int        *string        `| @Int`
+	Ident      *string        `| @Ident`
+	SubExpr    *Expr          `| "(" @@ ")"`
 }

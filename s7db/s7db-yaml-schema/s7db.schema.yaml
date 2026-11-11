@@ -55,17 +55,19 @@ $defs:
     properties:
       addr:
         type: string
-        description: "Address in full form (DB10.DBW2) or short form (W2)."
-        pattern: "^(?:DB\\d+\\.DB(?:X\\d+\\.[0-7]|B\\d+|W\\d+|D\\d+)|(?:X\\d+\\.[0-7]|B\\d+|W\\d+|D\\d+))$"
+        description: "Address in full form (DB10.DBW2 or DB10.WSTRING2.20) or short form (W2 or WSTRING2.20)."
+        pattern: "^(?:DB\\d+\\.DB(?:X\\d+\\.[0-7]|B\\d+|W\\d+|D\\d+)|DB\\d+\\.WSTRING\\d+\\.(?:[1-9]\\d{0,3}|1[0-5]\\d{3}|16[0-2]\\d{2}|163[0-7]\\d|1638[0-2])|(?:X\\d+\\.[0-7]|B\\d+|W\\d+|D\\d+|WSTRING\\d+\\.(?:[1-9]\\d{0,3}|1[0-5]\\d{3}|16[0-2]\\d{2}|163[0-7]\\d|1638[0-2])))$"
         examples:
           - DB10.DBX0.0
           - DB10.DBB1
           - DB10.DBW2
           - DB10.DBD4
+          - DB10.WSTRING2.20
           - X0.0
           - B1
           - W2
           - D4
+          - WSTRING2.20
       name:
         type: string
         description: "Tag symbolic name."
@@ -88,7 +90,8 @@ $defs:
               - REAL
               - TIME
               - STRING
-          - pattern: "^STRING\\[(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4])\\]$"
+              - WSTRING
+          - pattern: "^(?:STRING\\[(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4])\\]|WSTRING\\[(?:[1-9]\\d{0,3}|1[0-5]\\d{3}|16[0-2]\\d{2}|163[0-7]\\d|1638[0-2])\\])$"
       role:
         type: string
         description: "Special semantic role for tag."
@@ -256,7 +259,7 @@ $defs:
       - if:
           properties:
             type:
-              pattern: "^STRING\\[(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4])\\]$"
+              pattern: "^(?:WSTRING(?:\\[(?:[1-9]\\d{0,3}|1[0-5]\\d{3}|16[0-2]\\d{2}|163[0-7]\\d|1638[0-2])\\])?|STRING\\[(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4])\\])$"
           required: [type]
         then:
           properties:

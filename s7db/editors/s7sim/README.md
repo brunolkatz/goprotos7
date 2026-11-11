@@ -30,8 +30,8 @@ In `examples/mill.sim`, you should see:
 
 - `tick`, `once`, `pulse`, `if`, `then`, `else`, `end`, `on`, `do` as keywords
 - `T#100ms`, `T#5s` as time literals
-- `STRING[20]`, `BOOL`, `REAL`, `TIME` as types
-- `"os fault"` as a quoted string
+- `STRING[20]`, `WSTRING[20]`, `BOOL`, `REAL`, `TIME` as types
+- `"os fault"` and `W"mill running"` as quoted strings
 - `//` comments dimmed
 - `:=`, `==`, `>`, `;`, `+`, `(`, `)` as operators
 

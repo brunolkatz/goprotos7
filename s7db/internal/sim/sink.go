@@ -10,7 +10,6 @@ import (
 
 	"github.com/brunolkatz/goprotos7/s7db/internal/address"
 	"github.com/brunolkatz/goprotos7/s7db/internal/decode"
-	"github.com/brunolkatz/goprotos7/s7db/internal/plc"
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
 	"github.com/brunolkatz/goprotos7/s7db/internal/simlang"
 )
@@ -24,13 +23,23 @@ type plcTag struct {
 }
 
 type PLCSink struct {
-	client  *plc.Client
+	client  plcClient
 	image   *Image
 	byName  map[string]plcTag
 	readAll []string
 }
 
-func NewPLCSink(client *plc.Client, sch schema.Schema, prog *simlang.Program, image *Image) (*PLCSink, error) {
+type plcClient interface {
+	ReadDB(db, start, size int) ([]byte, error)
+	WriteDB(db, start int, data []byte) error
+	Close() error
+	Connect(context.Context) error
+}
+
+func NewPLCSink(client plcClient, sch schema.Schema, prog *simlang.Program, image *Image) (*PLCSink, error) {
+	if err := image.Err(); err != nil {
+		return nil, err
+	}
 	order, err := decode.ByteOrder(sch.Endian)
 	if err != nil {
 		return nil, err
@@ -71,6 +80,9 @@ func NewPLCSink(client *plc.Client, sch schema.Schema, prog *simlang.Program, im
 }
 
 func (s *PLCSink) Pull(ctx context.Context, names []string) error {
+	if err := s.image.Err(); err != nil {
+		return err
+	}
 	if len(names) == 0 {
 		names = s.readAll
 	}
@@ -93,7 +105,9 @@ func (s *PLCSink) Pull(ctx context.Context, names []string) error {
 				v = time.Duration(x) * time.Millisecond
 			}
 		}
-		_ = s.image.Set(name, v)
+		if err := s.image.Set(name, v); err != nil {
+			return fmt.Errorf("PLC pull %s: %w", name, err)
+		}
 	}
 	return nil
 }
@@ -124,33 +138,40 @@ func (s *PLCSink) Push(ctx context.Context, changed []Change) error {
 			}
 			continue
 		}
-		value := ch.Value
-		if t.Spec.Name == "TIME" {
-			if d, ok := value.(time.Duration); ok {
-				value = int64(d / time.Millisecond)
-			}
-		}
-		payload, err := decode.EncodeRaw(t.Spec, t.Order, value)
+		payload, err := encodePushValue(t, ch.Value)
 		if err != nil {
 			return err
-		}
-		if t.Spec.Name == "STRING" && t.Spec.StringLen > 0 {
-			want := t.Spec.StringLen + 2
-			if len(payload) != want {
-				full := make([]byte, want)
-				copy(full, payload)
-				full[0] = byte(t.Spec.StringLen)
-				if len(payload) > 1 {
-					full[1] = payload[1]
-				}
-				payload = full
-			}
 		}
 		if err := s.client.WriteDB(t.Addr.DB, t.Addr.Byte, payload); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func encodePushValue(t plcTag, value any) ([]byte, error) {
+	if t.Spec.Name == "TIME" {
+		if d, ok := value.(time.Duration); ok {
+			value = int64(d / time.Millisecond)
+		}
+	}
+	payload, err := decode.EncodeRaw(t.Spec, t.Order, value)
+	if err != nil {
+		return nil, err
+	}
+	if t.Spec.Name == "STRING" && t.Spec.StringLen > 0 {
+		want := t.Spec.StringLen + 2
+		if len(payload) != want {
+			full := make([]byte, want)
+			copy(full, payload)
+			full[0] = byte(t.Spec.StringLen)
+			if len(payload) > 1 {
+				full[1] = payload[1]
+			}
+			payload = full
+		}
+	}
+	return payload, nil
 }
 
 func (s *PLCSink) Reconnect(ctx context.Context) error {

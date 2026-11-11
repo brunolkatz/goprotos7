@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/brunolkatz/goprotos7/s7db/internal/decode"
 	"github.com/brunolkatz/goprotos7/s7db/internal/layout"
 	"github.com/brunolkatz/goprotos7/s7db/internal/schema"
 )
@@ -101,12 +102,18 @@ func Unpack(data []byte, db int, template *schema.Schema) (schema.Schema, error)
 			continue
 		}
 		if offset+p.Type.SizeBytes > len(data) {
+			if isWString(p.Type) {
+				return schema.Schema{}, fmt.Errorf("tag %s: short buffer for WSTRING", t.Addr)
+			}
 			t.Init = nil
 			tags = append(tags, t)
 			continue
 		}
 		v, err := decodeValue(data[offset:offset+p.Type.SizeBytes], p.Type, order)
 		if err != nil {
+			if isWString(p.Type) {
+				return schema.Schema{}, fmt.Errorf("tag %s: %w", t.Addr, err)
+			}
 			t.Init = nil
 		} else {
 			t.Init = v
@@ -130,6 +137,9 @@ func byteOrder(raw string) (binary.ByteOrder, error) {
 }
 
 func encodeValue(ts layout.TypeSpec, init any, order binary.ByteOrder) ([]byte, error) {
+	if isWString(ts) {
+		return decode.EncodeRaw(wstringSpec(ts), order, init)
+	}
 	switch ts.Name {
 	case "BYTE", "CHAR", "USINT":
 		v, err := asUint64(init)
@@ -222,6 +232,9 @@ func encodeValue(ts layout.TypeSpec, init any, order binary.ByteOrder) ([]byte, 
 }
 
 func decodeValue(raw []byte, ts layout.TypeSpec, order binary.ByteOrder) (any, error) {
+	if isWString(ts) {
+		return decode.DecodeRaw(wstringSpec(ts), order, raw, 0)
+	}
 	switch ts.Name {
 	case "BYTE", "CHAR", "USINT":
 		return int(raw[0]), nil
@@ -266,6 +279,14 @@ func decodeValue(raw []byte, ts layout.TypeSpec, order binary.ByteOrder) (any, e
 		return string(raw[2 : 2+length]), nil
 	}
 	return nil, fmt.Errorf("unsupported type %s", ts.Name)
+}
+
+func isWString(ts layout.TypeSpec) bool {
+	return ts.Name == "WSTRING" || strings.HasPrefix(ts.Name, "WSTRING[")
+}
+
+func wstringSpec(ts layout.TypeSpec) decode.TypeSpec {
+	return decode.TypeSpec{Name: "WSTRING", StringLen: ts.StringLen, SizeBytes: ts.SizeBytes}
 }
 
 func asBool(v any) (bool, error) {

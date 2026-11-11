@@ -177,10 +177,40 @@ func TestUIValidationStepAndRange(t *testing.T) {
 			},
 		},
 	}
+
 	if err := s.Normalize(&s.DB); err != nil {
 		t.Fatalf("normalize: %v", err)
 	}
 	if _, err := Validate(s, true); err == nil {
 		t.Fatalf("expected ui range validation error")
+	}
+}
+
+func TestWStringSchemaRoundTrip(t *testing.T) {
+	s := New(10)
+	s.Tags = []Tag{
+		{Addr: "DB10.DBB0", Name: "Title", Type: " wstring[256] ", Init: "Ol\u00e1 \u4e2d"},
+		{Addr: "WSTRING516.16382", Name: "Description", Type: "wstring", Init: ""},
+		{Addr: "DB10.DBB33284", Name: "Legacy", Type: "string[4]", Init: "AB"},
+	}
+	path := filepath.Join(t.TempDir(), "wstring.yml")
+	if err := Save(path, s); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Tags[0].Type != "WSTRING[256]" || got.Tags[0].Init != s.Tags[0].Init {
+		t.Fatalf("explicit WSTRING was not preserved: %+v", got.Tags[0])
+	}
+	if got.Tags[1].Type != "WSTRING" || got.Tags[1].Addr != "DB10.WSTRING516.16382" {
+		t.Fatalf("address WSTRING was not normalized: %+v", got.Tags[1])
+	}
+	if got.Tags[2].Type != "STRING[4]" || got.Tags[2].Init != "AB" {
+		t.Fatalf("STRING changed: %+v", got.Tags[2])
+	}
+	if _, err := Validate(got, true); err != nil {
+		t.Fatal(err)
 	}
 }

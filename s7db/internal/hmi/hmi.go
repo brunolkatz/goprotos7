@@ -20,7 +20,7 @@ func ResolveUI(tag schema.Tag) schema.TagUI {
 			ui.Widget = "status"
 		case typeName == "BOOL":
 			ui.Widget = "button"
-		case strings.HasPrefix(typeName, "STRING"):
+		case strings.HasPrefix(typeName, "STRING"), strings.HasPrefix(typeName, "WSTRING"):
 			ui.Widget = "text"
 		case typeName == "REAL":
 			ui.Widget = "knob"

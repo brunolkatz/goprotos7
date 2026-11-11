@@ -14,8 +14,10 @@ type Image struct {
 	values          map[string]any
 	types           map[string]simlang.ValueType
 	stringMaxLen    map[string]int
+	wstringMaxLen   map[string]int
 	stringTruncated map[string]bool
 	tags            map[string]schema.Tag
+	initErr         error
 }
 
 func NewImageFromSchema(s schema.Schema, prog *simlang.Program) *Image {
@@ -23,6 +25,7 @@ func NewImageFromSchema(s schema.Schema, prog *simlang.Program) *Image {
 		values:          map[string]any{},
 		types:           map[string]simlang.ValueType{},
 		stringMaxLen:    map[string]int{},
+		wstringMaxLen:   map[string]int{},
 		stringTruncated: map[string]bool{},
 		tags:            map[string]schema.Tag{},
 	}
@@ -30,6 +33,9 @@ func NewImageFromSchema(s schema.Schema, prog *simlang.Program) *Image {
 		img.types[name] = sym.Type
 		if sym.Type == simlang.TypeString && sym.StringLen > 0 {
 			img.stringMaxLen[name] = sym.StringLen
+		}
+		if sym.Type == simlang.TypeWString && sym.StringLen > 0 {
+			img.wstringMaxLen[name] = sym.StringLen
 		}
 	}
 	for _, t := range s.Tags {
@@ -39,7 +45,17 @@ func NewImageFromSchema(s schema.Schema, prog *simlang.Program) *Image {
 		}
 		img.tags[name] = t
 		if sym, ok := prog.Symbols[name]; ok && sym.IsTag {
-			img.values[name] = coerceInit(sym, t.Init)
+			if sym.Type == simlang.TypeWString {
+				value := t.Init
+				if value == nil {
+					value = ""
+				}
+				if err := img.Set(name, value); err != nil && img.initErr == nil {
+					img.initErr = fmt.Errorf("schema tag %s initial value: %w", name, err)
+				}
+			} else {
+				img.values[name] = coerceInit(sym, t.Init)
+			}
 		}
 	}
 	for name, typ := range img.types {
@@ -49,6 +65,11 @@ func NewImageFromSchema(s schema.Schema, prog *simlang.Program) *Image {
 		img.values[name] = zeroValue(typ)
 	}
 	return img
+}
+
+// Err reports invalid schema initial values before the image can be simulated.
+func (i *Image) Err() error {
+	return i.initErr
 }
 
 func (i *Image) Get(name string) (any, bool) {
@@ -72,6 +93,15 @@ func (i *Image) Set(name string, v any) error {
 			s = s[:maxLen]
 		}
 		c = s
+	} else if t == simlang.TypeWString {
+		s, _ := c.(string)
+		n, err := simlang.WStringLength(s)
+		if err != nil {
+			return err
+		}
+		if maxLen := i.wstringMaxLen[name]; maxLen > 0 && n > maxLen {
+			return fmt.Errorf("WSTRING length %d exceeds max %d", n, maxLen)
+		}
 	}
 	i.values[name] = c
 	return nil
@@ -113,7 +143,7 @@ func zeroValue(t simlang.ValueType) any {
 		return float64(0)
 	case simlang.TypeTime:
 		return time.Duration(0)
-	case simlang.TypeString:
+	case simlang.TypeString, simlang.TypeWString:
 		return ""
 	default:
 		return nil
@@ -145,7 +175,7 @@ func coerceValue(t simlang.ValueType, v any) (any, error) {
 		return asFloat(v)
 	case simlang.TypeTime:
 		return asDuration(v)
-	case simlang.TypeString:
+	case simlang.TypeString, simlang.TypeWString:
 		return fmt.Sprintf("%v", v), nil
 	default:
 		return nil, fmt.Errorf("unsupported type %s", t)

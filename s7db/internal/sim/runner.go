@@ -49,6 +49,9 @@ func NewRunner(prog *simlang.Program, img *Image) *Runner {
 }
 
 func (r *Runner) Step() ([]Change, error) {
+	if err := r.Img.Err(); err != nil {
+		return nil, err
+	}
 	r.Cycle++
 	_ = r.Img.Set("tick", r.Tick)
 	changes := make([]Change, 0)
@@ -422,6 +425,8 @@ func (r *Runner) evalPrimary(p *simlang.Primary) (any, error) {
 		return parseDuration(*p.Duration)
 	case p.StringLit != nil:
 		return simlang.ParseStringLiteral(*p.StringLit)
+	case p.WStringLit != nil:
+		return simlang.ParseWStringLiteral(*p.WStringLit)
 	case p.Ident != nil:
 		v, ok := r.Img.Get(*p.Ident)
 		if !ok {

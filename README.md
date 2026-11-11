@@ -57,6 +57,25 @@ goprotos7 --bin-folder ./db
 
 The service will start listening on port `102` by default, which is the standard port for S7 communication.
 
+## Writing a WSTRING to a simulated DB
+
+`Connection.AGWriteDBWString` writes an S7-1200 WSTRING to a local `DB<n>.bin`
+file. Supply the field's byte offset and declared capacity in 16-bit characters:
+
+```go
+err := conn.AGWriteDBWString(1, 10, 20, "Hello")
+```
+
+The file must already contain the complete field. Its layout is a two-byte
+big-endian maximum length, a two-byte big-endian current length, and two-byte
+big-endian characters. The method writes the full `4 + 2*capacity` bytes and
+zero-fills unused character slots. Capacities must be 1 through 16382; invalid
+UTF-8, characters outside the Unicode Basic Multilingual Plane, and values
+exceeding the capacity return errors.
+
+The S7 WriteVar server also accepts an already encoded WSTRING as ordinary DB
+bytes. These APIs write to the simulated DB, not directly to a PLC.
+
 ## s7db
 
 `s7db` is the current CLI for managing S7 DB schemas, packing/unpacking DB binaries, watching PLC values, heartbeat handling, and running `s7sim` scripts.

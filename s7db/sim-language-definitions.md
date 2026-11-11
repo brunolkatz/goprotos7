@@ -98,6 +98,7 @@ Supported variable/tag types for script typing:
 - `REAL`
 - `TIME`
 - `STRING[n]` (n must be `1..254`)
+- `WSTRING[n]` (n must be `1..16382` UTF-16 BMP characters)
 
 ---
 
@@ -109,7 +110,12 @@ Declare local variables with `var`:
 var fault_timer : TIME := T#0s;
 var retries : INT := 0;
 var title : STRING[20] := "idle";
+var wide_title : WSTRING[40] := W"idle";
 ```
+
+Wide-string literals use `W"content"` (for example, `WideTitle := W"mill running";`). They support the Unicode Basic Multilingual Plane (BMP), excluding surrogate code points. Ordinary `STRING[n]` literals keep the unprefixed form, such as `"running"`.
+
+For a bare `WSTRING` schema type, the address includes the capacity: use `DB1.WSTRING0.10`, or `WSTRING0.10` with `--db 1`. The final number is the maximum character capacity (1..16382). An explicit `WSTRING[n]` schema type can also use a regular byte address, for example `DB1.DBB0`.
 
 Variables and schema tag names share one namespace (avoid duplicates).
 
@@ -218,7 +224,7 @@ end
 
 - `+`, `-`, `*`, `/`
 
-For `STRING`, only `==` and `!=` are supported in v1.
+For `STRING` and `WSTRING`, only `==` and `!=` are supported in v1.
 `+` concatenation and ordering (`<`, `>`, etc.) are compile errors.
 
 ### Parentheses
@@ -275,6 +281,10 @@ if OSServiceControl == true then
 end;
 
 if OSServiceControl == false then
+  WideStatusText := W"service stopped";
+end;
+
+if OSServiceControl == false then
   AlarmMessage := "";
 end;
 
@@ -311,6 +321,6 @@ end;
 
 - TextMate highlighting is available in `editors/s7sim/`
 - `s7db lsp --stdio -f ${workspace}/.s7db/s7db.yml` can publish compile diagnostics in the editor
-- The grammar highlights comments, strings, keywords, numeric/time literals, `STRING[n]`, semicolons, `pulse`, and `once`
+- The grammar highlights comments, ordinary and `W"..."` wide strings, keywords, numeric/time literals, `STRING[n]` and `WSTRING[n]`, semicolons, `pulse`, and `once`
 
 This file is a practical reference for writing scripts that compile cleanly with `s7db compile`.

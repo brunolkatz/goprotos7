@@ -49,6 +49,24 @@
       "patterns": [
         {
           "name": "invalid.illegal.unterminated-string.s7sim",
+          "match": "\\b(W)(\"(?:[^\"\\\\\\n]|\\\\[\"\\\\nt])*$",
+          "captures": {
+            "1": {
+              "name": "storage.type.string-prefix.s7sim"
+            }
+          }
+        },
+        {
+          "name": "string.quoted.double.s7sim",
+          "match": "\\b(W)(\"(?:[^\"\\\\\\n]|\\\\[\"\\\\nt])*\")",
+          "captures": {
+            "1": {
+              "name": "storage.type.string-prefix.s7sim"
+            }
+          }
+        },
+        {
+          "name": "invalid.illegal.unterminated-string.s7sim",
           "match": "\"(?:[^\"\\\\\\n]|\\\\[\"\\\\nt])*$"
         },
         {
@@ -92,7 +110,7 @@
         },
         {
           "name": "storage.type.s7sim",
-          "match": "\\b(STRING)\\b\\s*(\\[)\\s*([0-9]+)\\s*(\\])",
+          "match": "\\b(STRING|WSTRING)\\b\\s*(\\[)\\s*([0-9]+)\\s*(\\])",
           "captures": {
             "1": {
               "name": "storage.type.s7sim"
@@ -110,7 +128,7 @@
         },
         {
           "name": "storage.type.s7sim",
-          "match": "\\bSTRING\\b"
+          "match": "\\b(STRING|WSTRING)\\b"
         }
       ]
     },

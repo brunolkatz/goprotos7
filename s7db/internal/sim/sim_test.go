@@ -500,3 +500,55 @@ func TestStringEncodeRawHeaderAndPayload(t *testing.T) {
 		t.Fatalf("unexpected payload content: %q", string(payload[2:5]))
 	}
 }
+
+func TestWStringAssignmentPreservesWideTextAndRejectsOverflow(t *testing.T) {
+	s := schema.Schema{
+		Version: 1, DB: 300, Endian: "big", Size: schema.SizeSpec{Auto: true},
+		Tags: []schema.Tag{
+			{Name: "WideStatus", Addr: "DB300.DBB20", Type: "WSTRING[2]"},
+		},
+	}
+	src := "tick 100ms;\nWideStatus := W\"é中\";\n"
+	prog, diags := simlang.Compile("wide.sim", src, s)
+	if len(diags) > 0 {
+		t.Fatalf("compile failed: %s", diags[0].String())
+	}
+	img := NewImageFromSchema(s, prog)
+	r := NewRunner(prog, img)
+	if _, err := r.Step(); err != nil {
+		t.Fatalf("step failed: %v", err)
+	}
+	v, _ := img.Get("WideStatus")
+	if got := v.(string); got != "é中" {
+		t.Fatalf("unexpected WSTRING value: %q", got)
+	}
+	if err := img.Set("WideStatus", "三文字"); err == nil {
+		t.Fatal("expected over-capacity WSTRING to be rejected")
+	}
+	if err := img.Set("WideStatus", "😀"); err == nil {
+		t.Fatal("expected non-BMP WSTRING value to be rejected")
+	}
+	v, _ = img.Get("WideStatus")
+	if got := v.(string); got != "é中" {
+		t.Fatalf("failed assignment changed WSTRING value: %q", got)
+	}
+}
+
+func TestWStringPushEncodingKeepsWideHeaderAndPayload(t *testing.T) {
+	payload, err := encodePushValue(plcTag{
+		Spec:  decode.TypeSpec{Name: "WSTRING", StringLen: 3, SizeBytes: 10},
+		Order: binary.LittleEndian,
+	}, "Aé中")
+	if err != nil {
+		t.Fatalf("encode push value: %v", err)
+	}
+	want := []byte{0, 3, 0, 3, 0, 'A', 0, 0xe9, 0x4e, 0x2d}
+	if len(payload) != len(want) {
+		t.Fatalf("unexpected WSTRING push size %d, want %d", len(payload), len(want))
+	}
+	for i := range want {
+		if payload[i] != want[i] {
+			t.Fatalf("unexpected WSTRING push payload %x, want %x", payload, want)
+		}
+	}
+}
