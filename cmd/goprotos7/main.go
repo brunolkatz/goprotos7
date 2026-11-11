@@ -2,10 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/brunolkatz/goprotos7"
 	"log"
 	"os"
+	"slices"
 	"strconv"
+
+	"github.com/brunolkatz/goprotos7"
+)
+
+var (
+	VERSION = "1.0.0"
 )
 
 func init() {
@@ -17,16 +23,23 @@ func main() {
 
 	args := parseArgs(os.Args[1:])
 
+	if slices.ContainsFunc(os.Args[1:], func(s string) bool { return s == "-h" || s == "--help" }) {
+		log.Println("Usage: goprotos7 [options]")
+		log.Println("Options:")
+		for flag, description := range ArgsFlagsHelper {
+			log.Println(fmt.Sprintf("  %s - %s", flag, description))
+		}
+		return
+	}
+	if slices.ContainsFunc(os.Args[1:], func(s string) bool { return s == "-v" || s == "--version" }) {
+		log.SetFlags(0)
+		log.Println(fmt.Sprintf("goprotos7 version %s", VERSION))
+		return
+	}
+
 	var opts []goprotos7.ServerOption
 	for arg, value := range args {
 		switch arg {
-		case "h", "help":
-			log.Println("Usage: goprotos7 [options]")
-			log.Println("Options:")
-			for flag, description := range ArgsFlagsHelper {
-				log.Println(fmt.Sprintf("  %s - %s", flag, description))
-			}
-			return
 		case "b", "bin-folder":
 			opts = append(opts, goprotos7.WithBinFilesFolder(value))
 		case "p", "port":
